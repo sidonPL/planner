@@ -1,0 +1,146 @@
+/**
+ * Theme System CSS
+ * Motywy kolorystyczne dla systemu nagród gamifikacji
+ */
+
+/* Ocean Theme - Spokojne błękity */
+.theme-ocean {
+  --primary: 209 100% 48%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 188 96% 43%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 185 96% 59%;
+  --accent-foreground: 0 0% 9%;
+  --background: 204 100% 97%;
+  --foreground: 200 88% 24%;
+  --card: 0 0% 100%;
+  --card-foreground: 200 88% 24%;
+  --muted: 204 100% 94%;
+  --muted-foreground: 200 50% 35%;
+}
+
+/* Forest Theme - Naturalne zielenie */
+.theme-forest {
+  --primary: 142 71% 45%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 78 72% 45%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 141 79% 74%;
+  --accent-foreground: 0 0% 9%;
+  --background: 138 100% 98%;
+  --foreground: 140 77% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 140 77% 14%;
+  --muted: 138 72% 92%;
+  --muted-foreground: 140 50% 25%;
+}
+
+/* Sunset Theme - Ciepłe pomarańcze */
+.theme-sunset {
+  --primary: 24 95% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 22 93% 60%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 38 92% 56%;
+  --accent-foreground: 0 0% 9%;
+  --background: 33 100% 97%;
+  --foreground: 20 91% 27%;
+  --card: 0 0% 100%;
+  --card-foreground: 20 91% 27%;
+  --muted: 33 100% 94%;
+  --muted-foreground: 20 60% 35%;
+}
+
+/* Midnight Theme - Głęboka ciemność z fioletami */
+.theme-midnight {
+  --primary: 258 90% 66%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 239 84% 67%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 258 90% 75%;
+  --accent-foreground: 0 0% 9%;
+  --background: 240 56% 21%;
+  --foreground: 226 100% 93%;
+  --card: 240 50% 18%;
+  --card-foreground: 226 100% 93%;
+  --muted: 240 56% 26%;
+  --muted-foreground: 226 70% 80%;
+  --border: 240 50% 30%;
+}
+
+.theme-midnight .dark {
+  --background: 240 56% 15%;
+}
+
+/* Cherry Theme - Energetyczne róże */
+.theme-cherry {
+  --primary: 347 77% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 350 89% 60%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 351 91% 71%;
+  --accent-foreground: 0 0% 9%;
+  --background: 356 100% 97%;
+  --foreground: 346 87% 27%;
+  --card: 0 0% 100%;
+  --card-foreground: 346 87% 27%;
+  --muted: 356 100% 94%;
+  --muted-foreground: 346 60% 35%;
+}
+
+/* Lavender Theme - Delikatne fiolety */
+.theme-lavender {
+  --primary: 271 81% 66%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 270 78% 75%;
+  --secondary-foreground: 0 0% 9%;
+  --accent: 270 80% 86%;
+  --accent-foreground: 0 0% 9%;
+  --background: 270 100% 98%;
+  --foreground: 271 91% 32%;
+  --card: 0 0% 100%;
+  --card-foreground: 271 91% 32%;
+  --muted: 270 100% 96%;
+  --muted-foreground: 271 60% 42%;
+}
+
+/* Golden Theme - Luksusowe złoto (VIP) */
+.theme-golden {
+  --primary: 38 92% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 32 95% 44%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 38 92% 56%;
+  --accent-foreground: 0 0% 9%;
+  --background: 48 100% 96%;
+  --foreground: 30 92% 23%;
+  --card: 0 0% 100%;
+  --card-foreground: 30 92% 23%;
+  --muted: 48 100% 92%;
+  --muted-foreground: 30 60% 33%;
+  --border: 38 50% 75%;
+}
+
+/* Dodatkowe style dla motywów */
+.theme-golden .bg-primary {
+  background: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(32 95% 44%) 100%);
+}
+
+.theme-midnight .bg-card {
+  background: linear-gradient(135deg, hsl(240 50% 18%) 0%, hsl(240 56% 21%) 100%);
+}
+
+/* Smooth transitions between themes */
+:root {
+  transition:
+    color 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease;
+}
+
+* {
+  transition-property: color, background-color, border-color;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+

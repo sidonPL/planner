@@ -1,0 +1,158 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["waw"],
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "env": {
+    "NODE_ENV": "production",
+    "NEXTAUTH_URL": {
+      "description": "NextAuth URL (use your Vercel domain)"
+    },
+    "NEXTAUTH_SECRET": {
+      "description": "NextAuth secret key"
+    },
+    "DATABASE_URL": {
+      "description": "PostgreSQL connection string"
+    },
+    "GEMINI_API_KEY": {
+      "description": "Google Gemini API Key (optional)"
+    },
+    "NEXT_PUBLIC_VAPID_PUBLIC_KEY": {
+      "description": "Web Push VAPID public key"
+    },
+    "VAPID_PRIVATE_KEY": {
+      "description": "Web Push VAPID private key"
+    },
+    "CRON_SECRET": {
+      "description": "Secret key for cron jobs"
+    },
+    "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME": {
+      "description": "Cloudinary cloud name (optional)"
+    },
+    "CLOUDINARY_API_KEY": {
+      "description": "Cloudinary API key (optional)"
+    },
+    "CLOUDINARY_API_SECRET": {
+      "description": "Cloudinary API secret (optional)"
+    },
+    "GOOGLE_CLIENT_ID": {
+      "description": "Google OAuth Client ID (optional)"
+    },
+    "GOOGLE_CLIENT_SECRET": {
+      "description": "Google OAuth Client Secret (optional)"
+    },
+    "NEXT_PUBLIC_SENTRY_DSN": {
+      "description": "Sentry error tracking DSN (optional)"
+    },
+    "SENTRY_AUTH_TOKEN": {
+      "description": "Sentry auth token (optional)"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/service-worker.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/daily-quests",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/daily-routine-digest",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/generate-routine-instances",
+      "schedule": "0 0 * * 0"
+    },
+    {
+      "path": "/api/cron/task-reminders",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/task-escalation",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/event-reminders",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/birthday-reminders",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/anniversary-reminders",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/meal-reminders",
+      "schedule": "*/20 * * * *"
+    },
+    {
+      "path": "/api/cron/schedule-reminders",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/routine-reminders",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/trip-reminders",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/inventory-alerts",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/auto-restock",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-reports",
+      "schedule": "0 18 * * 0"
+    },
+    {
+      "path": "/api/cron/monthly-reports",
+      "schedule": "0 18 1 * *"
+    },
+    {
+      "path": "/api/cron/calendar-sync",
+      "schedule": "*/60 * * * *"
+    }
+  ]
+}
+
+

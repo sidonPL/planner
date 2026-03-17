@@ -1,0 +1,2095 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Household {
+  id                      String                   @id @default(cuid())
+  name                    String
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  inviteCode              String?                  @unique
+  ownerId                 String?
+  anniversaries           Anniversary[]
+  auditLogs               AuditLog[]
+  boardNotes              BoardNote[]
+  budgets                 Budget[]
+  categories              Category[]
+  dailyLoginRewards       DailyLoginReward[]
+  dailyQuests             DailyQuest[]
+  events                  Event[]
+  externalBirthdays       ExternalBirthday[]
+  financialAccounts       FinancialAccount[]
+  geofenceZones           GeofenceZone[]
+  globalIngredients       GlobalIngredient[]
+  owner                   User?                    @relation("HouseholdOwner", fields: [ownerId], references: [id])
+  householdAchievements   HouseholdAchievement[]
+  ingredientSubstitutions IngredientSubstitution[]
+  inventoryHistory        InventoryHistory[]
+  inventoryItems          InventoryItem[]
+  LeaderboardSnapshot     LeaderboardSnapshot[]
+  meals                   Meal[]
+  notifications           Notification[]
+  paymentReminders        PaymentReminder[]
+  recipes                 Recipe[]
+  recipeCollections       RecipeCollection[]
+  recipeUsageHistory      RecipeUsageHistory[]
+  rewards                 Reward[]
+  routineTemplates        RoutineTemplate[]
+  scannedProducts         ScannedProduct[]
+  schedules               Schedule[]
+  shoppingItems           ShoppingItem[]
+  simpleDishes            SimpleDish[]
+  tasks                   Task[]
+  taskLabels              TaskLabel[]
+  taskTemplates           TaskTemplate[]
+  transactions            Transaction[]
+  trips                   Trip[]
+  tripWishlists           TripWishlist[]
+  members                 User[]
+  weeklyChallenges        WeeklyChallenge[]
+}
+
+model User {
+  id                       String                   @id @default(cuid())
+  email                    String                   @unique
+  name                     String?
+  password                 String?
+  avatar                   String?
+  role                     UserRole                 @default(USER)
+  color                    String                   @default("#3B82F6")
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  householdId              String?
+  birthDate                DateTime?
+  nameDay                  String?
+  lastKnownLatitude        Float?
+  lastKnownLongitude       Float?
+  lastLocationUpdate       DateTime?
+  shareLocationWithFamily  Boolean                  @default(false)
+  allergens                String[]                 @default([])
+  calendarSyncToken        String?                  @unique
+  currentStreak            Int                      @default(0)
+  lastActivityDate         DateTime?
+  level                    Int                      @default(1)
+  longestStreak            Int                      @default(0)
+  xp                       Int                      @default(0)
+  lastLoginDate            DateTime?
+  loginStreak              Int                      @default(0)
+  longestLoginStreak       Int                      @default(0)
+  activeTheme              String?
+  activeTitle              String?
+  xpBoostMultiplier        Float?                   @default(1.0)
+  xpBoostExpiresAt         DateTime?
+  accounts                 Account[]
+  anniversaries            Anniversary[]
+  auditLogs                AuditLog[]
+  badgeProgress            BadgeProgress[]
+  boardNotes               BoardNote[]
+  readBoardNotes           BoardNoteRead[]
+  calendarIntegrations     CalendarIntegration[]    @relation("UserCalendarIntegrations")
+  challengeParticipations  ChallengParticipant[]
+  claimedRewards           ClaimedReward[]
+  addedToCollections       CollectionRecipe[]
+  dailyQuestCompletions    DailyQuestCompletion[]
+  events                   Event[]
+  createdExternalBirthdays ExternalBirthday[]
+  favoriteRecipes          FavoriteRecipe[]
+  geofenceEvents           GeofenceEvent[]          @relation("UserGeofenceEvents")
+  ownedHouseholds          Household[]              @relation("HouseholdOwner")
+  ingredientSubstitutions  IngredientSubstitution[]
+  LeaderboardSnapshot      LeaderboardSnapshot[]
+  assignedMeals            Meal[]                   @relation("AssignedMeals")
+  notifications            Notification[]
+  nutritionGoals           NutritionGoal[]
+  passwordResetTokens      PasswordResetToken[]
+  pointsHistory            PointsHistory[]
+  presenceRecords          Presence[]
+  pushSubscriptions        PushSubscription[]
+  recipes                  Recipe[]
+  recipeCollections        RecipeCollection[]
+  recipeComments           RecipeComment[]
+  recipeNotes              RecipeNote[]
+  recipeRatings            RecipeRating[]
+  recipeUsageHistory       RecipeUsageHistory[]     @relation("UserRecipeUsage")
+  recipeVariations         RecipeVariation[]
+  routineStreaks           RoutineStreak[]          @relation("UserRoutineStreaks")
+  createdRoutineTemplates  RoutineTemplate[]        @relation("CreatedRoutineTemplates")
+  schedules                Schedule[]
+  sessions                 Session[]
+  assignedShoppingItems    ShoppingItem[]           @relation("AssignedShoppingItems")
+  assignedTasks            Task[]                   @relation("AssignedTasks")
+  createdTasks             Task[]                   @relation("CreatedTasks")
+  taskAttachments          TaskAttachment[]         @relation("TaskAttachments")
+  taskComments             TaskComment[]            @relation("TaskComments")
+  completedTasks           TaskCompletion[]
+  createdTemplates         TaskTemplate[]           @relation("CreatedTaskTemplates")
+  taskTimeEntries          TaskTimeEntry[]          @relation("TaskTimeEntries")
+  transactions             Transaction[]
+  carPoolsAsDriver         TripCarPool[]            @relation("TripCarPoolDriver")
+  tripMealsAssigned        TripMeal[]               @relation("TripMealAssignee")
+  tripParticipants         TripParticipant[]
+  tripWishlists            TripWishlist[]
+  household                Household?               @relation(fields: [householdId], references: [id])
+  userAchievements         UserAchievement[]
+  badges                   UserBadge[]
+  settings                 UserSettings?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  pushEnabled           Boolean  @default(true)
+  emailEnabled          Boolean  @default(false)
+  ttsEnabled            Boolean  @default(false)
+  quietHoursStart       String?
+  quietHoursEnd         String?
+  theme                 String   @default("system")
+  dashboardLayout       Json?
+  language              String   @default("pl")
+  timezone              String   @default("Europe/Warsaw")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  defaultActiveUserId   String?
+  defaultViewMode       String   @default("family")
+  accentColor           String?
+  dietaryPreferences    Json?
+  emailReports          Boolean  @default(false)
+  taskFilterPreferences Json?
+  weatherApiKey         String?
+  weatherCity           String?
+  fontSize              String   @default("medium")
+  soundEnabled          Boolean  @default(true)
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id               String            @id @default(cuid())
+  name             String
+  color            String            @default("#6B7280")
+  icon             String?
+  householdId      String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  type             TransactionType?
+  household        Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  paymentReminders PaymentReminder[]
+  tasks            Task[]
+  transactions     Transaction[]
+
+  @@unique([name, householdId])
+}
+
+model Task {
+  id                      String           @id @default(cuid())
+  title                   String
+  description             String?
+  priority                Priority         @default(MEDIUM)
+  status                  TaskStatus       @default(TODO)
+  dueDate                 DateTime?
+  dueTime                 String?
+  isRecurring             Boolean          @default(false)
+  recurrenceType          RecurrenceType?
+  recurrenceInterval      Int?
+  recurrenceEndDate       DateTime?
+  recurrenceDays          Int[]
+  parentTaskId            String?
+  reminderMinutes         Int[]
+  isPinned                Boolean          @default(false)
+  householdId             String
+  categoryId              String?
+  assigneeId              String?
+  creatorId               String
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  actualMinutes           Int?
+  color                   String?
+  estimatedMinutes        Int?
+  position                Int              @default(0)
+  startedAt               DateTime?
+  subtaskParentId         String?
+  recurrenceTimes         String[]
+  routineStreaks          RoutineStreak[]
+  assignee                User?            @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  category                Category?        @relation(fields: [categoryId], references: [id])
+  creator                 User             @relation("CreatedTasks", fields: [creatorId], references: [id])
+  household               Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  parentTask              Task?            @relation("TaskRecurrence", fields: [parentTaskId], references: [id])
+  childTasks              Task[]           @relation("TaskRecurrence")
+  subtaskParent           Task?            @relation("TaskSubtasks", fields: [subtaskParentId], references: [id], onDelete: Cascade)
+  subtasks                Task[]           @relation("TaskSubtasks")
+  attachments             TaskAttachment[]
+  comments                TaskComment[]
+  completions             TaskCompletion[]
+  timeEntries             TaskTimeEntry[]
+  Task_TaskDependencies_A Task[]           @relation("TaskDependencies")
+  Task_TaskDependencies_B Task[]           @relation("TaskDependencies")
+  labels                  TaskLabel[]      @relation("TaskToTaskLabel")
+
+  @@index([householdId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([householdId, status])
+  @@index([householdId, assigneeId])
+  @@index([householdId, dueDate])
+  @@index([creatorId])
+  @@index([categoryId])
+  @@index([isRecurring])
+}
+
+model TaskCompletion {
+  id          String   @id @default(cuid())
+  taskId      String
+  userId      String
+  completedAt DateTime @default(now())
+  notes       String?
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation("TaskComments", fields: [userId], references: [id])
+
+  @@index([taskId])
+}
+
+model TaskAttachment {
+  id         String   @id @default(cuid())
+  taskId     String
+  fileName   String
+  fileUrl    String
+  fileSize   Int
+  mimeType   String
+  uploadedBy String
+  createdAt  DateTime @default(now())
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploader   User     @relation("TaskAttachments", fields: [uploadedBy], references: [id])
+
+  @@index([taskId])
+}
+
+model TaskLabel {
+  id          String    @id @default(cuid())
+  name        String
+  color       String
+  householdId String
+  createdAt   DateTime  @default(now())
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  tasks       Task[]    @relation("TaskToTaskLabel")
+
+  @@unique([householdId, name])
+  @@index([householdId])
+}
+
+model TaskTimeEntry {
+  id          String    @id @default(cuid())
+  taskId      String
+  userId      String
+  startTime   DateTime
+  endTime     DateTime?
+  duration    Int?
+  description String?
+  createdAt   DateTime  @default(now())
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User      @relation("TaskTimeEntries", fields: [userId], references: [id])
+
+  @@index([taskId])
+  @@index([userId])
+}
+
+model TaskTemplate {
+  id            String             @id @default(cuid())
+  name          String
+  description   String?
+  icon          String?
+  householdId   String
+  createdBy     String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  creator       User               @relation("CreatedTaskTemplates", fields: [createdBy], references: [id])
+  household     Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  taskTemplates TaskTemplateItem[]
+
+  @@index([householdId])
+}
+
+model TaskTemplateItem {
+  id               String       @id @default(cuid())
+  templateId       String
+  title            String
+  description      String?
+  priority         Priority     @default(MEDIUM)
+  estimatedMinutes Int?
+  categoryId       String?
+  position         Int          @default(0)
+  template         TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+model RoutineTemplate {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  category    String
+  tasks       Json
+  isPublic    Boolean    @default(true)
+  householdId String?
+  createdBy   String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  creator     User?      @relation("CreatedRoutineTemplates", fields: [createdBy], references: [id])
+  household   Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([category])
+}
+
+model RoutineStreak {
+  id               String    @id @default(cuid())
+  taskId           String
+  userId           String
+  currentStreak    Int       @default(0)
+  longestStreak    Int       @default(0)
+  totalCompletions Int       @default(0)
+  lastCompletedAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  task             Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user             User      @relation("UserRoutineStreaks", fields: [userId], references: [id])
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@index([taskId])
+}
+
+model Event {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  startDate       DateTime
+  endDate         DateTime?
+  allDay          Boolean   @default(false)
+  color           String?
+  type            EventType @default(GENERAL)
+  location        String?
+  isRecurring     Boolean   @default(false)
+  recurrenceRule  String?
+  householdId     String
+  userId          String?
+  linkedTripId    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  reminderMinutes Int[]
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user            User?     @relation(fields: [userId], references: [id])
+  trip            Trip?     @relation(fields: [linkedTripId], references: [id], onDelete: SetNull)
+
+  @@index([linkedTripId])
+}
+
+model Anniversary {
+  id          String          @id @default(cuid())
+  title       String
+  description String?
+  date        DateTime
+  type        AnniversaryType @default(OTHER)
+  color       String          @default("#EC4899")
+  householdId String
+  userId      String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  household   Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User?           @relation(fields: [userId], references: [id])
+}
+
+model ExternalBirthday {
+  id           String    @id @default(cuid())
+  name         String
+  birthDate    DateTime
+  relationship String?
+  phone        String?
+  email        String?
+  notes        String?
+  color        String    @default("#EC4899")
+  householdId  String
+  createdById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdBy    User      @relation(fields: [createdById], references: [id])
+  household    Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+}
+
+model Schedule {
+  id          String              @id @default(cuid())
+  name        String
+  type        ScheduleType
+  dayOfWeek   Int[]
+  startTime   String
+  endTime     String
+  location    String?
+  color       String?
+  isActive    Boolean             @default(true)
+  householdId String
+  userId      String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  isOneTime   Boolean             @default(false)
+  oneTimeDate DateTime?
+  household   Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id])
+  exceptions  ScheduleException[]
+
+  @@index([householdId])
+  @@index([userId])
+  @@index([householdId, userId])
+  @@index([type])
+  @@index([isActive])
+  @@index([isOneTime])
+  @@index([oneTimeDate])
+}
+
+model ScheduleException {
+  id         String   @id @default(cuid())
+  scheduleId String
+  date       DateTime
+  reason     String?
+  createdAt  DateTime @default(now())
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+}
+
+model Trip {
+  id              String              @id @default(cuid())
+  name            String
+  description     String?
+  destination     String?
+  startDate       DateTime
+  endDate         DateTime
+  status          TripStatus          @default(PLANNED)
+  householdId     String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  coverImage      String?
+  currency        String              @default("PLN")
+  notes           String?
+  plannedBudget   Float?
+  additionalNotes String?
+  household       Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  accommodations  TripAccommodation[]
+  carPools        TripCarPool[]
+  checklists      TripChecklist[]
+  documents       TripDocument[]
+  events          Event[]
+  expenses        TripExpense[]
+  itinerary       TripItineraryDay[]
+  meals           TripMeal[]
+  participants    TripParticipant[]
+  places          TripPlace[]
+  transports      TripTransport[]
+}
+
+model TripWishlist {
+  id                String    @id @default(cuid())
+  destination       String
+  description       String?
+  country           String?
+  estimatedBudget   Float?
+  currency          String    @default("PLN")
+  priority          Int       @default(3)
+  season            String?
+  notes             String?
+  imageUrl          String?
+  householdId       String
+  addedById         String
+  interestedUserIds String[]  @default([])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  latitude          Float?
+  longitude         Float?
+  address           String?
+  addedBy           User      @relation(fields: [addedById], references: [id], onDelete: Cascade)
+  household         Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([addedById])
+}
+
+model TripPlace {
+  id                String            @id @default(cuid())
+  tripId            String
+  name              String
+  description       String?
+  category          TripPlaceCategory @default(ATTRACTION)
+  address           String?
+  latitude          Float?
+  longitude         Float?
+  isVisited         Boolean           @default(false)
+  visitOrder        Int?
+  visitDate         DateTime?
+  visitNotes        String?
+  websiteUrl        String?
+  phoneNumber       String?
+  openingHours      String?
+  estimatedDuration Int?
+  estimatedCost     Float?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  trip              Trip              @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model TripDocument {
+  id         String           @id @default(cuid())
+  tripId     String
+  name       String
+  type       TripDocumentType @default(OTHER)
+  url        String?
+  fileUrl    String?
+  notes      String?
+  validFrom  DateTime?
+  validUntil DateTime?
+  createdAt  DateTime         @default(now())
+  trip       Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model TripExpense {
+  id               String             @id @default(cuid())
+  tripId           String
+  name             String
+  amount           Float
+  category         String?
+  paidById         String?
+  date             DateTime           @default(now())
+  notes            String?
+  createdAt        DateTime           @default(now())
+  transactionId    String?            @unique
+  currency         String             @default("PLN")
+  trip             Trip               @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  TripExpenseSplit TripExpenseSplit[]
+}
+
+model TripParticipant {
+  id        String  @id @default(cuid())
+  tripId    String
+  userId    String
+  role      String?
+  confirmed Boolean @default(false)
+  trip      Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id])
+
+  @@unique([tripId, userId])
+}
+
+model TripChecklist {
+  id        String              @id @default(cuid())
+  tripId    String
+  name      String
+  createdAt DateTime            @default(now())
+  trip      Trip                @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  items     TripChecklistItem[]
+}
+
+model TripChecklistItem {
+  id          String        @id @default(cuid())
+  checklistId String
+  name        String
+  isPacked    Boolean       @default(false)
+  assignedTo  String?
+  createdAt   DateTime      @default(now())
+  checklist   TripChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+}
+
+model TripItineraryDay {
+  id         String                  @id @default(cuid())
+  tripId     String
+  date       DateTime
+  title      String?
+  notes      String?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+  activities TripItineraryActivity[]
+  trip       Trip                    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
+model TripItineraryActivity {
+  id          String           @id @default(cuid())
+  dayId       String
+  time        String
+  title       String
+  description String?
+  location    String?
+  duration    Int?
+  category    String?
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  day         TripItineraryDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+
+  @@index([dayId])
+}
+
+model TripAccommodation {
+  id         String    @id @default(cuid())
+  tripId     String
+  name       String
+  type       String    @default("hotel")
+  address    String?
+  phone      String?
+  checkIn    DateTime?
+  checkOut   DateTime?
+  roomInfo   String?
+  bookingRef String?
+  website    String?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  trip       Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
+model TripTransport {
+  id            String    @id @default(cuid())
+  tripId        String
+  type          String
+  name          String?
+  departureFrom String?
+  arrivalTo     String?
+  departureTime DateTime?
+  arrivalTime   DateTime?
+  bookingRef    String?
+  seatNumber    String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  trip          Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
+model TripCarPool {
+  id        String   @id @default(cuid())
+  tripId    String
+  driverId  String
+  seats     Int
+  route     String?
+  cost      Float?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  driver    User     @relation("TripCarPoolDriver", fields: [driverId], references: [id], onDelete: Cascade)
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([driverId])
+}
+
+model TripMeal {
+  id         String    @id @default(cuid())
+  tripId     String
+  date       DateTime
+  mealType   String    // śniadanie, obiad, kolacja, przekąska
+  recipeId   String?
+  customName String?
+  assignedTo String?
+  notes      String?
+  budget     Float?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  trip       Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  recipe     Recipe?   @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  assignee   User?     @relation("TripMealAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+
+  @@index([tripId])
+  @@index([date])
+  @@index([recipeId])
+}
+
+model ShoppingItem {
+  id           String    @id @default(cuid())
+  name         String
+  quantity     Float?
+  unit         String?
+  category     String?
+  isPurchased  Boolean   @default(false)
+  isUrgent     Boolean   @default(false)
+  householdId  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  addedBy      String?
+  notes        String?
+  price        Float?
+  store        String?
+  assignedToId String?
+  assignedTo   User?     @relation("AssignedShoppingItems", fields: [assignedToId], references: [id])
+  household    Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([isPurchased])
+  @@index([householdId, isPurchased])
+  @@index([category])
+  @@index([isUrgent])
+  @@index([assignedToId])
+}
+
+model InventoryItem {
+  id               String               @id @default(cuid())
+  name             String
+  quantity         Float
+  unit             String?
+  category         String?
+  expiryDate       DateTime?
+  minQuantity      Float?
+  householdId      String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  autoRestock      Boolean              @default(false)
+  location         String?
+  barcode          String?
+  brand            String?
+  imageUrl         String?
+  nutritionData    Json?
+  scannedProductId String?
+  price            Float?
+  household        Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  scannedProduct   ScannedProduct?      @relation(fields: [scannedProductId], references: [id])
+  usageHistory     RecipeUsageHistory[]
+
+  @@index([householdId])
+  @@index([barcode])
+  @@index([scannedProductId])
+  @@index([category])
+  @@index([location])
+  @@index([expiryDate])
+  @@index([householdId, category])
+  @@index([householdId, location])
+  @@index([householdId, expiryDate])
+  @@index([minQuantity])
+}
+
+model ScannedProduct {
+  id             String          @id @default(cuid())
+  barcode        String          @unique
+  name           String
+  brand          String?
+  manufacturer   String?
+  category       String?
+  quantity       String?
+  imageUrl       String?
+  calories       Float?
+  protein        Float?
+  carbohydrates  Float?
+  fat            Float?
+  fiber          Float?
+  salt           Float?
+  sugar          Float?
+  ingredients    String?
+  allergens      String[]
+  labels         String[]
+  nutriScore     String?
+  novaGroup      Int?
+  ecoScore       String?
+  source         String
+  sourceUrl      String?
+  lastSync       DateTime        @default(now())
+  householdId    String?
+  scanCount      Int             @default(1)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  inventoryItems InventoryItem[]
+  household      Household?      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([barcode])
+  @@index([householdId])
+  @@index([name])
+}
+
+model GlobalIngredient {
+  id                String             @id @default(cuid())
+  name              String
+  category          String?
+  commonUnit        String?
+  householdId       String
+  usageCount        Int                @default(0)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipeIngredients RecipeIngredient[]
+
+  @@unique([householdId, name])
+  @@index([householdId, usageCount])
+}
+
+model Recipe {
+  id            String               @id @default(cuid())
+  name          String
+  description   String?
+  image         String?
+  category      String?
+  prepTime      Int?
+  cookTime      Int?
+  servings      Int                  @default(4)
+  difficulty    Difficulty           @default(MEDIUM)
+  tags          String[]
+  householdId   String
+  createdById   String
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  allergens     String[]
+  calories      Int?
+  carbs         Float?
+  cookingMethod CookingMethod?
+  cuisine       String?
+  fat           Float?
+  fiber         Float?
+  isDairyFree   Boolean              @default(false)
+  isGlutenFree  Boolean              @default(false)
+  isVegan       Boolean              @default(false)
+  isVegetarian  Boolean              @default(false)
+  ovenMode      OvenMode?
+  ovenTemp      Int?
+  protein       Float?
+  restTime      Int?
+  source        String?
+  tips          String?
+  totalTime     Int?
+  videoUrl      String?
+  isPublic      Boolean              @default(false)
+  instructions  String?
+  collections   CollectionRecipe[]
+  favorites     FavoriteRecipe[]
+  meals         Meal[]
+  tripMeals     TripMeal[]
+  createdBy     User                 @relation(fields: [createdById], references: [id])
+  household     Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  comments      RecipeComment[]
+  ingredients   RecipeIngredient[]
+  notes         RecipeNote[]
+  ratings       RecipeRating[]
+  steps         RecipeStep[]
+  usageHistory  RecipeUsageHistory[]
+  parentOf      RecipeVariation[]    @relation("ParentRecipe")
+  variantOf     RecipeVariation?     @relation("VariantRecipe")
+
+  @@index([householdId])
+  @@index([createdById])
+  @@index([category])
+  @@index([householdId, category])
+  @@index([difficulty])
+  @@index([isVegan])
+  @@index([isVegetarian])
+  @@index([isGlutenFree])
+}
+
+model RecipeIngredient {
+  id                 String            @id @default(cuid())
+  recipeId           String
+  name               String
+  quantity           Float?
+  unit               String?
+  optional           Boolean           @default(false)
+  globalIngredientId String?
+  globalIngredient   GlobalIngredient? @relation(fields: [globalIngredientId], references: [id])
+  recipe             Recipe            @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  stepIngredients    StepIngredient[]
+
+  @@index([globalIngredientId])
+}
+
+model RecipeStep {
+  id              String           @id @default(cuid())
+  recipeId        String
+  order           Int
+  content         String
+  duration        Int?
+  image           String?
+  isOptional      Boolean          @default(false)
+  temperature     Int?
+  tip             String?
+  recipe          Recipe           @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  stepIngredients StepIngredient[]
+}
+
+model StepIngredient {
+  id           String           @id @default(cuid())
+  stepId       String
+  ingredientId String
+  ingredient   RecipeIngredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  step         RecipeStep       @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([stepId, ingredientId])
+}
+
+model RecipeUsageHistory {
+  id              String         @id @default(cuid())
+  recipeId        String
+  userId          String
+  householdId     String
+  ingredientName  String
+  quantityUsed    Float
+  unit            String?
+  inventoryItemId String?
+  timestamp       DateTime       @default(now())
+  household       Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  recipe          Recipe         @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user            User           @relation("UserRecipeUsage", fields: [userId], references: [id])
+
+  @@index([recipeId])
+  @@index([userId])
+  @@index([householdId])
+  @@index([timestamp])
+}
+
+model FavoriteRecipe {
+  id        String   @id @default(cuid())
+  userId    String
+  recipeId  String
+  createdAt DateTime @default(now())
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, recipeId])
+}
+
+model RecipeCollection {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  icon        String?            @default("📁")
+  color       String?            @default("#3B82F6")
+  userId      String
+  householdId String
+  isShared    Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  recipes     CollectionRecipe[]
+  household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([householdId])
+  @@index([householdId, isShared])
+}
+
+model CollectionRecipe {
+  id           String           @id @default(cuid())
+  collectionId String
+  recipeId     String
+  addedAt      DateTime         @default(now())
+  addedById    String
+  addedBy      User             @relation(fields: [addedById], references: [id])
+  collection   RecipeCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  recipe       Recipe           @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, recipeId])
+  @@index([collectionId])
+  @@index([recipeId])
+}
+
+model RecipeNote {
+  id        String   @id @default(cuid())
+  recipeId  String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, recipeId])
+  @@index([recipeId])
+  @@index([userId])
+}
+
+model RecipeRating {
+  id        String   @id @default(cuid())
+  recipeId  String
+  userId    String
+  rating    Int
+  comment   String?
+  cookedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, recipeId])
+  @@index([rating])
+  @@index([recipeId])
+  @@index([userId])
+}
+
+model IngredientSubstitution {
+  id             String     @id @default(cuid())
+  originalName   String
+  substituteName String
+  ratio          Float      @default(1.0)
+  notes          String?
+  category       String?
+  confidence     Float      @default(1.0)
+  isAIGenerated  Boolean    @default(false)
+  householdId    String?
+  createdById    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  createdBy      User?      @relation(fields: [createdById], references: [id])
+  household      Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([originalName])
+  @@index([substituteName])
+  @@index([category])
+  @@index([householdId])
+}
+
+model RecipeVariation {
+  id              String   @id @default(cuid())
+  parentRecipeId  String
+  variantRecipeId String   @unique
+  variationName   String?
+  description     String?
+  createdById     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  parentRecipe    Recipe   @relation("ParentRecipe", fields: [parentRecipeId], references: [id], onDelete: Cascade)
+  variantRecipe   Recipe   @relation("VariantRecipe", fields: [variantRecipeId], references: [id], onDelete: Cascade)
+
+  @@index([parentRecipeId])
+  @@index([variantRecipeId])
+  @@index([createdById])
+}
+
+model RecipeComment {
+  id        String   @id @default(cuid())
+  recipeId  String
+  userId    String
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model NutritionGoal {
+  id             String    @id @default(cuid())
+  userId         String
+  goalType       String
+  targetCalories Int?
+  targetProtein  Int?
+  targetCarbs    Int?
+  targetFat      Int?
+  targetFiber    Int?
+  isActive       Boolean   @default(true)
+  startDate      DateTime  @default(now())
+  endDate        DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isActive])
+  @@index([goalType])
+}
+
+model Meal {
+  id           String      @id @default(cuid())
+  date         DateTime
+  mealType     MealType
+  recipeId     String?
+  customName   String?
+  householdId  String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  assigneeId   String?
+  simpleDishId String?
+  assignee     User?       @relation("AssignedMeals", fields: [assigneeId], references: [id])
+  household    Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipe       Recipe?     @relation(fields: [recipeId], references: [id])
+  simpleDish   SimpleDish? @relation(fields: [simpleDishId], references: [id])
+
+  @@index([householdId])
+  @@index([date])
+  @@index([mealType])
+  @@index([householdId, date])
+  @@index([householdId, mealType])
+  @@index([recipeId])
+  @@index([assigneeId])
+}
+
+model SimpleDish {
+  id          String    @id @default(cuid())
+  name        String
+  category    String    @default("other")
+  description String?
+  icon        String?   @default("🍽️")
+  householdId String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  meals       Meal[]
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+}
+
+model Transaction {
+  id             String            @id @default(cuid())
+  amount         Float
+  type           TransactionType
+  category       String?
+  description    String?
+  date           DateTime          @default(now())
+  householdId    String
+  userId         String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  accountId      String?
+  categoryId     String?
+  reminders      PaymentReminder[]
+  account        FinancialAccount? @relation(fields: [accountId], references: [id])
+  budgetCategory Category?         @relation(fields: [categoryId], references: [id])
+  household      Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user           User              @relation(fields: [userId], references: [id])
+
+  @@index([householdId])
+  @@index([userId])
+  @@index([accountId])
+  @@index([categoryId])
+  @@index([date])
+  @@index([householdId, date])
+  @@index([householdId, type])
+  @@index([userId, date])
+}
+
+model PaymentReminder {
+  id                String          @id @default(cuid())
+  title             String
+  description       String?
+  amount            Float
+  dueDate           DateTime
+  recurring         Boolean         @default(false)
+  recurrencePattern RecurrenceType?
+  notifyDaysBefore  Int             @default(3)
+  isPaid            Boolean         @default(false)
+  householdId       String
+  categoryId        String?
+  transactionId     String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  category          Category?       @relation(fields: [categoryId], references: [id])
+  household         Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transaction       Transaction?    @relation(fields: [transactionId], references: [id])
+
+  @@index([householdId])
+  @@index([dueDate])
+  @@index([isPaid])
+}
+
+model FinancialAccount {
+  id           String        @id @default(cuid())
+  name         String
+  type         AccountType
+  balance      Float         @default(0)
+  currency     String        @default("PLN")
+  color        String?
+  icon         String?
+  isActive     Boolean       @default(true)
+  householdId  String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+}
+
+model Budget {
+  id          String    @id @default(cuid())
+  category    String?
+  amount      Float
+  householdId String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  alertAt     Float?
+  month       Int
+  name        String
+  year        Int
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, category, month, year])
+}
+
+model Presence {
+  id        String         @id @default(cuid())
+  userId    String
+  status    PresenceStatus
+  note      String?
+  timestamp DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BoardNote {
+  id          String          @id @default(cuid())
+  content     String
+  color       String          @default("#FBBF24")
+  isPinned    Boolean         @default(false)
+  householdId String
+  authorId    String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  position    Int             @default(0)
+  drawing     String?
+  author      User            @relation(fields: [authorId], references: [id])
+  household   Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  reads       BoardNoteRead[]
+}
+
+model BoardNoteRead {
+  id     String    @id @default(cuid())
+  noteId String
+  userId String
+  readAt DateTime  @default(now())
+  note   BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, userId])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  title       String
+  message     String
+  type        NotificationType
+  isRead      Boolean          @default(false)
+  link        String?
+  householdId String?
+  userId      String
+  createdAt   DateTime         @default(now())
+  household   Household?       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([householdId])
+  @@index([isRead])
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model Badge {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  condition   String
+  points      Int             @default(0)
+  createdAt   DateTime        @default(now())
+  progress    BadgeProgress[]
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+  badge    Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+}
+
+model BadgeProgress {
+  id         String   @id @default(cuid())
+  userId     String
+  badgeId    String
+  progress   Int      @default(0)
+  target     Int
+  percentage Float    @default(0)
+  updatedAt  DateTime @updatedAt
+  badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@index([userId, percentage])
+}
+
+model Achievement {
+  id               String              @id @default(cuid())
+  name             String
+  description      String
+  icon             String              @default("🏆")
+  category         AchievementCategory
+  requirementType  String
+  requirementValue Int
+  xpReward         Int                 @default(0)
+  isSecret         Boolean             @default(false)
+  createdAt        DateTime            @default(now())
+  nextTierId       String?
+  previousTierId   String?
+  seriesName       String?
+  tier             Int?
+  tierName         String?
+  badgeUnlock      String?
+  detailedHint     String?
+  hint             String?
+  rarity           AchievementRarity   @default(COMMON)
+  showProgressBar  Boolean             @default(true)
+  titleUnlock      String?
+  userAchievements UserAchievement[]
+
+  @@unique([name, category])
+  @@index([seriesName, tier])
+  @@index([rarity])
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime    @default(now())
+  isPinned      Boolean     @default(false)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId, unlockedAt])
+  @@index([userId, isPinned])
+}
+
+model PointsHistory {
+  id        String                @id @default(cuid())
+  userId    String
+  amount    Int
+  reason    String
+  type      PointsTransactionType
+  createdAt DateTime              @default(now())
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, type])
+}
+
+model QuestTemplate {
+  id               String   @id @default(cuid())
+  title            String
+  description      String
+  type             String
+  requirementValue Int
+  xpReward         Int
+  category         String
+  difficulty       String   @default("MEDIUM")
+  isActive         Boolean  @default(true)
+  weight           Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([isActive, category])
+  @@index([difficulty, weight])
+}
+
+model DailyQuest {
+  id          String                 @id @default(cuid())
+  householdId String
+  title       String
+  description String?
+  type        DailyQuestType
+  target      Int
+  reward      Int
+  date        DateTime
+  isActive    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  household   Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  completions DailyQuestCompletion[]
+
+  @@unique([householdId, date, type])
+  @@index([householdId, date])
+}
+
+model DailyQuestCompletion {
+  id          String     @id @default(cuid())
+  questId     String
+  userId      String
+  progress    Int        @default(0)
+  completed   Boolean    @default(false)
+  completedAt DateTime?
+  quest       DailyQuest @relation(fields: [questId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([questId, userId])
+  @@index([userId, completed])
+}
+
+model Reward {
+  id                    String          @id @default(cuid())
+  name                  String
+  description           String?
+  icon                  String          @default("gift")
+  pointsCost            Int
+  isActive              Boolean         @default(true)
+  householdId           String
+  createdAt             DateTime        @default(now())
+  availableFrom         DateTime?
+  availableUntil        DateTime?
+  category              RewardCategory  @default(OTHER)
+  effectData            Json?
+  isSeasonal            Boolean         @default(false)
+  rarity                RewardRarity    @default(COMMON)
+  requiredAchievementId String?
+  requiredLevel         Int?
+  seasonName            String?
+  stock                 Int?
+  type                  RewardType      @default(COSMETIC)
+  claims                ClaimedReward[]
+  household             Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, name])
+  @@index([type, category])
+  @@index([isSeasonal, availableUntil])
+  @@index([rarity])
+}
+
+model ClaimedReward {
+  id          String    @id @default(cuid())
+  userId      String
+  rewardId    String
+  claimedAt   DateTime  @default(now())
+  fulfilled   Boolean   @default(false)
+  isActive    Boolean   @default(false)
+  maxUses     Int?
+  usedCount   Int       @default(0)
+  activatedAt DateTime?
+  expiresAt   DateTime?
+  metadata    Json?
+  reward      Reward    @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([userId, isActive])
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  userId      String?
+  householdId String?
+  action      AuditAction
+  entityType  String
+  entityId    String?
+  entityName  String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+  household   Household?  @relation(fields: [householdId], references: [id])
+  user        User?       @relation(fields: [userId], references: [id])
+
+  @@index([householdId, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model CalendarIntegration {
+  id             String                  @id @default(cuid())
+  userId         String
+  type           String
+  name           String?
+  icalUrl        String?
+  syncInterval   Int?
+  eventFilter    String?
+  colorMapping   String?
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiry    DateTime?
+  calendarId     String?
+  lastSync       DateTime?
+  lastSyncStatus String?
+  lastSyncError  String?
+  isActive       Boolean                 @default(true)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  importedEvents CalendarImportedEvent[]
+  user           User                    @relation("UserCalendarIntegrations", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+}
+
+model CalendarImportedEvent {
+  id            String              @id @default(cuid())
+  integrationId String
+  externalId    String
+  title         String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime?
+  location      String?
+  isAllDay      Boolean             @default(false)
+  color         String?
+  attachments   String?
+  rawIcal       String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  integration   CalendarIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, externalId])
+}
+
+model GeofenceZone {
+  id          String          @id @default(cuid())
+  householdId String
+  name        String
+  latitude    Float
+  longitude   Float
+  radius      Int
+  type        String
+  color       String?
+  icon        String?
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  events      GeofenceEvent[]
+  household   Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+}
+
+model GeofenceEvent {
+  id        String       @id @default(cuid())
+  zoneId    String
+  userId    String
+  type      String
+  latitude  Float?
+  longitude Float?
+  timestamp DateTime     @default(now())
+  user      User         @relation("UserGeofenceEvents", fields: [userId], references: [id], onDelete: Cascade)
+  zone      GeofenceZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp])
+  @@index([zoneId, timestamp])
+}
+
+model HouseholdAchievement {
+  id            String    @id @default(cuid())
+  householdId   String
+  achievementId String
+  name          String
+  description   String
+  icon          String
+  points        Int
+  earnedAt      DateTime  @default(now())
+  household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, earnedAt])
+  @@index([achievementId])
+}
+
+model WeeklyChallenge {
+  id           String                @id @default(cuid())
+  householdId  String
+  title        String
+  description  String
+  type         ChallengeType
+  target       Int
+  reward       Int
+  icon         String
+  weekStart    DateTime
+  weekEnd      DateTime
+  isActive     Boolean               @default(true)
+  createdAt    DateTime              @default(now())
+  participants ChallengParticipant[]
+  household    Household             @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, weekStart])
+  @@index([isActive])
+}
+
+model ChallengParticipant {
+  id            String          @id @default(cuid())
+  challengeId   String
+  userId        String
+  progress      Int             @default(0)
+  completed     Boolean         @default(false)
+  completedAt   DateTime?
+  rewardClaimed Boolean         @default(false)
+  joinedAt      DateTime        @default(now())
+  challenge     WeeklyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@index([userId])
+  @@index([challengeId, completed])
+}
+
+model InventoryHistory {
+  id              String    @id @default(cuid())
+  inventoryItemId String
+  itemName        String
+  action          String
+  quantityBefore  Float?
+  quantityAfter   Float?
+  quantityChange  Float?
+  unit            String?
+  source          String?
+  userId          String?
+  householdId     String
+  notes           String?
+  timestamp       DateTime  @default(now())
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryItemId])
+  @@index([householdId])
+  @@index([timestamp])
+  @@index([action])
+}
+
+model DailyLoginReward {
+  id          String    @id @default(cuid())
+  userId      String
+  householdId String
+  loginDate   DateTime  @default(now())
+  dayNumber   Int
+  xpRewarded  Int
+  bonusType   String?
+  claimed     Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, loginDate])
+  @@index([userId])
+  @@index([householdId])
+  @@index([loginDate])
+}
+
+model LeaderboardSnapshot {
+  id          String            @id @default(cuid())
+  userId      String
+  householdId String
+  period      LeaderboardPeriod
+  weekNumber  Int?
+  monthNumber Int?
+  year        Int
+  xpEarned    Int
+  rank        Int
+  createdAt   DateTime          @default(now())
+  Household   Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  User        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, period, weekNumber, monthNumber, year])
+  @@index([householdId, period, monthNumber, year])
+  @@index([householdId, period, weekNumber, year])
+  @@index([period, rank])
+}
+
+model TripExpenseSplit {
+  id          String      @id
+  expense_id  String
+  user_id     String
+  amount      Float
+  is_paid     Boolean     @default(false)
+  paid_at     DateTime?
+  created_at  DateTime    @default(now())
+  TripExpense TripExpense @relation(fields: [expense_id], references: [id], onDelete: Cascade)
+
+  @@unique([expense_id, user_id])
+  @@index([expense_id])
+  @@index([user_id])
+}
+
+model TripSettlement {
+  id           String    @id
+  trip_id      String
+  from_user_id String
+  to_user_id   String
+  amount       Float
+  currency     String    @default("PLN")
+  is_paid      Boolean   @default(false)
+  paid_at      DateTime?
+  notes        String?
+  created_at   DateTime  @default(now())
+
+  @@index([from_user_id])
+  @@index([to_user_id])
+  @@index([trip_id])
+}
+
+enum TripChecklistCategory {
+  DOCUMENTS
+  CLOTHES
+  ELECTRONICS
+  TOILETRIES
+  MEDICINE
+  OTHER
+}
+
+enum VoteType {
+  POLL
+  DECISION
+}
+
+enum VoteStatus {
+  ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AccountType {
+  BANK
+  CASH
+  SAVINGS
+  INVESTMENT
+  OTHER
+}
+
+enum AchievementCategory {
+  TASKS
+  RECIPES
+  MEALS
+  SHOPPING
+  INVENTORY
+  STREAK
+  SOCIAL
+  MASTER
+}
+
+enum AchievementRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum PointsTransactionType {
+  EARNED
+  SPENT
+  BONUS
+  PENALTY
+}
+
+enum DailyQuestType {
+  TASKS
+  RECIPES
+  MEALS
+  SHOPPING
+  INVENTORY
+  ROUTINES
+  RATING
+  HELP
+  EXPIRING
+  PERFECT_DAY
+  EARLY
+  PHOTO
+  PLAN_TOMORROW
+  EVENING_COOK
+  HEALTHY_DAY
+  NEW_RECIPE
+  QUICK_MEAL
+  COMMENT
+}
+
+enum RewardType {
+  COSMETIC
+  FUNCTIONAL
+  EXCLUSIVE
+  PHYSICAL
+}
+
+enum RewardCategory {
+  AVATAR
+  BADGE
+  TITLE
+  PERK
+  THEME
+  PHYSICAL
+  OTHER
+}
+
+enum RewardRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  CHILD
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
+enum EventType {
+  GENERAL
+  TASK
+  MEAL
+  TRIP
+  WORK
+  SCHOOL
+  REMINDER
+  BIRTHDAY
+  HOLIDAY
+  NAMEDAY
+  ANNIVERSARY
+}
+
+enum AnniversaryType {
+  WEDDING
+  ENGAGEMENT
+  FIRST_DATE
+  MOVING
+  JOB_START
+  GRADUATION
+  OTHER
+}
+
+enum ScheduleType {
+  WORK
+  SCHOOL
+  UNIVERSITY
+  COURSE
+  OTHER
+}
+
+enum TripPlaceCategory {
+  ATTRACTION
+  RESTAURANT
+  CAFE
+  HOTEL
+  BEACH
+  MUSEUM
+  PARK
+  SHOPPING
+  VIEWPOINT
+  ENTERTAINMENT
+  OTHER
+}
+
+enum TripDocumentType {
+  FLIGHT
+  TRAIN
+  BUS
+  HOTEL
+  CAR_RENTAL
+  INSURANCE
+  TICKET
+  PASSPORT
+  VISA
+  OTHER
+}
+
+enum TripStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MealType {
+  BREAKFAST
+  SECOND_BREAKFAST
+  LUNCH
+  SNACK
+  DINNER
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum CookingMethod {
+  BAKING
+  FRYING
+  BOILING
+  STEAMING
+  GRILLING
+  ROASTING
+  STEWING
+  SAUTEING
+  DEEP_FRYING
+  BRAISING
+  POACHING
+  BLANCHING
+  PRESSURE_COOKING
+  SLOW_COOKING
+  MICROWAVING
+  AIR_FRYING
+  SOUS_VIDE
+  RAW
+  MIXING
+  OTHER
+}
+
+enum OvenMode {
+  CONVENTIONAL
+  FAN_ASSISTED
+  BOTTOM_HEAT
+  TOP_HEAT
+  GRILL
+  FAN_GRILL
+  DEFROST
+  PIZZA
+  BREAD
+  STEAM
+  COMBINATION
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum PresenceStatus {
+  HOME
+  AWAY
+  WORK
+  SCHOOL
+  VACATION
+}
+
+enum NotificationType {
+  TASK_REMINDER
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  EVENT_REMINDER
+  MEAL_REMINDER
+  SHOPPING_REMINDER
+  BUDGET_ALERT
+  TRIP_REMINDER
+  SCHEDULE_REMINDER
+  PRESENCE_UPDATE
+  BOARD_MESSAGE
+  SYSTEM
+  PAYMENT_REMINDER
+  ACHIEVEMENT
+  SHOPPING_ASSIGNED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  TASK_COMPLETE
+  TASK_ASSIGN
+  TASK_UNASSIGN
+  EVENT_INVITE
+  EVENT_CANCEL
+  MEMBER_INVITE
+  MEMBER_REMOVE
+  MEMBER_ROLE_CHANGE
+  RECIPE_FAVORITE
+  RECIPE_UNFAVORITE
+  PRESENCE_CHANGE
+  SHOPPING_PURCHASE
+  TRIP_PARTICIPANT_ADD
+  TRIP_PARTICIPANT_REMOVE
+  BADGE_EARN
+  REWARD_CLAIM
+  LOGIN
+  LOGOUT
+  SETTINGS_CHANGE
+}
+
+enum ChallengeType {
+  TASKS
+  ROUTINES
+  RECIPES
+  SHOPPING
+  MEALS
+  BUDGET
+  FAMILY
+}
+
+enum LeaderboardPeriod {
+  WEEKLY
+  MONTHLY
+  ALL_TIME
+}
