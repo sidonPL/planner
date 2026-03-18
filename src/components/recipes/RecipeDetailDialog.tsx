@@ -32,7 +32,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Recipe, RecipeIngredient, RecipeStep, FavoriteRecipe, StepIngredient } from "@prisma/client";
+import type { Recipe, RecipeIngredient, RecipeStep, FavoriteRecipe, StepIngredient } from "@prisma/client";
 import { CookingModeView } from "@/components/recipes/CookingModeView";
 import { RecipeNotesAndRating } from "@/components/recipes/RecipeNotesAndRating";
 import { RecipeComments } from "@/components/recipes/RecipeComments";

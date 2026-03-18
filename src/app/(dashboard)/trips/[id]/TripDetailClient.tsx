@@ -60,7 +60,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trip, TripParticipant, TripChecklist, TripChecklistItem, TripStatus } from "@prisma/client";
+import type { Trip, TripParticipant, TripChecklist, TripChecklistItem, TripStatus } from "@prisma/client";
 import { TripPlaces } from "@/components/trips/TripPlaces";
 import { TripBudget } from "@/components/trips/TripBudget";
 import { TripDocuments } from "@/components/trips/TripDocuments";

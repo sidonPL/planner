@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Landmark, Eye, EyeOff, ArrowRight, TrendingUp, TrendingDown } from "lucide-react";
-import { FinancialAccount, Transaction } from "@prisma/client";
+import type { FinancialAccount, Transaction } from "@prisma/client";
 
 type TransactionWithUser = Transaction & {
   user: { id: string; name: string | null; color: string };

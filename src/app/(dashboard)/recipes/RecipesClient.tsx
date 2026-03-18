@@ -64,7 +64,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { RecipeIngredient, RecipeStep, FavoriteRecipe, StepIngredient } from "@prisma/client";
+import type { RecipeIngredient, RecipeStep, FavoriteRecipe, StepIngredient } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { type RecipeData } from "@/types/recipe";
 import { RecipeDetailDialog } from "@/components/recipes/RecipeDetailDialog";
@@ -1221,20 +1221,20 @@ export function RecipesClient({ recipes: initialRecipes, currentUserId, inventor
                     )}
                   </Card>
                 ))}
+
+                <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+                  💡 <strong>Wskazówka:</strong> Organizuj przepisy w kolekcje jak &quot;Ulubione desery&quot;, &quot;Szybkie obiady&quot; czy &quot;Święta&quot;.
+                  Możesz dodać przepis do kolekcji z menu ⋮ przy każdym przepisie.
+                </div>
               </div>
             )}
 
-            <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-              💡 <strong>Wskazówka:</strong> Organizuj przepisy w kolekcje jak &quot;Ulubione desery&quot;, &quot;Szybkie obiady&quot; czy &quot;Święta&quot;.
-              Możesz dodać przepis do kolekcji z menu ⋮ przy każdym przepisie.
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsCollectionsDialogOpen(false)}>
+                Zamknij
+              </Button>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCollectionsDialogOpen(false)}>
-              Zamknij
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

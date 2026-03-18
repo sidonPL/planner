@@ -15,7 +15,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Sun, Moon, Monitor, Save, Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
-import { UserSettings } from '@prisma/client';
+import type { UserSettings } from '@prisma/client';
 import { ThemeSelector } from '@/components/gamification/ThemeSelector';
 import { Separator } from '@/components/ui/separator';
 
@@ -52,7 +52,7 @@ export function AppearanceTab({ userSettings }: AppearanceTabProps) {
       } else {
         toast.error('Nie udało się zapisać ustawień');
       }
-    } catch (error) {
+    } catch {
       toast.error('Wystąpił błąd');
     } finally {
       setSaving(false);

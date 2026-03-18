@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Gift, Star, Sparkles, Crown, Zap, Lock, ShoppingCart, Calendar, Award, BarChart3 } from 'lucide-react';
+import { Gift, Star, Sparkles, Crown, Zap, ShoppingCart, Calendar, Award, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,10 @@ interface Reward {
   availableUntil?: Date;
   requiredLevel?: number;
   requiredAchievementId?: string;
-  effectData?: any;
+  effectData?: unknown;
+  isPurchased?: boolean;
+  purchaseCount?: number;
+  hasActiveClaim?: boolean;
 }
 
 interface UserStats {
@@ -97,6 +100,10 @@ export default function RewardShopPage() {
   };
 
   const canPurchase = (reward: Reward): { can: boolean; reason?: string } => {
+            if (reward.isPurchased && ['THEME', 'TITLE', 'AVATAR', 'BADGE'].includes(reward.category)) {
+              return { can: false, reason: 'Już kupione' };
+            }
+
     if (!userStats) return { can: false, reason: 'Ładowanie...' };
 
     if (!reward.isActive) return { can: false, reason: 'Niedostępne' };
@@ -134,13 +141,18 @@ export default function RewardShopPage() {
       });
 
       if (response.ok) {
+        const result = await response.json();
         confetti({
           particleCount: 100,
           spread: 70,
           origin: { y: 0.6 },
         });
 
-        toast.success(`Zakupiono: ${reward.name}! 🎉`);
+        toast.success(
+          result?.activatedAutomatically
+            ? `Zakupiono i aktywowano: ${reward.name}! 🎉`
+            : `Zakupiono: ${reward.name}! 🎉`
+        );
         setSelectedReward(null);
         await loadData();
       } else {
@@ -224,7 +236,6 @@ export default function RewardShopPage() {
                 <RewardCard
                   key={reward.id}
                   reward={reward}
-                  userStats={userStats}
                   onSelect={setSelectedReward}
                   canPurchase={canPurchase}
                 />
@@ -250,7 +261,6 @@ export default function RewardShopPage() {
               <RewardCard
                 key={reward.id}
                 reward={reward}
-                userStats={userStats}
                 onSelect={setSelectedReward}
                 canPurchase={canPurchase}
               />
@@ -344,12 +354,10 @@ export default function RewardShopPage() {
 
 function RewardCard({
   reward,
-  userStats,
   onSelect,
   canPurchase,
 }: {
   reward: Reward;
-  userStats: UserStats | null;
   onSelect: (reward: Reward) => void;
   canPurchase: (reward: Reward) => { can: boolean; reason?: string };
 }) {
@@ -385,6 +393,12 @@ function RewardCard({
             <Badge variant="outline" className="text-xs">
               {categoryIcons[reward.category]} {reward.category}
             </Badge>
+            {reward.isPurchased && (
+              <Badge variant="default" className="text-xs">
+                <Award className="h-3 w-3 mr-1" />
+                Kupione{reward.purchaseCount && reward.purchaseCount > 1 ? ` x${reward.purchaseCount}` : ''}
+              </Badge>
+            )}
             {reward.isSeasonal && (
               <Badge variant="secondary" className="text-xs">
                 <Calendar className="h-3 w-3 mr-1" />

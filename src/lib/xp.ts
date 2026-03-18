@@ -1,6 +1,23 @@
 import { prisma } from './prisma';
 import type { PointsTransactionType } from '@prisma/client';
 
+function resolveXpMultiplier(effectData: unknown): number {
+  if (!effectData || typeof effectData !== 'object') {
+    return 1.0;
+  }
+
+  const data = effectData as { type?: string; multiplier?: number };
+  if (!data.multiplier || data.multiplier <= 1) {
+    return 1.0;
+  }
+
+  if (data.type === 'xp_boost' || data.type === 'permanent_xp_boost' || data.type === 'vip_status') {
+    return data.multiplier;
+  }
+
+  return 1.0;
+}
+
 /**
  * Dodaje XP użytkownikowi z uwzględnieniem aktywnych boostów
  */
@@ -46,13 +63,10 @@ export async function addXP(
       },
     });
 
-    // Sprawdź czy boost jest typu xp_boost
+    // Sprawdź czy boost daje mnożnik XP
     let finalMultiplier = 1.0;
     if (activeBoost && activeBoost.reward.category === 'PERK') {
-      const effectData = activeBoost.reward.effectData as any;
-      if (effectData?.type === 'xp_boost' && effectData?.multiplier) {
-        finalMultiplier = effectData.multiplier;
-      }
+      finalMultiplier = resolveXpMultiplier(activeBoost.reward.effectData);
     }
 
     // Oblicz finalną kwotę XP
@@ -236,11 +250,11 @@ export async function hasActiveXPBoost(userId: string): Promise<{
     return { active: false, multiplier: 1.0, expiresAt: null };
   }
 
-  const effectData = activeBoost.reward.effectData as any;
-  if (effectData?.type === 'xp_boost' && effectData?.multiplier) {
+  const multiplier = resolveXpMultiplier(activeBoost.reward.effectData);
+  if (multiplier > 1.0) {
     return {
       active: true,
-      multiplier: effectData.multiplier,
+      multiplier,
       expiresAt: activeBoost.expiresAt,
     };
   }

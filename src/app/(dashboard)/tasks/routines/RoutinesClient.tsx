@@ -10,14 +10,13 @@ import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { TaskViewToggle, ViewMode } from "@/components/tasks/TaskViewToggle";
 import { RoutineTemplatesDialog } from "@/components/tasks/RoutineTemplatesDialog";
-import { Task, Category, RecurrenceType } from "@prisma/client";
+import type { Task, Category } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useFlyingXP } from "@/components/gamification/FlyingXP";
 import { useSoundEffects } from "@/lib/sound-effects";
 import { toast } from "sonner";
-import { showXPToast } from "@/lib/xp-toast-helpers";
 
 type TaskWithRelations = Task & {
   category: Category | null;
@@ -146,7 +145,7 @@ export function RoutinesClient({
 
     // Time-based groups (for daily routines)
     const dailyRoutines = filteredRoutines.filter(r =>
-      r.recurrenceType === RecurrenceType.DAILY ||
+      r.recurrenceType === "DAILY" ||
       !r.recurrenceType
     );
 
@@ -213,7 +212,7 @@ export function RoutinesClient({
     }
 
     // Frequency-based groups
-    const weeklyRoutines = filteredRoutines.filter(r => r.recurrenceType === RecurrenceType.WEEKLY);
+    const weeklyRoutines = filteredRoutines.filter(r => r.recurrenceType === "WEEKLY");
     if (weeklyRoutines.length > 0) {
       groups.push({
         id: 'weekly',
@@ -224,7 +223,7 @@ export function RoutinesClient({
       });
     }
 
-    const monthlyRoutines = filteredRoutines.filter(r => r.recurrenceType === RecurrenceType.MONTHLY);
+    const monthlyRoutines = filteredRoutines.filter(r => r.recurrenceType === "MONTHLY");
     if (monthlyRoutines.length > 0) {
       groups.push({
         id: 'monthly',
@@ -235,7 +234,7 @@ export function RoutinesClient({
       });
     }
 
-    const yearlyRoutines = filteredRoutines.filter(r => r.recurrenceType === RecurrenceType.YEARLY);
+    const yearlyRoutines = filteredRoutines.filter(r => r.recurrenceType === "YEARLY");
     if (yearlyRoutines.length > 0) {
       groups.push({
         id: 'yearly',
@@ -326,7 +325,7 @@ export function RoutinesClient({
                 });
               }
             }
-          } catch (error) {
+          } catch {
             // Fallback toast
             toast.success(`+${xpReward} XP`, {
               description: `Ukończono rutynę: ${routine.title}`,

@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
-import { Task, Category } from "@prisma/client";
+import type { Task, Category } from "@prisma/client";
 import { cn } from "@/lib/utils";
 
 const taskFormSchema = z.object({

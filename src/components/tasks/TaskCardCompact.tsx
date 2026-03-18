@@ -38,7 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
-import { Task, Category, Priority } from "@prisma/client";
+import type { Task, Category, Priority } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { RoutineStreakBadge } from "./RoutineStreakBadge";
 import { RoutineActionDialog } from "./RoutineActionDialog";

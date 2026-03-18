@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Recipe, RecipeIngredient, RecipeStep, FavoriteRecipe, StepIngredient } from "@prisma/client";
+import type { Recipe, RecipeIngredient, RecipeStep, FavoriteRecipe, StepIngredient } from "@prisma/client";
 
 type RecipeIngredientWithRelations = RecipeIngredient & {
   stepIngredients: StepIngredient[];
@@ -102,4 +102,3 @@ export function useRecipeFilters(
       });
   }, [recipes, filters]);
 }
-

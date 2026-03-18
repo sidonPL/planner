@@ -16,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Notification } from "@prisma/client";
+import type { Notification } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 

@@ -49,7 +49,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Category } from "@prisma/client";
+import type { Category } from "@prisma/client";
 
 type CategoryWithCount = Category & {
   _count: { tasks: number };

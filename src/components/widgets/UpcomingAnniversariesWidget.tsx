@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Heart } from "lucide-react";
-import { AnniversaryType } from "@prisma/client";
+import type { AnniversaryType } from "@prisma/client";
 import {
   anniversaryTypeIcons,
   anniversaryTypeLabels,

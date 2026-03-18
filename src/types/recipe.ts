@@ -1,4 +1,4 @@
-import { Recipe, RecipeIngredient, RecipeStep, FavoriteRecipe } from "@prisma/client";
+import type { Recipe, RecipeIngredient, RecipeStep, FavoriteRecipe } from "@prisma/client";
 
 /**
  * Rozszerzony typ Recipe z relacjami - używany w całej aplikacji
@@ -9,4 +9,3 @@ export type RecipeData = Recipe & {
   createdBy?: { id: string; name: string | null };
   favorites?: FavoriteRecipe[];
 };
-

@@ -66,7 +66,33 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(rewards);
+    const claimedRewards = await prisma.claimedReward.findMany({
+      where: { userId: session.user.id },
+      select: { rewardId: true, isActive: true },
+    });
+
+    const rewardUsage = claimedRewards.reduce<Record<string, { count: number; activeCount: number }>>((acc, claim) => {
+      if (!acc[claim.rewardId]) {
+        acc[claim.rewardId] = { count: 0, activeCount: 0 };
+      }
+      acc[claim.rewardId].count += 1;
+      if (claim.isActive) {
+        acc[claim.rewardId].activeCount += 1;
+      }
+      return acc;
+    }, {});
+
+    const rewardsWithOwnership = rewards.map((reward) => {
+      const usage = rewardUsage[reward.id] || { count: 0, activeCount: 0 };
+      return {
+        ...reward,
+        isPurchased: usage.count > 0,
+        purchaseCount: usage.count,
+        hasActiveClaim: usage.activeCount > 0,
+      };
+    });
+
+    return NextResponse.json(rewardsWithOwnership);
   } catch (error) {
     console.error('Error fetching rewards:', error);
     return NextResponse.json(

@@ -1,6 +1,26 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+
+type RewardEffectData = {
+  duration?: number;
+  themeId?: string;
+  titleId?: string;
+  type?: string;
+  multiplier?: number;
+};
+
+type ActivationMetadata = {
+  themeId?: string;
+};
+
+function parseEffectData(effectData: unknown): RewardEffectData {
+  if (!effectData || typeof effectData !== 'object') {
+    return {};
+  }
+  return effectData as RewardEffectData;
+}
 
 /**
  * POST /api/gamification/claimed-rewards/[id]/activate
@@ -18,7 +38,7 @@ export async function POST(
 
     const { id } = await context.params;
     const body = await request.json();
-    const { metadata } = body;
+    const metadata = (body as { metadata?: ActivationMetadata }).metadata;
 
     // Pobierz claimed reward
     const claimedReward = await prisma.claimedReward.findUnique({
@@ -40,11 +60,17 @@ export async function POST(
 
     const reward = claimedReward.reward;
     const now = new Date();
+    const nextMetadata =
+      metadata !== undefined
+        ? (metadata as Prisma.InputJsonValue)
+        : claimedReward.metadata === null
+          ? Prisma.JsonNull
+          : (claimedReward.metadata as Prisma.InputJsonValue);
 
     // Oblicz datę wygaśnięcia bazując na typie nagrody
     let expiresAt: Date | null = null;
     if (reward.effectData && typeof reward.effectData === 'object') {
-      const effectData = reward.effectData as any;
+      const effectData = parseEffectData(reward.effectData);
       if (effectData.duration) {
         // duration w sekundach
         expiresAt = new Date(now.getTime() + effectData.duration * 1000);
@@ -67,8 +93,8 @@ export async function POST(
 
         // Ustaw aktywny motyw
         const themeId =
-          (metadata?.themeId as string) ||
-          ((reward.effectData as any)?.themeId as string) ||
+          metadata?.themeId ||
+          parseEffectData(reward.effectData).themeId ||
           reward.id;
         await tx.user.update({
           where: { id: session.user.id },
@@ -88,7 +114,7 @@ export async function POST(
         });
 
         // Ustaw aktywny tytuł na podstawie effectData.titleId, nie reward.name
-        const titleId = (reward.effectData as any)?.titleId || reward.id;
+        const titleId = parseEffectData(reward.effectData).titleId || reward.id;
         await tx.user.update({
           where: { id: session.user.id },
           data: { activeTitle: titleId },
@@ -96,7 +122,7 @@ export async function POST(
       }
 
       if (reward.category === 'PERK') {
-        const effectData = reward.effectData as any;
+        const effectData = parseEffectData(reward.effectData);
 
         if (effectData?.type === 'xp_boost') {
           // XP boost jest obsługiwany przez ClaimedReward.isActive
@@ -128,7 +154,7 @@ export async function POST(
           activatedAt: now,
           expiresAt,
           // Nie inkrementuj usedCount tutaj — będzie aktualizowane tylko podczas rzeczywistego użycia
-          metadata: metadata || claimedReward.metadata,
+          metadata: nextMetadata,
         },
         include: { reward: true },
       });
@@ -182,17 +208,21 @@ export async function DELETE(
     await prisma.$transaction(async (tx) => {
       // Wyczyść ustawienia użytkownika
       if (reward.category === 'THEME') {
-        // Theme jest obsługiwany przez ClaimedReward.isActive
-        console.log(`Theme activated: ${reward.name}`);
+        await tx.user.update({
+          where: { id: session.user.id },
+          data: { activeTheme: 'default' },
+        });
       }
 
       if (reward.category === 'TITLE') {
-        // Title jest obsługiwany przez ClaimedReward.isActive
-        console.log(`Title activated: ${reward.name}`);
+        await tx.user.update({
+          where: { id: session.user.id },
+          data: { activeTitle: null },
+        });
       }
 
       if (reward.category === 'PERK') {
-        const effectData = reward.effectData as any;
+        const effectData = parseEffectData(reward.effectData);
         if (effectData?.type === 'xp_boost') {
           // XP boost jest dezaktywowany przez ClaimedReward.isActive = false
           console.log('XP Boost deactivated');

@@ -83,3 +83,6 @@ Thumbs.db
 *.crt
 secrets/
 
+
+.vercel
+.env*.local

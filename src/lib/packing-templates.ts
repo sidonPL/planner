@@ -1,4 +1,4 @@
-import { TripChecklistCategory } from "@prisma/client";
+import type { TripChecklistCategory } from "@prisma/client";
 
 export interface PackingTemplate {
   id: string;

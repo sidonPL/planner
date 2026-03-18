@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import type { UserRole } from "@prisma/client";
 
 // Uprawnienia dla różnych ról
 export const rolePermissions: Record<UserRole, string[]> = {

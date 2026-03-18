@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { FinancialAccount, Transaction } from "@prisma/client";
+import type { FinancialAccount, Transaction } from "@prisma/client";
 import { AccountBalanceChart } from "@/components/charts/AccountBalanceChart";
 
 type AccountWithCount = FinancialAccount & {

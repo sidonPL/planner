@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ShoppingItem } from "@prisma/client";
+import type { ShoppingItem } from "@prisma/client";
 
 interface HistoryEntry {
   date: string;

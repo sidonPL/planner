@@ -35,7 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Badge, UserBadge } from "@prisma/client";
+import type { Badge, UserBadge } from "@prisma/client";
 import { LevelProgressCard } from "@/components/gamification/LevelProgressCard";
 import { PointsHistoryCard } from "@/components/gamification/PointsHistoryCard";
 import { StreakCalendarCard } from "@/components/gamification/StreakCalendarCard";

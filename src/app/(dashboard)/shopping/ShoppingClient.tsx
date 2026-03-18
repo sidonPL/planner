@@ -46,7 +46,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { ShoppingItem, InventoryItem } from "@prisma/client";
+import type { ShoppingItem, InventoryItem } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { ShoppingAnalytics } from "@/components/shopping/ShoppingAnalytics";
 import { useFlyingXP } from "@/components/gamification/FlyingXP";

@@ -36,7 +36,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Presence } from "@prisma/client";
+import type { Presence } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { useGeofence } from "@/hooks/useGeofence";
 import { getCurrentPosition, formatCoordinates } from "@/lib/geolocation";

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { TaskStatus } from "@prisma/client";
+import type { TaskStatus } from "@prisma/client";
 
 type Subtask = {
   id: string;
@@ -104,7 +104,7 @@ export function TaskSubtasks({ taskId, members, onSubtaskChange }: TaskSubtasksP
 
   const handleToggleSubtask = async (subtaskId: string, completed: boolean) => {
     // Optimistic update
-    const newStatus: TaskStatus = completed ? TaskStatus.COMPLETED : TaskStatus.TODO;
+    const newStatus: TaskStatus = completed ? "COMPLETED" : "TODO";
     setSubtasks(
       subtasks.map((st) =>
         st.id === subtaskId ? { ...st, status: newStatus } : st
@@ -151,7 +151,7 @@ export function TaskSubtasks({ taskId, members, onSubtaskChange }: TaskSubtasksP
     }
   };
 
-  const completedCount = subtasks.filter((st) => st.status === TaskStatus.COMPLETED).length;
+  const completedCount = subtasks.filter((st) => st.status === "COMPLETED").length;
   const totalCount = subtasks.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
@@ -178,7 +178,7 @@ export function TaskSubtasks({ taskId, members, onSubtaskChange }: TaskSubtasksP
       {/* Lista podzadań */}
       <div className="space-y-1">
         {subtasks.map((subtask) => {
-          const isCompleted = subtask.status === TaskStatus.COMPLETED;
+          const isCompleted = subtask.status === "COMPLETED";
           return (
             <div
               key={subtask.id}

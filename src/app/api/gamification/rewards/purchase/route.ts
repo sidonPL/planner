@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
+type RewardEffectData = {
+  duration?: number;
+  uses?: number;
+  themeId?: string;
+  titleId?: string;
+};
+
+function getDurationExpiry(effectData: unknown, now: Date): Date | null {
+  if (!effectData || typeof effectData !== 'object') return null;
+  const duration = (effectData as RewardEffectData).duration;
+  if (!duration || duration <= 0) return null;
+  return new Date(now.getTime() + duration * 1000);
+}
+
 async function resolveHouseholdId(userId: string, sessionHouseholdId?: string | null) {
   if (sessionHouseholdId) {
     return sessionHouseholdId;
@@ -102,6 +116,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Reward has expired' }, { status: 400 });
     }
 
+    const singlePurchaseCategories = new Set(['THEME', 'TITLE', 'AVATAR', 'BADGE']);
+    if (singlePurchaseCategories.has(reward.category)) {
+      const existingClaim = await prisma.claimedReward.findFirst({
+        where: {
+          userId: session.user.id,
+          rewardId: reward.id,
+        },
+        select: { id: true },
+      });
+
+      if (existingClaim) {
+        return NextResponse.json(
+          { error: 'Ta nagroda została już kupiona' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Transaction: deduct XP, create claim, update stock
     const result = await prisma.$transaction(async (tx) => {
       // Deduct XP
@@ -113,8 +145,12 @@ export async function POST(request: NextRequest) {
       // Create claimed reward with new fields
       // Określ maxUses bazując na typie nagrody
       let maxUses: number | null = null;
+      const now = new Date();
+      const autoActivates = reward.category === 'THEME' || reward.category === 'TITLE' || reward.category === 'PERK';
+      const expiresAt = autoActivates ? getDurationExpiry(reward.effectData, now) : null;
+
       if (reward.effectData && typeof reward.effectData === 'object') {
-        const effectData = reward.effectData as any;
+        const effectData = reward.effectData as RewardEffectData;
         if (effectData.uses) {
           maxUses = effectData.uses;
         }
@@ -124,13 +160,60 @@ export async function POST(request: NextRequest) {
         data: {
           userId: session.user.id,
           rewardId: reward.id,
-          isActive: false, // Nie aktywuj automatycznie
+          isActive: autoActivates,
+          activatedAt: autoActivates ? now : null,
+          expiresAt,
+          fulfilled: autoActivates,
           maxUses,
         },
         include: {
           reward: true,
         },
       });
+
+      if (reward.category === 'THEME') {
+        await tx.claimedReward.updateMany({
+          where: {
+            userId: session.user.id,
+            isActive: true,
+            id: { not: claimedReward.id },
+            reward: { category: 'THEME' },
+          },
+          data: { isActive: false },
+        });
+
+        const themeId =
+          (reward.effectData && typeof reward.effectData === 'object'
+            ? (reward.effectData as RewardEffectData).themeId
+            : undefined) || reward.id;
+
+        await tx.user.update({
+          where: { id: session.user.id },
+          data: { activeTheme: themeId },
+        });
+      }
+
+      if (reward.category === 'TITLE') {
+        await tx.claimedReward.updateMany({
+          where: {
+            userId: session.user.id,
+            isActive: true,
+            id: { not: claimedReward.id },
+            reward: { category: 'TITLE' },
+          },
+          data: { isActive: false },
+        });
+
+        const titleId =
+          (reward.effectData && typeof reward.effectData === 'object'
+            ? (reward.effectData as RewardEffectData).titleId
+            : undefined) || reward.id;
+
+        await tx.user.update({
+          where: { id: session.user.id },
+          data: { activeTitle: titleId },
+        });
+      }
 
       // Update stock if limited
       if (reward.stock !== null) {
@@ -150,7 +233,10 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return claimedReward;
+      return {
+        ...claimedReward,
+        activatedAutomatically: autoActivates,
+      };
     });
 
     return NextResponse.json(result);

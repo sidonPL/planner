@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { AuditAction } from "@prisma/client";
+import type { AuditAction } from "@prisma/client";
 
 type AuditLogEntry = {
   id: string;

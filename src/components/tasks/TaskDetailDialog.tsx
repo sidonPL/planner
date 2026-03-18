@@ -32,7 +32,7 @@ import { TaskSubtasks } from "@/components/tasks/TaskSubtasks";
 import { TaskAttachments } from "@/components/tasks/TaskAttachments";
 import { TaskTimer } from "@/components/tasks/TaskTimer";
 import { toast } from "sonner";
-import { Task, Category, TaskStatus } from "@prisma/client";
+import type { Task, Category, TaskStatus } from "@prisma/client";
 import { cn } from "@/lib/utils";
 
 type TaskWithRelations = Task & {
@@ -181,7 +181,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, currentUserId, memb
 
   if (!task) return null;
 
-  const isCompleted = task.status === TaskStatus.COMPLETED;
+  const isCompleted = task.status === "COMPLETED";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

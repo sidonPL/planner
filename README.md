@@ -167,6 +167,40 @@ See `vercel.json` for cron configuration.
 
 ---
 
+## 🖥️ VPS Auto-Install (One Command)
+
+Masz gotowy instalator produkcyjny w `scripts/install-vps.sh`, ktory:
+- instaluje Node.js 20, PostgreSQL, Nginx, PM2, Certbot,
+- tworzy baze i uzytkownika PostgreSQL,
+- generuje `.env` / `.env.production` z sekretami,
+- odpala migracje Prisma i build,
+- konfiguruje Nginx + SSL dla domeny,
+- uruchamia aplikacje oraz crony przez PM2.
+
+Uruchom na czystym Ubuntu/Debian (jako root/sudo):
+
+```bash
+chmod +x scripts/install-vps.sh
+sudo ./scripts/install-vps.sh \
+  --domain planner.twojadomena.pl \
+  --email admin@twojadomena.pl \
+  --repo-url https://github.com/<twoj-login>/planner.git
+```
+
+Przy zewnetrznej bazie z certyfikatem CA (np. `secrets/ca.pem`) mozesz dodac:
+
+```bash
+sudo ./scripts/install-vps.sh \
+  --domain planner.twojadomena.pl \
+  --email admin@twojadomena.pl \
+  --repo-url https://github.com/<twoj-login>/planner.git \
+  --db-host <host-db> \
+  --db-ssl-mode require \
+  --db-ca-cert-path /opt/planner/secrets/ca.pem
+```
+
+---
+
 ## 🏗️ Tech Stack
 
 ### Frontend

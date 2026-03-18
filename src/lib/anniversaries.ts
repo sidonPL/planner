@@ -2,7 +2,7 @@
  * Helper do obsługi rocznic (śluby, zaręczyny, ważne wydarzenia)
  */
 
-import { Anniversary, AnniversaryType } from "@prisma/client";
+import type { Anniversary, AnniversaryType } from "@prisma/client";
 
 export interface AnniversaryWithYears extends Anniversary {
   yearsAgo: number; // Ile lat minęło od wydarzenia

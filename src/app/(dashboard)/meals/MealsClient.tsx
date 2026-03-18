@@ -56,7 +56,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Meal } from "@prisma/client";
+import type { Meal } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { SimpleDishManager } from "@/components/meals/SimpleDishManager";
 import { useFlyingXP } from "@/components/gamification/FlyingXP";
@@ -95,6 +95,34 @@ type SimpleDish = {
   householdId: string;
   createdAt: Date;
   updatedAt: Date;
+};
+
+type MealTemplate = {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  mealPattern: Array<{
+    mealType: string;
+  }>;
+};
+
+type NutritionMetrics = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+};
+
+type NutritionSummary = {
+  dailyAverage: NutritionMetrics;
+  recommendedDaily: NutritionMetrics;
+  progress: NutritionMetrics;
+  totals: NutritionMetrics;
+  insights: string[];
+  mealsWithNutrition: number;
+  mealsCount: number;
 };
 
 interface MealsClientProps {
@@ -331,13 +359,13 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
 
   // Templates
   const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<MealTemplate[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
 
   // Nutrition Summary
   const [isNutritionDialogOpen, setIsNutritionDialogOpen] = useState(false);
-  const [nutritionSummary, setNutritionSummary] = useState<any>(null);
+  const [nutritionSummary, setNutritionSummary] = useState<NutritionSummary | null>(null);
   const [isLoadingNutrition, setIsLoadingNutrition] = useState(false);
 
   // Dni tygodnia
@@ -1556,7 +1584,7 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
                     <CardContent className="pb-3">
                       <div className="text-xs text-muted-foreground">
                         <div className="flex flex-wrap gap-1">
-                          {Array.from(new Set(template.mealPattern.map((p: any) => {
+                          {Array.from(new Set(template.mealPattern.map((p: { mealType: string }) => {
                             const mealType = mealTypes.find(m => m.value === p.mealType);
                             return mealType?.emoji || '';
                           }))).filter(Boolean).map((emoji, i) => (

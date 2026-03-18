@@ -27,7 +27,7 @@ import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { LabelsManagerDialog } from "@/components/tasks/LabelsManagerDialog";
 import { TemplatesManagerDialog } from "@/components/tasks/TemplatesManagerDialog";
-import { Task, Category, RecurrenceType } from "@prisma/client";
+import type { Task, Category, RecurrenceType } from "@prisma/client";
 import { startOfDay, startOfTomorrow, endOfWeek, isSameDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
 
