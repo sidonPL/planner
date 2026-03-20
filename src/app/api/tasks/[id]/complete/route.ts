@@ -98,7 +98,7 @@ export async function PATCH(
         const now = new Date();
         
         // Pobierz istniejący streak
-        let streak = await prisma.routineStreak.findUnique({
+        const streak = await prisma.routineStreak.findUnique({
           where: {
             taskId_userId: {
               taskId: id,

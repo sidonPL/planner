@@ -26,22 +26,22 @@ export function RoutineStreakBadge({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadStreak = async () => {
+      try {
+        const response = await fetch(`/api/tasks/${taskId}/streak`);
+        if (response.ok) {
+          const data = await response.json();
+          setStreak(data);
+        }
+      } catch (error) {
+        console.error("Error loading streak:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadStreak();
   }, [taskId]);
-
-  const loadStreak = async () => {
-    try {
-      const response = await fetch(`/api/tasks/${taskId}/streak`);
-      if (response.ok) {
-        const data = await response.json();
-        setStreak(data);
-      }
-    } catch (error) {
-      console.error("Error loading streak:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading || !streak || streak.currentStreak === 0) {
     return null;

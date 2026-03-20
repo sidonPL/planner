@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState } from "react";
 import { Upload, X, Image as ImageIcon, Calendar, User, Heart, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -199,7 +201,7 @@ export function PhotoGallery({ tripId, photos, currentUserId, onPhotosChange }: 
             <div className="space-y-4">
               <img
                 src={selectedPhoto.url}
-                alt={selectedPhoto.caption || 'Zdjęcie'}
+                alt={selectedPhoto.caption || 'Podgląd zdjęcia z wyjazdu'}
                 className="w-full rounded-lg"
               />
               <div className="space-y-2">

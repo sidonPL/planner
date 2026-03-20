@@ -1,9 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Cloud, CloudRain, Sun, CloudSnow, Wind, Droplets } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Cloud, CloudRain, Sun, CloudSnow, Wind, Droplets, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+interface ForecastDay {
+  date: string;
+  dateIso?: string;
+  tempMin: number;
+  tempMax: number;
+  description: string;
+  icon: string;
+  humidity: number;
+}
 
 interface WeatherData {
   temp: number;
@@ -11,6 +22,20 @@ interface WeatherData {
   icon: string;
   humidity: number;
   windSpeed: number;
+  forecast?: ForecastDay[];
+}
+
+interface OneCallDailyItem {
+  dt: number;
+  temp: {
+    min: number;
+    max: number;
+  };
+  humidity: number;
+  weather?: Array<{
+    description?: string;
+    icon?: string;
+  }>;
 }
 
 interface WeatherWidgetProps {
@@ -23,6 +48,33 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [showForecast, setShowForecast] = useState(false);
+  const tripDurationDays = Math.max(
+    1,
+    Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+  );
+
+  const toLocalDateKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const tripDateKeys = useMemo(() => {
+    const keys: string[] = [];
+    const cursor = new Date(startDate);
+    const end = new Date(endDate);
+    cursor.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    while (cursor <= end) {
+      keys.push(toLocalDateKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return keys;
+  }, [startDate, endDate]);
 
   useEffect(() => {
     if (!destination) return;
@@ -49,15 +101,56 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
             icon: data.current.weather[0]?.icon || '01d',
             humidity: data.current.humidity,
             windSpeed: Math.round(data.current.wind_speed * 3.6), // m/s to km/h
+            forecast: Array.isArray(data.daily)
+              ? (data.daily as OneCallDailyItem[])
+                  .map((day) => {
+                    const dayDate = new Date(day.dt * 1000);
+                    return {
+                      date: dayDate.toLocaleDateString("pl-PL", {
+                        weekday: "short",
+                        day: "2-digit",
+                        month: "2-digit",
+                      }),
+                      dateIso: toLocalDateKey(dayDate),
+                      tempMin: Math.round(day.temp.min),
+                      tempMax: Math.round(day.temp.max),
+                      description: day.weather?.[0]?.description || "Brak danych",
+                      icon: day.weather?.[0]?.icon || "01d",
+                      humidity: day.humidity,
+                    };
+                  })
+                  .filter((day) => tripDateKeys.includes(day.dateIso!))
+                  .slice(0, tripDurationDays)
+                  .map((day) => ({
+                    date: day.date,
+                    dateIso: day.dateIso,
+                    tempMin: day.tempMin,
+                    tempMax: day.tempMax,
+                    description: day.description,
+                    icon: day.icon,
+                    humidity: day.humidity,
+                  }))
+              : undefined,
           });
         } else if (data.temperature !== undefined) {
           // Our custom format (from existing endpoint)
+          const mappedForecast: ForecastDay[] = Array.isArray(data.forecast)
+            ? (data.forecast as ForecastDay[])
+            : [];
+
+          const tripForecast = mappedForecast.filter((day) =>
+            day.dateIso ? tripDateKeys.includes(day.dateIso) : false
+          );
+
+          const fallbackForecast = mappedForecast.slice(0, tripDurationDays);
+
           setWeather({
             temp: data.temperature,
             description: data.description,
             icon: data.icon,
             humidity: data.humidity,
             windSpeed: data.windSpeed,
+            forecast: (tripForecast.length > 0 ? tripForecast : fallbackForecast).slice(0, tripDurationDays),
           });
         }
 
@@ -70,7 +163,7 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
     };
 
     fetchWeather();
-  }, [destination]);
+  }, [destination, tripDurationDays, tripDateKeys]);
 
   const getWeatherIcon = (iconCode: string) => {
     if (iconCode.startsWith("01")) return <Sun className="h-6 w-6 text-yellow-500" />;
@@ -107,7 +200,7 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
           Pogoda w {destination}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-3xl font-bold">{weather.temp}°C</span>
           <Badge variant="outline">{weather.description}</Badge>
@@ -122,6 +215,49 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
             <span>{weather.windSpeed} km/h</span>
           </div>
         </div>
+
+        {/* Prognoza */}
+        {weather.forecast && weather.forecast.length > 0 && (
+          <div className="pt-3 border-t space-y-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-between h-auto p-2"
+              onClick={() => setShowForecast(!showForecast)}
+            >
+              <span className="text-xs font-medium">Prognoza na kolejne dni</span>
+              {showForecast ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+
+            {showForecast && (
+              <div className="space-y-2">
+                {weather.forecast.map((day, index) => (
+                  <div key={index} className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-2 flex-1">
+                      {getWeatherIcon(day.icon)}
+                      <div className="min-w-fit">
+                        <p className="font-medium">{day.date}</p>
+                        <p className="text-muted-foreground capitalize">{day.description}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{day.tempMax}°C / {day.tempMin}°C</p>
+                      <p className="text-muted-foreground flex items-center gap-1 justify-end">
+                        <Droplets className="h-3 w-3" />
+                        {day.humidity}%
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="pt-2 border-t">
           <p className="text-xs text-muted-foreground">
             💡 Zabierz lekką kurtkę - możliwa mgła

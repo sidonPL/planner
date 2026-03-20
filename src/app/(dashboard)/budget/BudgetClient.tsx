@@ -121,9 +121,7 @@ const incomeCategories = [
 export function BudgetClient({
   transactions: initialTransactions,
   budgets: initialBudgets,
-  members,
   accounts,
-  currentUserId,
 }: BudgetClientProps) {
   const [transactions, setTransactions] = useState(initialTransactions);
   const [budgetsList, setBudgetsList] = useState(initialBudgets);
@@ -286,7 +284,7 @@ export function BudgetClient({
         });
         toast.success("Transakcja została dodana");
       }
-    } catch (error) {
+    } catch {
       toast.error("Nie udało się dodać transakcji");
     }
   };
@@ -335,7 +333,7 @@ export function BudgetClient({
         const error = await response.json();
         toast.error(error.error || "Nie udało się wykonać transferu");
       }
-    } catch (error) {
+    } catch {
       toast.error("Nie udało się wykonać transferu");
     }
   };
@@ -780,8 +778,6 @@ export function BudgetClient({
               1
             );
             const chartHeight = 200;
-            const chartWidth = 100; // procenty
-            const barWidth = chartWidth / chartData.length;
 
             return (
               <div className="space-y-4">

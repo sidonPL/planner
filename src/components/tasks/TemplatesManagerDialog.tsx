@@ -50,7 +50,6 @@ interface TemplatesManagerDialogProps {
 export function TemplatesManagerDialog({
   open,
   onOpenChange,
-  categories,
   members,
   onTemplateUsed,
 }: TemplatesManagerDialogProps) {

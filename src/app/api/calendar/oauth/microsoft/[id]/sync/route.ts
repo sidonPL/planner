@@ -8,6 +8,8 @@ import {
 } from "@/lib/microsoft-calendar";
 import { parseEventFilter, matchesEventFilter } from "@/lib/event-filter";
 
+type SyncedCalendarEvent = ReturnType<typeof convertMicrosoftEventToICalEvent>;
+
 // POST - Synchronizuj Microsoft Outlook Calendar
 export async function POST(
   request: NextRequest,
@@ -66,7 +68,7 @@ export async function POST(
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + 3);
 
-      const msEvents = await fetchMicrosoftCalendarEvents(
+      const msEvents: unknown[] = await fetchMicrosoftCalendarEvents(
         accessToken,
         integration.calendarId,
         startDate.toISOString(),
@@ -74,13 +76,27 @@ export async function POST(
       );
 
       // Konwertuj wydarzenia
-      let events = msEvents.map(convertMicrosoftEventToICalEvent);
+      let events: SyncedCalendarEvent[] = msEvents.map((msEvent) =>
+        convertMicrosoftEventToICalEvent(
+          msEvent as Parameters<typeof convertMicrosoftEventToICalEvent>[0]
+        )
+      );
 
       // Filtrowanie
       if (integration.eventFilter) {
         const filterConfig = parseEventFilter(integration.eventFilter);
         if (filterConfig) {
-          events = events.filter((event: any) => matchesEventFilter(event, filterConfig));
+          events = events.filter((event) =>
+            matchesEventFilter(
+              {
+                summary: event.summary,
+                description: event.description ?? undefined,
+                location: event.location ?? undefined,
+                categories: event.categories,
+              },
+              filterConfig
+            )
+          );
         }
       }
 
@@ -141,7 +157,7 @@ export async function POST(
       }
 
       // Usuń stare wydarzenia
-      const currentEventIds = events.map((e: any) => e.uid);
+      const currentEventIds = events.map((e) => e.uid);
       await prisma.calendarImportedEvent.deleteMany({
         where: {
           integrationId: integration.id,

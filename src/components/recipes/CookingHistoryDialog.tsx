@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { History, TrendingUp, Award, Calendar, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
+import Image from "next/image";
 
 interface CookingHistoryItem {
   id: string;
@@ -56,13 +57,7 @@ export function CookingHistoryDialog() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadHistory();
-    }
-  }, [isOpen, period]);
-
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await fetch(`/api/recipes/cooking-history?period=${period}&limit=20`);
@@ -76,7 +71,13 @@ export function CookingHistoryDialog() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [period]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadHistory();
+    }
+  }, [isOpen, loadHistory]);
 
   const formatDate = (date: string) => {
     const d = new Date(date);
@@ -247,10 +248,13 @@ export function CookingHistoryDialog() {
                         <div className="border rounded-lg p-3 hover:bg-accent transition-colors">
                           <div className="flex gap-3">
                             {item.recipe.image && (
-                              <img
+                              <Image
                                 src={item.recipe.image}
                                 alt={item.recipe.name}
+                                width={64}
+                                height={64}
                                 className="w-16 h-16 rounded object-cover flex-shrink-0"
+                                unoptimized
                               />
                             )}
                             <div className="flex-1 min-w-0">
@@ -274,7 +278,7 @@ export function CookingHistoryDialog() {
                               </div>
                               {item.comment && (
                                 <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                                  "{item.comment}"
+                                  &quot;{item.comment}&quot;
                                 </p>
                               )}
                             </div>

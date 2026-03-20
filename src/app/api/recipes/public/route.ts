@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { handleApiError } from "@/lib/api-error-handler";
+import { Prisma } from "@prisma/client";
 
 /**
  * GET /api/recipes/public
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    const where: any = {
+    const where: Prisma.RecipeWhereInput = {
       isPublic: true,
     };
 

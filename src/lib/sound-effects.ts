@@ -11,6 +11,10 @@ type SoundType =
   | 'streak-maintain'
   | 'confetti';
 
+type WindowWithWebkitAudio = Window & {
+  webkitAudioContext?: typeof AudioContext;
+};
+
 const sounds: Record<SoundType, string> = {
   'task-complete': '/sounds/task-complete.mp3',
   'achievement-unlock': '/sounds/achievement.mp3',
@@ -49,8 +53,11 @@ class SoundManager {
     if (typeof window === 'undefined') return;
 
     if (!this.audioContext) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const win = window as WindowWithWebkitAudio;
+      const AudioContextConstructor = window.AudioContext || win.webkitAudioContext;
+      if (AudioContextConstructor) {
+        this.audioContext = new AudioContextConstructor();
+      }
     }
   }
 

@@ -76,7 +76,6 @@ export function TripMealPlanning({
   tripStartDate,
   tripEndDate,
   members,
-  currentUserId: _currentUserId,
   foodBudget,
 }: TripMealPlanningProps) {
   const [meals, setMeals] = useState<TripMeal[]>([]);

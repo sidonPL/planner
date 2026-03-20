@@ -40,7 +40,7 @@ import { toast } from "sonner";
 import type { User as PrismaUser, UserSettings, Household } from "@prisma/client";
 import { CalendarIntegrationsManager } from "@/components/settings/CalendarIntegrationsManager";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { MapPin, RefreshCw, Volume } from "lucide-react";
+import { LocateFixed, MapPin, RefreshCw, Volume } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,9 +78,20 @@ interface SettingsClientProps {
 
 function WeatherSettingsCard({ userSettings }: { userSettings: UserSettings | null }) {
   const [weatherCity, setWeatherCity] = useState(userSettings?.weatherCity || "");
-  const [weatherApiKey, setWeatherApiKey] = useState(userSettings?.weatherApiKey || "");
+  const [weatherLocationMode, setWeatherLocationMode] = useState<"city" | "gps">(
+    ((userSettings as UserSettings & { weatherLocationMode?: string } | null)?.weatherLocationMode === "gps"
+      ? "gps"
+      : "city")
+  );
+  const [weatherLatitude, setWeatherLatitude] = useState<number | null>(
+    (userSettings as UserSettings & { weatherLatitude?: number | null } | null)?.weatherLatitude ?? null
+  );
+  const [weatherLongitude, setWeatherLongitude] = useState<number | null>(
+    (userSettings as UserSettings & { weatherLongitude?: number | null } | null)?.weatherLongitude ?? null
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isDetectingGps, setIsDetectingGps] = useState(false);
 
 
   const handleSave = async () => {
@@ -89,7 +100,13 @@ function WeatherSettingsCard({ userSettings }: { userSettings: UserSettings | nu
       const response = await fetch("/api/user/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weatherCity, weatherApiKey }),
+        body: JSON.stringify({
+          weatherCity,
+          weatherLocationMode,
+          weatherLatitude,
+          weatherLongitude,
+          weatherApiKey: null,
+        }),
       });
 
       if (response.ok) {
@@ -111,7 +128,13 @@ function WeatherSettingsCard({ userSettings }: { userSettings: UserSettings | nu
       await fetch("/api/user/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weatherCity, weatherApiKey }),
+        body: JSON.stringify({
+          weatherCity,
+          weatherLocationMode,
+          weatherLatitude,
+          weatherLongitude,
+          weatherApiKey: null,
+        }),
       });
 
       // Testuj pobieranie pogody
@@ -137,6 +160,34 @@ function WeatherSettingsCard({ userSettings }: { userSettings: UserSettings | nu
     }
   };
 
+  const handleDetectGps = async () => {
+    if (!("geolocation" in navigator)) {
+      toast.error("Ta przegladarka nie wspiera geolokalizacji");
+      return;
+    }
+
+    setIsDetectingGps(true);
+
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60_000,
+        });
+      });
+
+      setWeatherLatitude(position.coords.latitude);
+      setWeatherLongitude(position.coords.longitude);
+      setWeatherLocationMode("gps");
+      toast.success("Pobrano lokalizacje GPS");
+    } catch {
+      toast.error("Nie udalo sie pobrac lokalizacji GPS");
+    } finally {
+      setIsDetectingGps(false);
+    }
+  };
+
 
   return (
     <Card>
@@ -150,6 +201,28 @@ function WeatherSettingsCard({ userSettings }: { userSettings: UserSettings | nu
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Label>Źródło lokalizacji</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant={weatherLocationMode === "city" ? "default" : "outline"}
+              onClick={() => setWeatherLocationMode("city")}
+            >
+              <MapPin className="mr-2 h-4 w-4" />
+              Miasto
+            </Button>
+            <Button
+              type="button"
+              variant={weatherLocationMode === "gps" ? "default" : "outline"}
+              onClick={() => setWeatherLocationMode("gps")}
+            >
+              <LocateFixed className="mr-2 h-4 w-4" />
+              GPS
+            </Button>
+          </div>
+        </div>
+
         {/* Miasto */}
         <div className="space-y-2">
           <Label htmlFor="weatherCity" className="flex items-center gap-2">
@@ -161,33 +234,32 @@ function WeatherSettingsCard({ userSettings }: { userSettings: UserSettings | nu
             placeholder="np. Warsaw, Kraków, Gdańsk..."
             value={weatherCity}
             onChange={(e) => setWeatherCity(e.target.value)}
+            disabled={weatherLocationMode !== "city"}
           />
           <p className="text-xs text-muted-foreground">
             Wpisz nazwę miasta po angielsku lub polsku (np. Warsaw lub Warszawa)
           </p>
         </div>
 
-        {/* API Key */}
+        {/* GPS */}
         <div className="space-y-2">
-          <Label htmlFor="weatherApiKey">Klucz API OpenWeatherMap (opcjonalnie)</Label>
-          <Input
-            id="weatherApiKey"
-            type="password"
-            placeholder="Twój klucz API..."
-            value={weatherApiKey}
-            onChange={(e) => setWeatherApiKey(e.target.value)}
-          />
+          <Label className="flex items-center gap-2">
+            <LocateFixed className="h-4 w-4" />
+            Lokalizacja GPS
+          </Label>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={handleDetectGps} disabled={isDetectingGps}>
+              {isDetectingGps ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LocateFixed className="mr-2 h-4 w-4" />}
+              Pobierz lokalizacje
+            </Button>
+            {weatherLatitude !== null && weatherLongitude !== null && (
+              <Badge variant="secondary">
+                {weatherLatitude.toFixed(4)}, {weatherLongitude.toFixed(4)}
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
-            Bez klucza API będą wyświetlane dane demonstracyjne.
-            Zdobądź darmowy klucz na{" "}
-            <a
-              href="https://openweathermap.org/api"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              openweathermap.org
-            </a>
+            Nie musisz podawac klucza API w aplikacji - pogoda pobiera dane po stronie serwera.
           </p>
         </div>
 
@@ -207,7 +279,11 @@ function WeatherSettingsCard({ userSettings }: { userSettings: UserSettings | nu
         <Separator />
 
         <div className="flex justify-between">
-          <Button variant="outline" onClick={handleTest} disabled={!weatherCity}>
+          <Button
+            variant="outline"
+            onClick={handleTest}
+            disabled={weatherLocationMode === "city" ? !weatherCity : weatherLatitude === null || weatherLongitude === null}
+          >
             <RefreshCw className="mr-2 h-4 w-4" />
             Testuj połączenie
           </Button>
@@ -379,48 +455,50 @@ export function SettingsClient({ user, members, currentUserId }: SettingsClientP
       </Card>
 
       <Tabs defaultValue="notifications" className="space-y-4">
-        <TabsList className="grid grid-cols-4 lg:grid-cols-8 gap-2">
-          <TabsTrigger value="appearance" className="flex items-center gap-2">
+        <div className="w-full overflow-x-auto">
+          <TabsList className="inline-flex h-auto w-max min-w-full flex-nowrap justify-start gap-2 p-1">
+          <TabsTrigger value="appearance" className="flex-none items-center gap-2">
             <Palette className="h-4 w-4" />
             Wygląd
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
+          <TabsTrigger value="notifications" className="flex-none items-center gap-2">
             <Bell className="h-4 w-4" />
             Powiadomienia
           </TabsTrigger>
-          <TabsTrigger value="gamification" className="flex items-center gap-2">
+          <TabsTrigger value="gamification" className="flex-none items-center gap-2">
             <Zap className="h-4 w-4" />
             Gamifikacja
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
+          <TabsTrigger value="security" className="flex-none items-center gap-2">
             <Shield className="h-4 w-4" />
             Bezpieczeństwo
           </TabsTrigger>
-          <TabsTrigger value="dietary" className="flex items-center gap-2">
+          <TabsTrigger value="dietary" className="flex-none items-center gap-2">
             <UtensilsCrossed className="h-4 w-4" />
             Dieta
           </TabsTrigger>
-          <TabsTrigger value="household" className="flex items-center gap-2">
+          <TabsTrigger value="household" className="flex-none items-center gap-2">
             <Home className="h-4 w-4" />
             Gospodarstwo
           </TabsTrigger>
-          <TabsTrigger value="integrations" className="flex items-center gap-2">
+          <TabsTrigger value="integrations" className="flex-none items-center gap-2">
             <Calendar className="h-4 w-4" />
             Integracje
           </TabsTrigger>
-          <TabsTrigger value="weather" className="flex items-center gap-2">
+          <TabsTrigger value="weather" className="flex-none items-center gap-2">
             <Cloud className="h-4 w-4" />
             Pogoda
           </TabsTrigger>
-          <TabsTrigger value="pwa" className="flex items-center gap-2">
+          <TabsTrigger value="pwa" className="flex-none items-center gap-2">
             <Smartphone className="h-4 w-4" />
             PWA
           </TabsTrigger>
-          <TabsTrigger value="data" className="flex items-center gap-2">
+          <TabsTrigger value="data" className="flex-none items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             Dane
           </TabsTrigger>
         </TabsList>
+        </div>
 
         {/* Wygląd */}
         <TabsContent value="appearance">

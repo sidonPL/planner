@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mic, MicOff, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -64,43 +64,9 @@ export function VoiceCommands({ open, onOpenChange }: VoiceCommandsProps) {
   const router = useRouter();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
-  const [isSupported, setIsSupported] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        setIsSupported(true);
-        const recognitionInstance = new SpeechRecognition();
-        recognitionInstance.continuous = false;
-        recognitionInstance.interimResults = true;
-        recognitionInstance.lang = 'pl-PL';
-
-        recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
-          const current = event.resultIndex;
-          const transcriptText = event.results[current][0].transcript;
-          setTranscript(transcriptText);
-
-          if (event.results[current].isFinal) {
-            processCommand(transcriptText.toLowerCase());
-          }
-        };
-
-        recognitionInstance.onerror = (event: Event) => {
-          console.error('Speech recognition error:', event);
-          setIsListening(false);
-          toast.error('Błąd rozpoznawania mowy');
-        };
-
-        recognitionInstance.onend = () => {
-          setIsListening(false);
-        };
-
-        setRecognition(recognitionInstance);
-      }
-    };
-  }, []);
+  const [isSupported] = useState(
+    () => typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+  );
 
   const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
@@ -166,6 +132,50 @@ export function VoiceCommands({ open, onOpenChange }: VoiceCommandsProps) {
 
     setTranscript('');
   }, [router, onOpenChange, speak]);
+
+  const recognition = useMemo(() => {
+    if (!isSupported || typeof window === 'undefined') {
+      return null;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      return null;
+    }
+
+    const recognitionInstance = new SpeechRecognition();
+    recognitionInstance.continuous = false;
+    recognitionInstance.interimResults = true;
+    recognitionInstance.lang = 'pl-PL';
+
+    recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
+      const current = event.resultIndex;
+      const transcriptText = event.results[current][0].transcript;
+      setTranscript(transcriptText);
+
+      if (event.results[current].isFinal) {
+        processCommand(transcriptText.toLowerCase());
+      }
+    };
+
+    recognitionInstance.onerror = (event: Event) => {
+      console.error('Speech recognition error:', event);
+      setIsListening(false);
+      toast.error('Błąd rozpoznawania mowy');
+    };
+
+    recognitionInstance.onend = () => {
+      setIsListening(false);
+    };
+
+    return recognitionInstance;
+  }, [isSupported, processCommand]);
+
+  useEffect(() => {
+    return () => {
+      recognition?.abort();
+    };
+  }, [recognition]);
 
   const startListening = () => {
     if (recognition && !isListening) {
@@ -248,11 +258,11 @@ export function VoiceCommands({ open, onOpenChange }: VoiceCommandsProps) {
           <div className="space-y-2">
             <h4 className="font-semibold text-sm">Przykładowe komendy:</h4>
             <div className="space-y-1 text-sm text-muted-foreground">
-              <p>• "Otwórz zadania"</p>
-              <p>• "Pokaż przepisy"</p>
-              <p>• "Nowe zadanie"</p>
-              <p>• "Otwórz harmonogram"</p>
-              <p>• "Pomoc"</p>
+              <p>• &quot;Otwórz zadania&quot;</p>
+              <p>• &quot;Pokaż przepisy&quot;</p>
+              <p>• &quot;Nowe zadanie&quot;</p>
+              <p>• &quot;Otwórz harmonogram&quot;</p>
+              <p>• &quot;Pomoc&quot;</p>
             </div>
           </div>
 

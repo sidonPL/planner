@@ -21,7 +21,7 @@ export default function PrivacyPolicyPage() {
         </CardHeader>
         <CardContent className="prose prose-sm max-w-none dark:prose-invert">
           <p>
-            Family Planner ("my", "nas", "nasz") szanuje Twoją prywatność i zobowiązuje się do
+            Family Planner (&quot;my&quot;, &quot;nas&quot;, &quot;nasz&quot;) szanuje Twoją prywatność i zobowiązuje się do
             ochrony Twoich danych osobowych. Ta polityka prywatności opisuje, jak zbieramy,
             wykorzystujemy i chronimy Twoje informacje zgodnie z RODO (Rozporządzenie o Ochronie Danych Osobowych).
           </p>
@@ -144,7 +144,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div>
-              <h4 className="font-semibold mb-1">✅ Prawo do usunięcia ("prawo do bycia zapomnianym")</h4>
+              <h4 className="font-semibold mb-1">✅ Prawo do usunięcia (&quot;prawo do bycia zapomnianym&quot;)</h4>
               <p className="text-sm text-muted-foreground">
                 Możesz trwale usunąć swoje konto poprzez Ustawienia → Prywatność → Usuń konto.
                 Wszystkie Twoje dane zostaną nieodwracalnie usunięte.

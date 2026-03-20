@@ -126,12 +126,12 @@ export function PaymentReminders({ open, onOpenChange, categories }: PaymentRemi
     }
   };
 
-  const handleMarkAsPaid = async (_id: string) => {
+  const handleMarkAsPaid = async () => {
     // TODO: Implement mark as paid endpoint
     toast.success('Oznaczono jako opłacone');
   };
 
-  const handleDelete = async (_id: string) => {
+  const handleDelete = async () => {
     // TODO: Implement delete endpoint
     toast.success('Usunięto przypomnienie');
   };

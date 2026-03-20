@@ -150,6 +150,17 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
+    type SanitizableIngredientInput = {
+      name?: string;
+      unit?: string;
+    } & Record<string, unknown>;
+
+    type SanitizableStepInput = {
+      content?: string;
+      image?: string;
+      tip?: string;
+    } & Record<string, unknown>;
+
     // SECURITY: Sanityzacja przed walidacją
     const sanitizedBody = {
       ...body,
@@ -163,16 +174,16 @@ export async function POST(req: Request) {
       videoUrl: sanitizeURL(body.videoUrl),
       tags: sanitizeArray(body.tags),
       allergens: sanitizeArray(body.allergens),
-      ingredients: body.ingredients?.map((ing: any) => ({
+      ingredients: body.ingredients?.map((ing: SanitizableIngredientInput) => ({
         ...ing,
-        name: sanitizePlainText(ing.name),
-        unit: sanitizePlainText(ing.unit),
+        name: sanitizePlainText(typeof ing.name === "string" ? ing.name : ""),
+        unit: sanitizePlainText(typeof ing.unit === "string" ? ing.unit : ""),
       })),
-      steps: body.steps?.map((step: any) => ({
+      steps: body.steps?.map((step: SanitizableStepInput) => ({
         ...step,
-        content: sanitizeRichHTML(step.content),
-        image: sanitizeURL(step.image),
-        tip: sanitizeRichHTML(step.tip),
+        content: sanitizeRichHTML(typeof step.content === "string" ? step.content : ""),
+        image: sanitizeURL(typeof step.image === "string" ? step.image : null),
+        tip: sanitizeRichHTML(typeof step.tip === "string" ? step.tip : ""),
       })),
     };
 

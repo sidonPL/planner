@@ -34,7 +34,6 @@ interface Integration {
 export function CalendarIntegrationsManager() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState<string | null>(null);
 
   useEffect(() => {
     fetchIntegrations();
@@ -111,7 +110,7 @@ export function CalendarIntegrationsManager() {
     }
   };
 
-  const getTypeIcon = (type: string) => {
+  const getTypeIcon = () => {
     return <CalendarIcon className="h-5 w-5" />;
   };
 
@@ -176,7 +175,7 @@ export function CalendarIntegrationsManager() {
                 <div className="space-y-2">
                   <p className="font-medium">Brak aktywnych integracji</p>
                   <p className="text-sm">
-                    Przejdź do modułu <strong>Kalendarz</strong> i kliknij <strong>"Eksport i Synchronizacja"</strong> aby dodać integrację.
+                    Przejdź do modułu <strong>Kalendarz</strong> i kliknij <strong>&quot;Eksport i Synchronizacja&quot;</strong> aby dodać integrację.
                   </p>
                 </div>
               </AlertDescription>
@@ -189,7 +188,7 @@ export function CalendarIntegrationsManager() {
                     <div className="flex items-start gap-4">
                       {/* Ikona */}
                       <div className="flex-shrink-0 mt-1">
-                        {getTypeIcon(integration.type)}
+                        {getTypeIcon()}
                       </div>
 
                       {/* Informacje */}
@@ -263,8 +262,8 @@ export function CalendarIntegrationsManager() {
         <CardContent>
           <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
             <li>Przejdź do modułu <strong className="text-foreground">Kalendarz</strong></li>
-            <li>Kliknij przycisk <strong className="text-foreground">"Eksport i Synchronizacja"</strong></li>
-            <li>W sekcji "Automatyczna Synchronizacja" kliknij przycisk swojego kalendarza</li>
+            <li>Kliknij przycisk <strong className="text-foreground">&quot;Eksport i Synchronizacja&quot;</strong></li>
+            <li>W sekcji &quot;Automatyczna Synchronizacja&quot; kliknij przycisk swojego kalendarza</li>
             <li>Postępuj według instrukcji w aplikacji kalendarza</li>
             <li>Integracja pojawi się tutaj automatycznie</li>
           </ol>

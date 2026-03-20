@@ -17,7 +17,7 @@ async function main() {
     // 1. Uruchom migrację SQL
     console.log('📦 Running migration...');
     const migrationPath = resolve(__dirname, '../prisma/migrations/add_seasonal_leaderboards.sql');
-    const migration = readFileSync(migrationPath, 'utf-8');
+    void readFileSync(migrationPath, 'utf-8');
 
     // Możesz uruchomić przez Prisma CLI lub bezpośrednio przez psql
     console.log('Migration SQL loaded. Please run it manually using:');

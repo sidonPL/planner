@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { fetchICS, parseICS } from "@/lib/ical";
 
 // POST - Synchronizuj wszystkie aktywne subskrypcje
-export async function POST(request: NextRequest) {
+export async function POST(): Promise<NextResponse> {
   try {
     const session = await auth();
     if (!session?.user?.id) {

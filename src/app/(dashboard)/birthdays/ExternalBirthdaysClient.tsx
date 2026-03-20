@@ -47,6 +47,7 @@ interface ExternalBirthday {
   id: string;
   name: string;
   birthDate: Date;
+  nameDay?: string | null;
   relationship?: string | null;
   phone?: string | null;
   email?: string | null;
@@ -87,6 +88,10 @@ export function ExternalBirthdaysClient({
     birthday.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const filteredExternalNamedays = externalBirthdays.filter((birthday) =>
+    !!birthday.nameDay && birthday.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const filteredMembers = householdMembers.filter((member) =>
     (member.name || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -98,7 +103,9 @@ export function ExternalBirthdaysClient({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete");
+        const errorPayload = await response.json().catch(() => null);
+        toast.error(errorPayload?.error || "Nie udało się usunąć");
+        return;
       }
 
       toast.success("Urodziny usunięte");
@@ -224,7 +231,7 @@ export function ExternalBirthdaysClient({
           </TabsTrigger>
           <TabsTrigger value="namedays" className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
-            Imieniny ({householdMembers.filter(m => m.nameDay).length})
+            Imieniny ({householdMembers.filter(m => m.nameDay).length + externalBirthdays.filter(b => b.nameDay).length})
           </TabsTrigger>
         </TabsList>
 
@@ -496,7 +503,7 @@ export function ExternalBirthdaysClient({
 
         {/* Name Days Tab */}
         <TabsContent value="namedays" className="space-y-4">
-          {filteredMembers.filter(m => m.nameDay).length === 0 ? (
+          {filteredMembers.filter(m => m.nameDay).length === 0 && filteredExternalNamedays.length === 0 ? (
             <Card>
               <CardContent className="py-12">
                 <div className="text-center text-muted-foreground">
@@ -520,7 +527,7 @@ export function ExternalBirthdaysClient({
 
                   return (
                     <Card
-                      key={member.id}
+                      key={`member-${member.id}`}
                       className="hover:shadow-md transition-shadow"
                       style={{ borderLeft: `4px solid ${member.color}` }}
                     >
@@ -583,6 +590,76 @@ export function ExternalBirthdaysClient({
                     </Card>
                   );
                 })}
+
+              {filteredExternalNamedays.map((person) => {
+                const { date: nextNameDay, daysUntil } = getNextNameDay(person.nameDay || null);
+                const isToday = daysUntil === 0;
+                const isTomorrow = daysUntil === 1;
+                const isThisWeek = daysUntil <= 7;
+
+                return (
+                  <Card
+                    key={`external-${person.id}`}
+                    className="hover:shadow-md transition-shadow"
+                    style={{ borderLeft: `4px solid ${person.color}` }}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          className="h-12 w-12"
+                          style={{ backgroundColor: person.color }}
+                        >
+                          <AvatarFallback className="text-white text-lg">
+                            {person.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()
+                              .slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-base truncate">{person.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {person.relationship || "Znajomy"}
+                          </p>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Sparkles className="h-4 w-4" />
+                        <span>
+                          {!isNaN(nextNameDay.getTime())
+                            ? format(nextNameDay, "d MMMM", { locale: pl })
+                            : "Nieprawidlowa data"}
+                        </span>
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-accent/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Nastepne imieniny:</span>
+                          {daysUntil === 999 ? (
+                            <Badge variant="secondary">Brak daty</Badge>
+                          ) : isToday ? (
+                            <Badge className="bg-purple-500">✨ Dzis!</Badge>
+                          ) : isTomorrow ? (
+                            <Badge variant="secondary">Jutro</Badge>
+                          ) : isThisWeek ? (
+                            <Badge variant="outline">Za {daysUntil} dni</Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              {!isNaN(nextNameDay.getTime())
+                                ? format(nextNameDay, "d MMMM", { locale: pl })
+                                : "Brak daty"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>

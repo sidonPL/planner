@@ -28,6 +28,8 @@ import {
   Grid3X3,
   GripVertical,
   Download,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +54,7 @@ import { CalendarExport } from "@/components/calendar/CalendarExport";
 import { toast } from "sonner";
 import { generateBirthdayEventsForRange } from "@/lib/birthdays";
 import { getHolidaysForRange } from "@/lib/holidays";
+import { doesScheduleOccurOnDate } from "@/lib/schedule-occurrence";
 import {
   DndContext,
   DragEndEvent,
@@ -391,13 +394,16 @@ export function CalendarClient({
   externalBirthdays,
   anniversaries,
   importedEvents,
-  currentUserId,
+  currentUserId: _currentUserId,
 }: CalendarClientProps) {
+  void _currentUserId;
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<ViewType>("month");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isEventFormOpen, setIsEventFormOpen] = useState(false);
+  const [eventFormDate, setEventFormDate] = useState<Date | undefined>(undefined);
+  const [editingEvent, setEditingEvent] = useState<EventWithUser | null>(null);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
 
@@ -514,6 +520,46 @@ export function CalendarClient({
       toast.error("Wystąpił błąd");
     }
   }, []);
+
+  const openCreateEventDialog = useCallback((date?: Date) => {
+    setEditingEvent(null);
+    setEventFormDate(date);
+    setIsEventFormOpen(true);
+  }, []);
+
+  const handleEditSelectedEvent = useCallback(() => {
+    if (!selectedEvent || selectedEvent.type !== "event") return;
+    const rawEvent = selectedEvent.data as EventWithUser;
+    setSelectedEvent(null);
+    setEditingEvent(rawEvent);
+    setEventFormDate(new Date(rawEvent.startDate));
+    setIsEventFormOpen(true);
+  }, [selectedEvent]);
+
+  const handleDeleteSelectedEvent = useCallback(async () => {
+    if (!selectedEvent || selectedEvent.type !== "event") return;
+
+    const rawEvent = selectedEvent.data as EventWithUser;
+    const confirmed = window.confirm(`Czy na pewno chcesz usunąć wydarzenie "${rawEvent.title}"?`);
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/events/${rawEvent.id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        toast.success("Wydarzenie zostało usunięte");
+        setSelectedEvent(null);
+        window.location.reload();
+      } else {
+        toast.error("Nie udało się usunąć wydarzenia");
+      }
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      toast.error("Wystąpił błąd podczas usuwania");
+    }
+  }, [selectedEvent]);
 
   // Konwertuj wszystkie dane na zunifikowany format wydarzeń
   const calendarEvents = useMemo(() => {
@@ -718,33 +764,28 @@ export function CalendarClient({
     schedules.forEach((schedule) => {
       if (!schedule.isActive) return;
 
-      // Sprawdź czy to jednorazowe zajęcie
-      if (schedule.isOneTime && schedule.oneTimeDate) {
-        const oneTimeDate = new Date(schedule.oneTimeDate);
-        const oneTimeDateOnly = startOfDay(oneTimeDate);
+      const scheduleTypeIcons: Record<string, string> = {
+        WORK: "💼",
+        SCHOOL: "🎒",
+        UNIVERSITY: "🎓",
+        COURSE: "📚",
+        OTHER: "📅",
+      };
 
-        // Sprawdź czy data jednorazowego zajęcia mieści się w widocznym zakresie
-        if (oneTimeDateOnly >= viewStart && oneTimeDateOnly <= viewEnd) {
-          // Parsuj godziny
+      let day = viewStart;
+      while (day <= viewEnd) {
+        if (doesScheduleOccurOnDate(schedule, day)) {
           const [startHour, startMin] = schedule.startTime.split(":").map(Number);
           const [endHour, endMin] = schedule.endTime.split(":").map(Number);
 
-          const eventStart = new Date(oneTimeDateOnly);
+          const eventStart = new Date(day);
           eventStart.setHours(startHour, startMin, 0, 0);
 
-          const eventEnd = new Date(oneTimeDateOnly);
+          const eventEnd = new Date(day);
           eventEnd.setHours(endHour, endMin, 0, 0);
 
-          const scheduleTypeIcons: Record<string, string> = {
-            WORK: "💼",
-            SCHOOL: "🎒",
-            UNIVERSITY: "🎓",
-            COURSE: "📚",
-            OTHER: "📅",
-          };
-
           allEvents.push({
-            id: `schedule-${schedule.id}-${format(oneTimeDateOnly, "yyyy-MM-dd")}`,
+            id: `schedule-${schedule.id}-${format(day, "yyyy-MM-dd")}`,
             title: `${scheduleTypeIcons[schedule.type] || "📅"} ${schedule.name}`,
             start: eventStart,
             end: eventEnd,
@@ -753,55 +794,6 @@ export function CalendarClient({
             type: "schedule",
             data: schedule,
           });
-        }
-        // WAŻNE: Zakończ przetwarzanie tego harmonogramu (jednorazowe zajęcie)
-        return;
-      }
-
-      // UWAGA: Ten kod wykonuje się TYLKO dla cyklicznych harmonogramów (isOneTime === false)
-
-      // Dla cyklicznych harmonogramów - iteruj przez każdy dzień w widocznym zakresie
-      let day = viewStart;
-      while (day <= viewEnd) {
-        const dayOfWeek = day.getDay(); // 0 = niedziela, 1 = poniedziałek, etc.
-
-        // Sprawdź czy harmonogram obowiązuje w tym dniu tygodnia
-        if (schedule.dayOfWeek.includes(dayOfWeek)) {
-          // Sprawdź czy nie ma wyjątku na ten dzień
-          const hasException = schedule.exceptions?.some(
-            (exc) => isSameDay(new Date(exc.date), day)
-          );
-
-          if (!hasException) {
-            // Parsuj godziny
-            const [startHour, startMin] = schedule.startTime.split(":").map(Number);
-            const [endHour, endMin] = schedule.endTime.split(":").map(Number);
-
-            const eventStart = new Date(day);
-            eventStart.setHours(startHour, startMin, 0, 0);
-
-            const eventEnd = new Date(day);
-            eventEnd.setHours(endHour, endMin, 0, 0);
-
-            const scheduleTypeIcons: Record<string, string> = {
-              WORK: "💼",
-              SCHOOL: "🎒",
-              UNIVERSITY: "🎓",
-              COURSE: "📚",
-              OTHER: "📅",
-            };
-
-            allEvents.push({
-              id: `schedule-${schedule.id}-${format(day, "yyyy-MM-dd")}`,
-              title: `${scheduleTypeIcons[schedule.type] || "📅"} ${schedule.name}`,
-              start: eventStart,
-              end: eventEnd,
-              allDay: false,
-              color: schedule.color || schedule.user.color || "#6366F1",
-              type: "schedule",
-              data: schedule,
-            });
-          }
         }
         day = addDays(day, 1);
       }
@@ -1038,7 +1030,7 @@ export function CalendarClient({
               <Download className="mr-2 h-4 w-4" />
               Eksport i Synchronizacja
             </Button>
-            <Button onClick={() => setIsEventFormOpen(true)}>
+            <Button onClick={() => openCreateEventDialog()}>
               <Plus className="mr-2 h-4 w-4" />
               Nowe wydarzenie
             </Button>
@@ -1164,8 +1156,9 @@ export function CalendarClient({
           <Button
             className="w-full mt-2"
             onClick={() => {
+              const day = selectedDate ?? undefined;
               setSelectedDate(null);
-              setIsEventFormOpen(true);
+              openCreateEventDialog(day);
             }}
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -1233,6 +1226,18 @@ export function CalendarClient({
                   <strong>Typ posiłku:</strong> {mealTypeLabels[(selectedEvent.data as MealWithRecipe).mealType]}
                 </div>
               )}
+              {selectedEvent.type === "event" && (
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" onClick={handleEditSelectedEvent}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edytuj
+                  </Button>
+                  <Button variant="destructive" onClick={handleDeleteSelectedEvent}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Usuń
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -1241,9 +1246,16 @@ export function CalendarClient({
       {/* Formularz nowego wydarzenia */}
       <EventFormDialog
         open={isEventFormOpen}
-        onOpenChange={setIsEventFormOpen}
+        onOpenChange={(open) => {
+          setIsEventFormOpen(open);
+          if (!open) {
+            setEditingEvent(null);
+            setEventFormDate(undefined);
+          }
+        }}
         members={members}
-        defaultDate={selectedDate || undefined}
+        defaultDate={eventFormDate}
+        event={editingEvent || undefined}
       />
 
       {/* Drag Overlay - podgląd przeciąganego elementu */}

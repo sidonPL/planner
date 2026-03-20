@@ -115,10 +115,14 @@ const recipeWizardSchema = z.object({
 
 export type RecipeWizardFormData = z.infer<typeof recipeWizardSchema>;
 
+type RecipeDataWithInstructions = RecipeData & {
+  instructions?: string | null;
+};
+
 interface RecipeWizardDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  recipe?: RecipeData | null;
+  recipe?: RecipeDataWithInstructions | null;
   onRecipeCreated: (recipe: RecipeData) => void;
   onRecipeUpdated: (recipe: RecipeData) => void;
 }
@@ -188,7 +192,7 @@ export function RecipeWizardDialog({
         isOptional: step.isOptional || false,
         ingredientIds: [],
       })) || [{ content: "", duration: null, image: null, temperature: null, tip: "", isOptional: false, ingredientIds: [] }],
-      instructions: (recipe as any)?.instructions || null,
+      instructions: recipe?.instructions || null,
     },
   });
 
@@ -239,7 +243,7 @@ export function RecipeWizardDialog({
           isOptional: step.isOptional || false,
           ingredientIds: [],
         })) || [{ content: "", duration: null, image: null, temperature: null, tip: "", isOptional: false, ingredientIds: [] }],
-        instructions: (recipe as any)?.instructions || null,
+        instructions: recipe?.instructions || null,
       });
     }
   }, [recipe, form]);

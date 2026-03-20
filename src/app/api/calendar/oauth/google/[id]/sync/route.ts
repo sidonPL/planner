@@ -84,7 +84,17 @@ export async function POST(
       if (integration.eventFilter) {
         const filterConfig = parseEventFilter(integration.eventFilter);
         if (filterConfig) {
-          events = events.filter((event) => matchesEventFilter(event, filterConfig));
+          events = events.filter((event) =>
+            matchesEventFilter(
+              {
+                summary: event.summary,
+                description: event.description ?? undefined,
+                location: event.location ?? undefined,
+                categories: event.categories,
+              },
+              filterConfig
+            )
+          );
         }
       }
 

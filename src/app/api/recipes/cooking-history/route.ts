@@ -3,6 +3,12 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { handleApiError } from "@/lib/api-error-handler";
 
+type CookingHistoryRecipe = {
+  id: string;
+  name: string;
+  category: string | null;
+};
+
 /**
  * GET /api/recipes/cooking-history
  *
@@ -89,7 +95,7 @@ export async function GET(req: NextRequest) {
     const totalCooked = allTimeHistory.length;
 
     // Most cooked recipes
-    const recipeCount: Record<string, { recipe: any; count: number }> = {};
+    const recipeCount: Record<string, { recipe: CookingHistoryRecipe; count: number }> = {};
     allTimeHistory.forEach((rating) => {
       const recipeId = rating.recipe.id;
       if (!recipeCount[recipeId]) {

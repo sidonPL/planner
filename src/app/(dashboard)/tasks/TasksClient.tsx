@@ -18,7 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { TaskCardCompact } from "@/components/tasks/TaskCardCompact";
 import { TaskQuickFilters, QuickFilterType } from "@/components/tasks/TaskQuickFilters";

@@ -3,7 +3,6 @@
  */
 
 import { toast } from 'sonner';
-import { calculateAchievementProgress } from './achievements';
 
 interface AchievementProgressInfo {
   id: string;
@@ -65,8 +64,7 @@ export async function checkAndNotifyAchievementProgress(
  */
 export async function notifyProgressForCategory(
   userId: string,
-  category: string,
-  actionName: string
+  category: string
 ): Promise<void> {
   const requirementTypeMap: Record<string, string[]> = {
     TASKS: ['TASKS_COMPLETED'],

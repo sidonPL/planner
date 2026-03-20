@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateRoutineInstances } from "@/lib/recurrence";
 
+type RoutineTaskInput = Parameters<typeof generateRoutineInstances>[0];
+
 /**
  * GET - Codzienny cron do generowania instancji rutyn
  * Sprawdza wszystkie rutyny i generuje brakujące instancje na miesiąc do przodu
@@ -58,7 +60,7 @@ export async function GET(req: Request) {
 
     for (const routine of routines) {
       try {
-        const instances = await generateRoutineInstances(routine as any);
+        const instances = await generateRoutineInstances(routine as RoutineTaskInput);
 
         if (instances.length > 0) {
           console.log(`[Daily Routine Generator] Created ${instances.length} instances for "${routine.title}"`);

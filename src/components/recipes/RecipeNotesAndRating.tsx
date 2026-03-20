@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Star, MessageSquare, Calendar, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,13 +29,7 @@ export function RecipeNotesAndRating({ recipeId }: RecipeNotesAndRatingProps) {
   const [lastCooked, setLastCooked] = useState<Date | null>(null);
   const [isSavingRating, setIsSavingRating] = useState(false);
 
-  // Load note and rating
-  useEffect(() => {
-    loadNote();
-    loadRating();
-  }, [recipeId]);
-
-  const loadNote = async () => {
+  const loadNote = useCallback(async () => {
     try {
       const response = await fetch(`/api/recipes/${recipeId}/note`);
       if (response.ok) {
@@ -48,9 +42,9 @@ export function RecipeNotesAndRating({ recipeId }: RecipeNotesAndRatingProps) {
     } catch (error) {
       console.error("Error loading note:", error);
     }
-  };
+  }, [recipeId]);
 
-  const loadRating = async () => {
+  const loadRating = useCallback(async () => {
     try {
       const response = await fetch(`/api/recipes/${recipeId}/rating`);
       if (response.ok) {
@@ -66,7 +60,13 @@ export function RecipeNotesAndRating({ recipeId }: RecipeNotesAndRatingProps) {
     } catch (error) {
       console.error("Error loading rating:", error);
     }
-  };
+  }, [recipeId]);
+
+  // Load note and rating
+  useEffect(() => {
+    loadNote();
+    loadRating();
+  }, [recipeId, loadNote, loadRating]);
 
   const saveNote = async () => {
     if (note.trim() === originalNote.trim()) {

@@ -94,30 +94,38 @@ export function usePrefetch<T>(
   shouldPrefetch = true
 ) {
   const [data, setData] = useState<T | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(shouldPrefetch);
 
   useEffect(() => {
     if (!shouldPrefetch) return;
 
     let cancelled = false;
-    setIsLoading(true);
+    const prefetch = async () => {
+      // Ustawienie loading po mikrotasku omija synchroniczny setState w body efektu.
+      await Promise.resolve();
+      if (!cancelled) {
+        setIsLoading(true);
+      }
 
-    fetchFn()
-      .then((result) => {
-        if (!cancelled) {
-          setData(result);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      });
+      fetchFn()
+        .then((result) => {
+          if (!cancelled) {
+            setData(result);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+        });
+    };
+
+    void prefetch();
 
     return () => {
       cancelled = true;
     };
-  }, [shouldPrefetch]);
+  }, [shouldPrefetch, fetchFn]);
 
   return { data, isLoading };
 }

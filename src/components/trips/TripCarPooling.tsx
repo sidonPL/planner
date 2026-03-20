@@ -48,23 +48,23 @@ export function TripCarPooling({ tripId, members, currentUserId }: TripCarPoolin
     notes: "",
   });
 
-  // Pobierz car pools
-  const fetchCarPools = async () => {
-    try {
-      const response = await fetch(`/api/trips/${tripId}/car-pools`);
-      if (response.ok) {
-        const data = await response.json();
-        setCarPools(data);
-      }
-    } catch (error) {
-      console.error("Error fetching car pools:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchCarPools();
+    const loadCarPools = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/trips/${tripId}/car-pools`);
+        if (response.ok) {
+          const data = await response.json();
+          setCarPools(data);
+        }
+      } catch (error) {
+        console.error("Error fetching car pools:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCarPools();
   }, [tripId]);
 
   const handleAddCarPool = async () => {

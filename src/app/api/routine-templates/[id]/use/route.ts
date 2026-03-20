@@ -3,6 +3,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { generateRoutineInstances } from "@/lib/recurrence";
+import { Priority, RecurrenceType } from "@prisma/client";
+
+const ALLOWED_PRIORITIES = new Set<Priority>(["LOW", "MEDIUM", "HIGH", "URGENT"]);
+
+function normalizePriority(priority: string): Priority {
+  return ALLOWED_PRIORITIES.has(priority as Priority) ? (priority as Priority) : "MEDIUM";
+}
 
 // POST - użyj szablonu (utwórz zadania z szablonu)
 export async function POST(
@@ -46,13 +53,17 @@ export async function POST(
         return prisma.task.create({
           data: {
             title: taskData.title,
-            priority: taskData.priority as any,
+            priority: normalizePriority(taskData.priority),
             dueTime: taskData.time,
             dueDate: startDate ? new Date(startDate) : null,
             isRecurring: true,
-            recurrenceType: template.category === 'daily' ? 'DAILY' : 
-                           template.category === 'weekly' ? 'WEEKLY' :
-                           template.category === 'monthly' ? 'MONTHLY' : 'DAILY',
+            recurrenceType: template.category === 'daily'
+              ? RecurrenceType.DAILY
+              : template.category === 'weekly'
+                ? RecurrenceType.WEEKLY
+                : template.category === 'monthly'
+                  ? RecurrenceType.MONTHLY
+                  : RecurrenceType.DAILY,
             recurrenceInterval: 1,
             categoryId: categoryId || null,
             assigneeId: assigneeId || null,

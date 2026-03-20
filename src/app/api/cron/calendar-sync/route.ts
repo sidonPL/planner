@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fetchICS, parseICS, filterEvents, mapColor } from "@/lib/ical";
+import { fetchICS, parseICS } from "@/lib/ical";
 
 // Endpoint dla cron job - synchronizacja wszystkich aktywnych subskrypcji
 export async function GET() {

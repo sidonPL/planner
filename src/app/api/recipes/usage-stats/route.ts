@@ -2,6 +2,21 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
+type RecipeUsageAggregate = {
+  recipeId: string;
+  recipeName: string;
+  recipeImage: string | null;
+  count: number;
+  lastUsed: Date;
+};
+
+type IngredientUsageAggregate = {
+  name: string;
+  count: number;
+  totalQuantity: number;
+  unit: string | null;
+};
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
@@ -69,10 +84,10 @@ export async function GET(request: Request) {
         acc[key].lastUsed = usage.timestamp;
       }
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, RecipeUsageAggregate>);
 
     const popularRecipes = Object.values(recipeStats)
-      .sort((a: any, b: any) => b.count - a.count)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
     // Statystyki najpopularniejszych składników
@@ -89,10 +104,10 @@ export async function GET(request: Request) {
       acc[key].count++;
       acc[key].totalQuantity += usage.quantityUsed;
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, IngredientUsageAggregate>);
 
     const popularIngredients = Object.values(ingredientStats)
-      .sort((a: any, b: any) => b.count - a.count)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
     // Statystyki czasowe (użycie per dzień)

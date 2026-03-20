@@ -87,8 +87,9 @@ export function ManualProductDialog({ open, onOpenChange, barcode, onSuccess }: 
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Błąd podczas dodawania produktu");
+        const errorData = (await response.json()) as { error?: string };
+        toast.error(errorData.error || "Błąd podczas dodawania produktu");
+        return;
       }
 
       toast.success(`Dodano ${name} do inwentarza`);
@@ -108,9 +109,9 @@ export function ManualProductDialog({ open, onOpenChange, barcode, onSuccess }: 
       if (onSuccess) {
         onSuccess();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error adding product:", error);
-      toast.error(error.message || "Nie udało się dodać produktu");
+      toast.error(error instanceof Error ? error.message : "Nie udało się dodać produktu");
     } finally {
       setLoading(false);
     }

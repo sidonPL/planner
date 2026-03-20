@@ -32,6 +32,14 @@ interface InventoryStats {
   }>;
 }
 
+type ApiExpiringItem = Omit<InventoryStats['expiringItems'][number], 'expiryDate'> & {
+  expiryDate: string | Date;
+};
+
+type ApiInventoryStats = Omit<InventoryStats, 'expiringItems'> & {
+  expiringItems: ApiExpiringItem[];
+};
+
 export function AdminInventoryClient() {
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,10 +52,10 @@ export function AdminInventoryClient() {
     try {
       const response = await fetch('/api/admin/inventory/stats');
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { stats: ApiInventoryStats };
         setStats({
           ...data.stats,
-          expiringItems: data.stats.expiringItems.map((item: any) => ({
+          expiringItems: data.stats.expiringItems.map((item) => ({
             ...item,
             expiryDate: new Date(item.expiryDate),
           })),

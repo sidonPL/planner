@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState } from "react";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -621,7 +623,7 @@ export function TripWishlistClient({
                     <div className="relative w-full h-40 rounded-lg overflow-hidden border">
                       <img
                         src={formData.imageUrl}
-                        alt="Preview"
+                        alt="Podgląd zdjęcia miejsca"
                         className="w-full h-full object-cover"
                       />
                       <Button

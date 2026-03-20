@@ -18,7 +18,7 @@ import {
   Check,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge as BadgeUI } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -37,13 +37,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Badge, UserBadge } from "@prisma/client";
 import { LevelProgressCard } from "@/components/gamification/LevelProgressCard";
-import { PointsHistoryCard } from "@/components/gamification/PointsHistoryCard";
 import { StreakCalendarCard } from "@/components/gamification/StreakCalendarCard";
 import { DailyQuestsCard } from "@/components/gamification/DailyQuestsCard";
-import { AchievementsCard } from "@/components/gamification/AchievementsCard";
 import { StatCard } from "@/components/gamification/StatCard";
 import { RecentAchievementsCard } from "@/components/gamification/RecentAchievementsCard";
-import { AchievementTipsCard } from "@/components/gamification/AchievementTipsCard";
 import { WeeklyChallenges } from "@/components/gamification/WeeklyChallenges";
 import { TodayProgressCard } from "@/components/gamification/TodayProgressCard";
 import { AchievementShowcase } from "@/components/gamification/AchievementShowcase";
@@ -105,12 +102,6 @@ const badgeIcons: Record<string, React.ElementType> = {
   award: Award,
 };
 
-// Kolory dla pozycji w rankingu
-const rankColors = [
-  "bg-yellow-500", // 1st - złoto
-  "bg-gray-400",   // 2nd - srebro
-  "bg-amber-600",  // 3rd - brąz
-];
 
 export function GamificationClient({
   members,

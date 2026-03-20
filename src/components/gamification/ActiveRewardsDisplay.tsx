@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Zap, Sparkles, Palette, Crown } from 'lucide-react';
@@ -27,7 +27,7 @@ export function ActiveRewardsDisplay({ className }: ActiveRewardsDisplayProps) {
     expiresAt: string | null;
   } | null>(null);
 
-  const fetchActiveRewards = async () => {
+  const fetchActiveRewards = useCallback(async () => {
     try {
       const res = await fetch('/api/gamification/active-rewards');
       if (res.ok) {
@@ -47,17 +47,23 @@ export function ActiveRewardsDisplay({ className }: ActiveRewardsDisplayProps) {
     } catch (error) {
       console.error('Error fetching active rewards:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    fetchActiveRewards();
+    const refresh = () => {
+      void fetchActiveRewards();
+    };
+
+    const timeout = setTimeout(refresh, 0);
     const interval = setInterval(() => {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      fetchActiveRewards();
+      refresh();
     }, 60000); // Refresh co minutę
-    return () => clearInterval(interval);
-  }, []);
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [fetchActiveRewards]);
 
   const formatTimeRemaining = (expiresAt: string) => {
     const now = new Date();

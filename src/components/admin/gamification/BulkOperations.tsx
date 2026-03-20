@@ -35,7 +35,7 @@ export function BulkOperations() {
       } else {
         toast.error('Błąd przyznawania XP');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     } finally {
       setProcessing(false);
@@ -56,7 +56,7 @@ export function BulkOperations() {
       } else {
         toast.error('Błąd resetowania');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     } finally {
       setProcessing(false);

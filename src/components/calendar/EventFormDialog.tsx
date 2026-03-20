@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -67,7 +67,17 @@ interface EventFormDialogProps {
   onOpenChange: (open: boolean) => void;
   members: Member[];
   defaultDate?: Date;
-  event?: any;
+  event?: {
+    id: string;
+    title: string;
+    description?: string | null;
+    startDate: Date | string;
+    endDate?: Date | string | null;
+    allDay: boolean;
+    color?: string | null;
+    type: string;
+    location?: string | null;
+  };
 }
 
 const eventColors = [
@@ -92,51 +102,98 @@ const eventTypes = [
 export function EventFormDialog({
   open,
   onOpenChange,
-  members,
+  members: _members,
   defaultDate,
   event,
 }: EventFormDialogProps) {
+  void _members;
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const buildDefaultValues = useCallback((): EventFormData => {
+    const eventStartDate = event?.startDate ? new Date(event.startDate) : undefined;
+    const eventEndDate = event?.endDate ? new Date(event.endDate) : undefined;
+
+    const supportedTypeValues = new Set(eventTypes.map((type) => type.value));
+    const normalizedType = event?.type && supportedTypeValues.has(event.type)
+      ? (event.type as EventFormData["type"])
+      : "GENERAL";
+
+    return {
+      title: event?.title || "",
+      description: event?.description || "",
+      startDate: eventStartDate || defaultDate || new Date(),
+      endDate: eventEndDate,
+      startTime: eventStartDate && !event?.allDay ? format(eventStartDate, "HH:mm") : "",
+      endTime: eventEndDate && !event?.allDay ? format(eventEndDate, "HH:mm") : "",
+      allDay: event?.allDay ?? true,
+      color: event?.color || "#3B82F6",
+      type: normalizedType,
+      location: event?.location || "",
+    };
+  }, [event, defaultDate]);
 
   const form = useForm<EventFormData>({
     resolver: zodResolver(eventFormSchema),
-    defaultValues: {
-      title: event?.title || "",
-      description: event?.description || "",
-      startDate: event?.startDate ? new Date(event.startDate) : defaultDate || new Date(),
-      endDate: event?.endDate ? new Date(event.endDate) : undefined,
-      startTime: event?.startTime || "",
-      endTime: event?.endTime || "",
-      allDay: event?.allDay ?? true,
-      color: event?.color || "#3B82F6",
-      type: event?.type || "GENERAL",
-      location: event?.location || "",
-    },
+    defaultValues: buildDefaultValues(),
   });
+
+  useEffect(() => {
+    if (open) {
+      form.reset(buildDefaultValues());
+    }
+  }, [open, form, buildDefaultValues]);
 
   const isAllDay = form.watch("allDay");
 
   const onSubmit = async (data: EventFormData) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/events", {
-        method: "POST",
+      const startDateTime = new Date(data.startDate);
+      if (!data.allDay && data.startTime) {
+        const [hours, minutes] = data.startTime.split(":").map(Number);
+        startDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+      } else {
+        startDateTime.setHours(0, 0, 0, 0);
+      }
+
+      let endDateTime: Date | undefined;
+      if (data.endDate) {
+        endDateTime = new Date(data.endDate);
+        if (!data.allDay && data.endTime) {
+          const [hours, minutes] = data.endTime.split(":").map(Number);
+          endDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+        } else if (data.allDay) {
+          endDateTime.setHours(0, 0, 0, 0);
+        }
+      }
+
+      const isEditMode = Boolean(event?.id);
+      const payload = {
+        ...data,
+        startDate: startDateTime.toISOString(),
+        ...(endDateTime ? { endDate: endDateTime.toISOString() } : {}),
+      };
+
+      const response = await fetch(isEditMode ? `/api/events/${event!.id}` : "/api/events", {
+        method: isEditMode ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          startDate: data.startDate.toISOString(),
-          endDate: data.endDate?.toISOString(),
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
-        toast.success("Wydarzenie zostało dodane");
+        toast.success(isEditMode ? "Wydarzenie zostało zaktualizowane" : "Wydarzenie zostało dodane");
         form.reset();
         onOpenChange(false);
         // Odśwież stronę aby zobaczyć nowe wydarzenie
         window.location.reload();
       } else {
-        toast.error("Nie udało się dodać wydarzenia");
+        const errorData = await response.json().catch(() => null);
+        const backendMessage = errorData?.error || errorData?.message;
+        if (backendMessage) {
+          toast.error(backendMessage);
+          return;
+        }
+        toast.error(isEditMode ? "Nie udało się zaktualizować wydarzenia" : "Nie udało się dodać wydarzenia");
       }
     } catch (error) {
       console.error("Error saving event:", error);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,15 @@ interface ProductData {
   category?: string;
   quantity?: string;
   imageUrl?: string;
-  nutrition?: any;
+  nutrition?: {
+    calories?: number;
+    protein?: number;
+    carbohydrates?: number;
+    fat?: number;
+    fiber?: number;
+    salt?: number;
+    sugar?: number;
+  };
   allergens?: string[];
   labels?: string[];
   nutriScore?: string;
@@ -57,11 +65,11 @@ export function AddToInventoryDialog({ open, onOpenChange, product, onSuccess }:
   const [productName, setProductName] = useState(product?.name || ""); // Edytowalna nazwa
 
   // Reset nazwy gdy zmienia się produkt
-  useState(() => {
+  useEffect(() => {
     if (product?.name) {
       setProductName(product.name);
     }
-  });
+  }, [product?.name]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,8 +105,9 @@ export function AddToInventoryDialog({ open, onOpenChange, product, onSuccess }:
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Błąd podczas dodawania produktu");
+        const errorData = await response.json() as { error?: string };
+        toast.error(errorData.error || "Błąd podczas dodawania produktu");
+        return;
       }
 
       const data = await response.json();
@@ -121,9 +130,10 @@ export function AddToInventoryDialog({ open, onOpenChange, product, onSuccess }:
       if (onSuccess) {
         onSuccess();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error adding to inventory:", error);
-      toast.error(error.message || "Nie udało się dodać produktu");
+      const errorMessage = error instanceof Error ? error.message : "Nie udało się dodać produktu";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

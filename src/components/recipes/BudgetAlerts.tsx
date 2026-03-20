@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,11 +28,7 @@ export function BudgetAlerts({ period = 30, className }: BudgetAlertsProps) {
   const [editingBudget, setEditingBudget] = useState(false);
   const [newBudget, setNewBudget] = useState("");
 
-  useEffect(() => {
-    fetchBudgetData();
-  }, [period]);
-
-  const fetchBudgetData = async () => {
+  const fetchBudgetData = useCallback(async () => {
     setLoading(true);
     try {
       // Pobierz aktualny budżet z localStorage lub API
@@ -70,7 +65,11 @@ export function BudgetAlerts({ period = 30, className }: BudgetAlertsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
+
+  useEffect(() => {
+    void fetchBudgetData();
+  }, [fetchBudgetData]);
 
   const handleSaveBudget = () => {
     const budgetValue = parseFloat(newBudget);

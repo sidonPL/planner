@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -36,7 +36,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import {
+  getNameDayDateByName,
+  getNameDayDateOptionsByName,
+  getNameDayNames,
+  isValidNameDayFormat,
+  normalizeNameDayInput,
+} from "@/lib/namedays-resolver";
 
 const formSchema = z.object({
   name: z.string().min(1, "Imię jest wymagane"),
@@ -47,6 +62,16 @@ const formSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email("Nieprawidłowy adres email").optional().or(z.literal("")),
   notes: z.string().optional(),
+  nameDay: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => {
+      if (!value) return true;
+      return /^\d{1,2}-\d{1,2}$/.test(value) || /\p{L}/u.test(value);
+    }, {
+      message: "Wpisz date DD-MM albo imie",
+    }),
   color: z.string().regex(/^#[0-9A-F]{6}$/i, "Nieprawidłowy kolor").optional(),
 });
 
@@ -62,6 +87,7 @@ interface ExternalBirthdayFormDialogProps {
     phone?: string | null;
     email?: string | null;
     notes?: string | null;
+    nameDay?: string | null;
     color: string;
   };
   onSuccess?: () => void;
@@ -75,6 +101,8 @@ export function ExternalBirthdayFormDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [autoHint, setAutoHint] = useState<string | null>(null);
+  const [preferFirstAuto, setPreferFirstAuto] = useState(true);
 
   const isEditing = !!externalBirthday;
 
@@ -87,9 +115,45 @@ export function ExternalBirthdayFormDialog({
       phone: externalBirthday?.phone || "",
       email: externalBirthday?.email || "",
       notes: externalBirthday?.notes || "",
+      nameDay: externalBirthday?.nameDay || "",
       color: externalBirthday?.color || "#EC4899",
     },
   });
+
+  const watchedName = form.watch("name");
+  const watchedNameDay = form.watch("nameDay");
+  const normalizedTypedNameDay = normalizeNameDayInput(watchedNameDay || "");
+  const optionsFromTypedName =
+    !normalizedTypedNameDay && watchedNameDay
+      ? getNameDayDateOptionsByName(watchedNameDay)
+      : [];
+  const optionsFromPersonName = getNameDayDateOptionsByName(watchedName || "");
+  const suggestionOptions = optionsFromTypedName.length > 0 ? optionsFromTypedName : optionsFromPersonName;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("namedays-prefer-first-auto");
+    if (stored === "false") {
+      setPreferFirstAuto(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("namedays-prefer-first-auto", String(preferFirstAuto));
+  }, [preferFirstAuto]);
+
+  useEffect(() => {
+    const suggestion = getNameDayDateByName(watchedName || "");
+    setAutoHint(suggestion);
+
+    // Auto-uzupelnij tylko przy tworzeniu rekordu i gdy pole jest puste.
+    // Przy wielu datach mozna wymusic reczny wybor przez przelacznik preferencji.
+    const canAutoSelect = suggestionOptions.length <= 1 || preferFirstAuto;
+    if (!isEditing && suggestion && !watchedNameDay && canAutoSelect) {
+      form.setValue("nameDay", suggestionOptions[0] || suggestion, { shouldValidate: true });
+    }
+  }, [watchedName, watchedNameDay, isEditing, form, suggestionOptions, preferFirstAuto]);
 
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
@@ -104,12 +168,15 @@ export function ExternalBirthdayFormDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
+          nameDay: normalizeNameDayInput(data.nameDay || "") || "",
           birthDate: data.birthDate.toISOString(),
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to save external birthday");
+        const errorPayload = await response.json().catch(() => null);
+        toast.error(errorPayload?.error || "Nie udało się zapisać urodzin");
+        return;
       }
 
       toast.success(
@@ -260,6 +327,66 @@ export function ExternalBirthdayFormDialog({
             />
 
             <FormField
+                  control={form.control}
+                  name="nameDay"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Imieniny (DD-MM lub imie)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="np. 24-06 albo Jan" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        {autoHint
+                          ? `Auto z imienia: ${autoHint}`
+                          : "Wpisz imie (dobierze automatycznie) albo date recznie"}
+                      </FormDescription>
+
+                      {suggestionOptions.length > 1 && (
+                        <div className="flex items-center justify-between rounded-md border p-3">
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-medium">Preferuj pierwsza date automatycznie</p>
+                            <p className="text-xs text-muted-foreground">
+                              Wylacz, aby zawsze recznie wybierac date przy wielu dopasowaniach
+                            </p>
+                          </div>
+                          <Switch checked={preferFirstAuto} onCheckedChange={setPreferFirstAuto} />
+                        </div>
+                      )}
+
+                      {suggestionOptions.length > 1 && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">
+                            Znaleziono kilka mozliwych dat - wybierz poprawna:
+                          </p>
+                          <Select
+                            value={isValidNameDayFormat(field.value || "") ? field.value : undefined}
+                            onValueChange={(value) => form.setValue("nameDay", value, { shouldValidate: true })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Wybierz date imienin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {suggestionOptions.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {isValidNameDayFormat(field.value || "") && (
+                        <p className="text-xs text-muted-foreground">
+                          Imiona tego dnia: {getNameDayNames(field.value as `${string}-${string}`).join(", ") || "-"}
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
               control={form.control}
               name="color"
               render={({ field }) => (

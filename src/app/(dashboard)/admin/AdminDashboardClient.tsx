@@ -34,7 +34,8 @@ interface AdminDashboardClientProps {
   userId: string;
 }
 
-export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
+export function AdminDashboardClient({ userId: _userId }: AdminDashboardClientProps) {
+  void _userId;
   // Fetch real-time stats z auto-refresh co 2 minuty
   const { data: stats, error, isLoading, mutate } = useSWR(
     '/api/admin/stats',

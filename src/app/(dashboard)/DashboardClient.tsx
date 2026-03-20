@@ -81,11 +81,24 @@ type ScheduleWithUser = {
   id: string;
   name: string;
   type: string;
+  isActive: boolean;
   dayOfWeek: number[];
   startTime: string;
   endTime: string;
   location: string | null;
   color: string | null;
+  isOneTime: boolean;
+  oneTimeDate: Date | null;
+  effectiveFrom: Date | null;
+  effectiveTo: Date | null;
+  recurrenceUnit: "WEEKLY" | "MONTHLY";
+  repeatEvery: number;
+  specificDates: Date[];
+  exceptions: {
+    id: string;
+    date: Date;
+    reason: string | null;
+  }[];
   user: { id: string; name: string | null; color: string };
 };
 
@@ -1191,6 +1204,7 @@ export function DashboardClient({
       upcomingAnniversariesData,
       financialAccounts,
       boardNotes,
+      user.id,
     ]
   );
 

@@ -31,11 +31,13 @@ async function makeAdmin() {
     console.log(`Role:  ${user.role}`);
     console.log('---');
     console.log('🎉 Możesz teraz wejść na /admin/gamification');
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
       console.error(`❌ Nie znaleziono użytkownika: ${email}`);
-    } else {
+    } else if (error instanceof Error) {
       console.error('❌ Błąd:', error.message);
+    } else {
+      console.error('❌ Błąd:', error);
     }
     process.exit(1);
   } finally {

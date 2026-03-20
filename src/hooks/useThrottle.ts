@@ -1,23 +1,24 @@
-import { useCallback } from "react";
+import { useCallback, useRef, useMemo } from "react";
 
 /**
  * Hook do throttle funkcji - ogranicza ilość wywołań
  * Przydatne dla scroll handlers, resize listeners
  */
-export function useThrottle<T extends (...args: any[]) => any>(
-  callback: T,
+export function useThrottle<TArgs extends readonly unknown[], TReturn>(
+  callback: (...args: TArgs) => TReturn,
   delay: number = 100
-): T {
-  let lastCall = 0;
+): (...args: TArgs) => TReturn | undefined {
+  const lastCallRef = useRef(0);
 
-  return useCallback((...args: Parameters<T>) => {
+  return useCallback((...args: TArgs) => {
     const now = Date.now();
 
-    if (now - lastCall >= delay) {
-      lastCall = now;
+    if (now - lastCallRef.current >= delay) {
+      lastCallRef.current = now;
       return callback(...args);
     }
-  }, [callback, delay]) as T;
+    return undefined;
+  }, [callback, delay]);
 }
 
 /**
@@ -27,7 +28,7 @@ export function useThrottle<T extends (...args: any[]) => any>(
 export function useRequestCache<T>(
   cacheTime: number = 5 * 60 * 1000 // 5 minut
 ) {
-  const cache = new Map<string, { data: T; timestamp: number }>();
+  const cache = useMemo(() => new Map<string, { data: T; timestamp: number }>(), []);
 
   const get = useCallback((key: string): T | null => {
     const cached = cache.get(key);

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import {
   Table,
   TableBody,
@@ -44,9 +43,22 @@ interface BackupInfo {
   createdAt: Date;
 }
 
+interface DatabaseStats {
+  size: string;
+  connections: number;
+}
+
+type ApiTableStats = Omit<TableStats, 'lastUpdate'> & {
+  lastUpdate: string | Date | null;
+};
+
+type ApiBackupInfo = Omit<BackupInfo, 'createdAt'> & {
+  createdAt: string | Date;
+};
+
 export function AdminDatabaseClient() {
   const [loading, setLoading] = useState(true);
-  const [dbStats, setDbStats] = useState<any>(null);
+  const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
   const [tables, setTables] = useState<TableStats[]>([]);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [backing, setBacking] = useState(false);
@@ -60,9 +72,9 @@ export function AdminDatabaseClient() {
     try {
       const response = await fetch('/api/admin/database/stats');
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { stats: DatabaseStats; tables: ApiTableStats[] };
         setDbStats(data.stats);
-        setTables(data.tables.map((t: any) => ({
+        setTables(data.tables.map((t) => ({
           ...t,
           lastUpdate: t.lastUpdate ? new Date(t.lastUpdate) : null,
         })));
@@ -78,8 +90,8 @@ export function AdminDatabaseClient() {
     try {
       const response = await fetch('/api/admin/database/backups');
       if (response.ok) {
-        const data = await response.json();
-        setBackups(data.backups.map((b: any) => ({
+        const data = await response.json() as { backups: ApiBackupInfo[] };
+        setBackups(data.backups.map((b) => ({
           ...b,
           createdAt: new Date(b.createdAt),
         })));
@@ -109,7 +121,7 @@ export function AdminDatabaseClient() {
       } else {
         toast.error('Błąd tworzenia backup');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     } finally {
       setBacking(false);
@@ -129,7 +141,7 @@ export function AdminDatabaseClient() {
       } else {
         toast.error('Błąd optymalizacji');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     }
   };
@@ -147,7 +159,7 @@ export function AdminDatabaseClient() {
       } else {
         toast.error('Błąd VACUUM');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     }
   };

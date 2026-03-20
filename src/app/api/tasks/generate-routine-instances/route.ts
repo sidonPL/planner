@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { generateRoutineInstances } from "@/lib/recurrence";
 
+type RoutineTaskInput = Parameters<typeof generateRoutineInstances>[0];
+
 /**
  * POST - Generuj instancje dla wszystkich rutyn w gospodarstwie
  * Przydatne do naprawy starych rutyn bez instancji
@@ -48,7 +50,7 @@ export async function POST() {
 
     for (const routine of routines) {
       try {
-        const instances = await generateRoutineInstances(routine as any);
+        const instances = await generateRoutineInstances(routine as RoutineTaskInput);
         results.push({
           routineId: routine.id,
           routineTitle: routine.title,

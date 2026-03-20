@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
 
 export async function DELETE(request: Request) {
   try {
@@ -36,7 +37,6 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const bcrypt = require('bcryptjs');
     const isValid = await bcrypt.compare(password, user.password);
 
     if (!isValid) {

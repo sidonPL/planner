@@ -107,7 +107,7 @@ export function useTimer(initialSeconds: number = 0, options: TimerOptions = {})
 export function useMultipleTimers() {
   const [timers, setTimers] = useState<Map<string, ReturnType<typeof useTimer>>>(new Map());
 
-  const createTimer = useCallback((id: string, seconds: number, options?: TimerOptions) => {
+  const createTimer = useCallback((id: string, seconds: number) => {
     // Note: This is simplified - in real app you'd need to properly manage timer state
     const timer = {
       seconds,

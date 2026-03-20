@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: Promise<{ id: string; checklistId: string; itemId: string }> }
+  { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
     const session = await auth();
@@ -12,7 +12,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id, checklistId, itemId } = await params;
+    const { id, itemId } = await params;
     const body = await req.json();
 
     // Verify trip belongs to user's household
@@ -45,7 +45,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ id: string; checklistId: string; itemId: string }> }
+  { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
     const session = await auth();
@@ -53,7 +53,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id, checklistId, itemId } = await params;
+    const { id, itemId } = await params;
 
     // Verify trip belongs to user's household
     const trip = await prisma.trip.findFirst({

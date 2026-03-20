@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Download, X, Smartphone, Zap, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -12,18 +12,16 @@ interface BeforeInstallPromptEvent extends Event {
 export function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+
+  // Sprawdź czy to iOS i czy aplikacja jest już zainstalowana
+  const { isIOS, isStandalone } = useMemo(() => {
+    if (typeof window === 'undefined') return { isIOS: false, isStandalone: false };
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const standalone = window.matchMedia('(display-mode: standalone)').matches;
+    return { isIOS: iOS, isStandalone: standalone };
+  }, []);
 
   useEffect(() => {
-    // Sprawdź czy to iOS
-    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    setIsIOS(iOS);
-
-    // Sprawdź czy aplikacja jest już zainstalowana (standalone mode)
-    const standalone = window.matchMedia('(display-mode: standalone)').matches;
-    setIsStandalone(standalone);
-
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -41,7 +39,7 @@ export function PWAInstallPrompt() {
       }
 
       // Nie pokazuj jeśli już zainstalowane
-      if (!standalone) {
+      if (!isStandalone) {
         setShowPrompt(true);
       }
     };
@@ -61,7 +59,7 @@ export function PWAInstallPrompt() {
     }
 
     // Dla iOS - pokaż instrukcje po pewnym czasie (jeśli nie standalone)
-    if (iOS && !standalone) {
+    if (isIOS && !isStandalone) {
       const dismissed = localStorage.getItem('pwa-install-dismissed');
       if (!dismissed) {
         const timer = setTimeout(() => {
@@ -75,7 +73,7 @@ export function PWAInstallPrompt() {
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
     };
-  }, []);
+  }, [isIOS, isStandalone]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -122,9 +120,9 @@ export function PWAInstallPrompt() {
                 Dodaj aplikację do ekranu głównego:
               </p>
               <ol className="text-xs text-muted-foreground space-y-1 mb-3 list-decimal list-inside">
-                <li>Dotknij ikonę "Udostępnij" <span className="inline-block">⬆️</span></li>
-                <li>Przewiń i wybierz "Dodaj do ekranu głównego"</li>
-                <li>Dotknij "Dodaj"</li>
+                <li>Dotknij ikonę &quot;Udostępnij&quot; <span className="inline-block">⬆️</span></li>
+                <li>Przewiń i wybierz &quot;Dodaj do ekranu głównego&quot;</li>
+                <li>Dotknij &quot;Dodaj&quot;</li>
               </ol>
 
               <div className="flex gap-2">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getNameDayDateByName, normalizeNameDayInput } from "@/lib/namedays-resolver";
 import { z } from "zod";
 
 const profileUpdateSchema = z.object({
@@ -8,8 +9,8 @@ const profileUpdateSchema = z.object({
   email: z.string().email().optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   avatar: z.string().optional(),
-  birthDate: z.string().optional().transform(val => val ? new Date(val) : undefined),
-  nameDay: z.string().optional(),
+  birthDate: z.string().nullable().optional().transform((val) => (val ? new Date(val) : undefined)),
+  nameDay: z.string().nullable().optional(),
 });
 
 // GET - pobierz profil
@@ -64,6 +65,22 @@ export async function PATCH(req: Request) {
 
     const body = await req.json();
     const validatedData = profileUpdateSchema.parse(body);
+    if (validatedData.nameDay) {
+      const normalized = normalizeNameDayInput(validatedData.nameDay);
+      const resolvedFromName = normalized ? null : getNameDayDateByName(validatedData.nameDay);
+      if (!normalized && !resolvedFromName) {
+        return NextResponse.json(
+          { error: "Nie znaleziono imienin dla podanej wartosci. Wpisz date recznie (DD-MM), np. 24-06." },
+          { status: 400 }
+        );
+      }
+    }
+
+    const resolvedNameDay = validatedData.nameDay
+      ? (normalizeNameDayInput(validatedData.nameDay) || getNameDayDateByName(validatedData.nameDay))
+      : validatedData.name
+        ? getNameDayDateByName(validatedData.name)
+        : undefined;
 
     // Sprawdź czy email nie jest już zajęty przez innego użytkownika
     if (validatedData.email) {
@@ -84,7 +101,10 @@ export async function PATCH(req: Request) {
 
     const user = await prisma.user.update({
       where: { id: session.user.id },
-      data: validatedData,
+      data: {
+        ...validatedData,
+        ...(resolvedNameDay !== undefined ? { nameDay: resolvedNameDay } : {}),
+      },
       select: {
         id: true,
         name: true,

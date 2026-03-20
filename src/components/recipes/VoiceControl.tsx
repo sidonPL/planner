@@ -54,6 +54,15 @@ interface ISpeechRecognitionConstructor {
   new (): ISpeechRecognition;
 }
 
+function getSpeechRecognitionConstructor(): ISpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") return null;
+  const win = window as unknown as Window & {
+    SpeechRecognition?: ISpeechRecognitionConstructor;
+    webkitSpeechRecognition?: ISpeechRecognitionConstructor;
+  };
+  return win.SpeechRecognition || win.webkitSpeechRecognition || null;
+}
+
 interface VoiceControlProps {
   currentStepIndex: number;
   totalSteps: number;
@@ -90,10 +99,10 @@ export function VoiceControl({
   onToggle,
 }: VoiceControlProps) {
   const [isListening, setIsListening] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
   const [lastCommand, setLastCommand] = useState<string>("");
   const [isPaused, setIsPaused] = useState(false);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
+  const isSupported = getSpeechRecognitionConstructor() !== null;
 
   // Process voice command
   const processCommand = useCallback((transcript: string) => {
@@ -153,18 +162,7 @@ export function VoiceControl({
 
   // Check browser support
   useEffect(() => {
-    const SpeechRecognitionConstructor = (window as unknown as {
-      SpeechRecognition?: ISpeechRecognitionConstructor;
-      webkitSpeechRecognition?: ISpeechRecognitionConstructor;
-    }).SpeechRecognition || (window as unknown as {
-      SpeechRecognition?: ISpeechRecognitionConstructor;
-      webkitSpeechRecognition?: ISpeechRecognitionConstructor;
-    }).webkitSpeechRecognition;
-
-    const supported = !!SpeechRecognitionConstructor;
-    if (isSupported !== supported) {
-      setIsSupported(supported);
-    }
+    const SpeechRecognitionConstructor = getSpeechRecognitionConstructor();
 
     if (!SpeechRecognitionConstructor) {
       console.warn("Speech Recognition not supported in this browser");
@@ -223,7 +221,7 @@ export function VoiceControl({
         recognition.stop();
       }
     };
-  }, [isEnabled, onToggle, processCommand, isSupported]);
+  }, [isEnabled, onToggle, processCommand]);
 
   // Toggle voice control
   const toggleVoiceControl = useCallback(() => {

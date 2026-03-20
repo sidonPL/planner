@@ -145,6 +145,115 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Zewnetrzne osoby (znajomi/rodzina spoza gospodarstwa)
+    const externalBirthdays = await prisma.externalBirthday.findMany({
+      include: {
+        household: {
+          include: {
+            members: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    for (const person of externalBirthdays) {
+      const birthDate = new Date(person.birthDate);
+      const thisYearBirthday = new Date(
+        today.getFullYear(),
+        birthDate.getMonth(),
+        birthDate.getDate()
+      );
+
+      const isTodayBirthday = thisYearBirthday.getTime() === today.getTime();
+      const isTomorrowBirthday = thisYearBirthday.getTime() === tomorrow.getTime();
+
+      if (isTodayBirthday || isTomorrowBirthday) {
+        const age = today.getFullYear() - birthDate.getFullYear();
+        const message = isTodayBirthday
+          ? `🎂 ${person.name} ma dziś urodziny! (${age} lat)`
+          : `🎂 ${person.name} ma jutro urodziny! (${age} lat)`;
+
+        for (const member of person.household.members) {
+          const existingNotification = await prisma.notification.findFirst({
+            where: {
+              userId: member.id,
+              type: "SYSTEM",
+              message,
+              createdAt: {
+                gte: today,
+              },
+            },
+          });
+
+          if (!existingNotification) {
+            await createNotification({
+              userId: member.id,
+              householdId: person.household.id,
+              title: "Urodziny!",
+              message,
+              type: "SYSTEM",
+              link: `/birthdays`,
+            });
+
+            notifications.push({
+              userId: member.id,
+              celebrantName: person.name,
+              date: isTodayBirthday ? "dziś" : "jutro",
+            });
+          }
+        }
+      }
+
+      if (person.nameDay) {
+        const [day, month] = person.nameDay.split("-").map(Number);
+        const thisYearNameDay = new Date(today.getFullYear(), month - 1, day);
+
+        const isTodayNameDay = thisYearNameDay.getTime() === today.getTime();
+        const isTomorrowNameDay = thisYearNameDay.getTime() === tomorrow.getTime();
+
+        if (isTodayNameDay || isTomorrowNameDay) {
+          const message = isTodayNameDay
+            ? `🎉 ${person.name} ma dziś imieniny!`
+            : `🎉 ${person.name} ma jutro imieniny!`;
+
+          for (const member of person.household.members) {
+            const existingNotification = await prisma.notification.findFirst({
+              where: {
+                userId: member.id,
+                type: "SYSTEM",
+                message,
+                createdAt: {
+                  gte: today,
+                },
+              },
+            });
+
+            if (!existingNotification) {
+              await createNotification({
+                userId: member.id,
+                householdId: person.household.id,
+                title: "Imieniny!",
+                message,
+                type: "SYSTEM",
+                link: `/birthdays`,
+              });
+
+              notifications.push({
+                userId: member.id,
+                celebrantName: person.name,
+                date: isTodayNameDay ? "dziś" : "jutro",
+              });
+            }
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: `Wysłano ${notifications.length} powiadomień o urodzinach/imieninach`,

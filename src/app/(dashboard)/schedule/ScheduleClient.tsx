@@ -47,12 +47,20 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as DatePickerCalendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import type { Schedule, ScheduleException } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { scheduleTemplates, type ScheduleTemplate } from "@/lib/schedule-templates";
+import { doesScheduleOccurOnDate, parseSpecificDatesInput } from "@/lib/schedule-occurrence";
 
 type ScheduleWithUser = Schedule & {
   user: {
@@ -73,6 +81,58 @@ interface ScheduleClientProps {
   schedules: ScheduleWithUser[];
   members: Member[];
   currentUserId: string;
+}
+
+type RecurrenceUnit = "WEEKLY" | "MONTHLY";
+
+type ScheduleFormState = {
+  name: string;
+  type: string;
+  userId: string;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  location: string;
+  isOneTime: boolean;
+  oneTimeDate: string;
+  recurrenceUnit: RecurrenceUnit;
+  repeatEvery: number;
+  effectiveFrom: string;
+  effectiveTo: string;
+  specificDatesInput: string;
+};
+
+function createDefaultScheduleState(currentUserId: string): ScheduleFormState {
+  return {
+    name: "",
+    type: "WORK",
+    userId: currentUserId,
+    daysOfWeek: [],
+    startTime: "09:00",
+    endTime: "17:00",
+    location: "",
+    isOneTime: false,
+    oneTimeDate: "",
+    recurrenceUnit: "WEEKLY",
+    repeatEvery: 1,
+    effectiveFrom: "",
+    effectiveTo: "",
+    specificDatesInput: "",
+  };
+}
+
+function datesInputToCalendarSelection(input: string): Date[] {
+  return parseSpecificDatesInput(input).map((date) => new Date(`${date}T00:00:00`));
+}
+
+function calendarSelectionToDatesInput(dates: Date[] | undefined): string {
+  if (!dates || dates.length === 0) return "";
+
+  const normalized = dates
+    .map((date) => format(date, "yyyy-MM-dd"))
+    .join("\n");
+
+  return parseSpecificDatesInput(normalized).join("\n");
 }
 
 const daysOfWeek = [
@@ -130,17 +190,12 @@ export function ScheduleClient({
     return monday;
   });
 
-  const [newSchedule, setNewSchedule] = useState({
-    name: "",
-    type: "WORK",
-    userId: currentUserId,
-    daysOfWeek: [] as number[],
-    startTime: "09:00",
-    endTime: "17:00",
-    location: "",
-    isOneTime: false,
-    oneTimeDate: "",
-  });
+  const [newSchedule, setNewSchedule] = useState<ScheduleFormState>(createDefaultScheduleState(currentUserId));
+
+  const selectedSpecificDates = useMemo(
+    () => datesInputToCalendarSelection(newSchedule.specificDatesInput),
+    [newSchedule.specificDatesInput]
+  );
 
   // Filtruj harmonogramy po członku
   const filteredSchedules = schedules.filter(
@@ -167,6 +222,12 @@ export function ScheduleClient({
 
   // Wykryj kolizje dla nowego harmonogramu
   const conflicts = useMemo(() => {
+    const hasSpecificDates = parseSpecificDatesInput(newSchedule.specificDatesInput).length > 0;
+
+    if (newSchedule.isOneTime || hasSpecificDates || newSchedule.recurrenceUnit !== "WEEKLY") {
+      return [];
+    }
+
     if (newSchedule.daysOfWeek.length === 0) return [];
 
     const userSchedules = schedules.filter((s) => s.userId === newSchedule.userId);
@@ -202,31 +263,10 @@ export function ScheduleClient({
       const dayInfo = daysOfWeek.find(d => d.value === dayOfWeek)!;
 
       // Filtruj harmonogramy dla tego dnia tygodnia
-      const daySchedules = filteredSchedules.filter((s) => {
-        // Sprawdź czy to jednorazowe zajęcie
-        if (s.isOneTime && s.oneTimeDate) {
-          const oneTimeDateStr = format(new Date(s.oneTimeDate), "yyyy-MM-dd");
-          const currentDateStr = format(date, "yyyy-MM-dd");
-          // Pokaż tylko jeśli to dokładnie ta data
-          return oneTimeDateStr === currentDateStr;
-        }
-
-        // Dla normalnych harmonogramów - sprawdź dzień tygodnia
-        if (!s.dayOfWeek.includes(dayOfWeek)) return false;
-
-        // Sprawdź czy nie ma wyjątku dla tej konkretnej daty
-        const dateStr = format(date, "yyyy-MM-dd");
-        const hasException = s.exceptions?.some(
-          (exc) => format(new Date(exc.date), "yyyy-MM-dd") === dateStr
-        );
-
-        return !hasException;
-      });
+      const daySchedules = filteredSchedules.filter((s) => doesScheduleOccurOnDate(s, date));
 
       const hasException = filteredSchedules.some((s) =>
-        s.exceptions?.some(
-          (exc) => format(new Date(exc.date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
-        )
+        s.exceptions?.some((exc) => format(new Date(exc.date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd"))
       );
 
       days.push({
@@ -243,130 +283,42 @@ export function ScheduleClient({
 
   // Oblicz godziny pracy/nauki w miesiącu per osoba
   const monthlyHours = useMemo(() => {
-    // Dla widoku miesięcznego - liczy cały miesiąc
-    // Dla widoku tygodniowego - liczy zakres dat tygodnia (może obejmować 2 miesiące!)
     const hoursPerUser: Record<string, { work: number; other: number; total: number }> = {};
 
-    if (viewMode === "month") {
-      // WIDOK MIESIĘCZNY - logika jak wcześniej
-      const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      const dayOccurrences: Record<number, number> = {};
+    const periodStart = new Date(viewMode === "month"
+      ? new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
+      : currentWeekStart);
+    periodStart.setHours(0, 0, 0, 0);
 
-      for (let i = 1; i <= daysInMonth; i++) {
-        const dayOfWeek = new Date(year, month, i).getDay();
-        dayOccurrences[dayOfWeek] = (dayOccurrences[dayOfWeek] || 0) + 1;
+    const periodEnd = new Date(viewMode === "month"
+      ? new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
+      : new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000));
+    periodEnd.setHours(23, 59, 59, 999);
+
+    for (const schedule of schedules) {
+      if (!schedule.isActive) continue;
+
+      const userId = schedule.userId;
+      if (!hoursPerUser[userId]) {
+        hoursPerUser[userId] = { work: 0, other: 0, total: 0 };
       }
 
-      for (const schedule of schedules) {
-        if (!schedule.isActive) continue;
+      const [startH, startM] = schedule.startTime.split(":").map(Number);
+      const [endH, endM] = schedule.endTime.split(":").map(Number);
+      const durationHours = (endH * 60 + endM - startH * 60 - startM) / 60;
 
-        const userId = schedule.userId;
-        if (!hoursPerUser[userId]) {
-          hoursPerUser[userId] = { work: 0, other: 0, total: 0 };
-        }
-
-        const [startH, startM] = schedule.startTime.split(":").map(Number);
-        const [endH, endM] = schedule.endTime.split(":").map(Number);
-        const durationHours = (endH * 60 + endM - startH * 60 - startM) / 60;
-
-        if (schedule.isOneTime && schedule.oneTimeDate) {
-          const oneTimeDate = new Date(schedule.oneTimeDate);
-          if (oneTimeDate.getFullYear() === year && oneTimeDate.getMonth() === month) {
-            if (schedule.type === "WORK") {
-              hoursPerUser[userId].work += durationHours;
-            } else {
-              hoursPerUser[userId].other += durationHours;
-            }
-            hoursPerUser[userId].total += durationHours;
-          }
-          continue;
-        }
-
-        for (const day of schedule.dayOfWeek) {
-          let actualOccurrences = dayOccurrences[day] || 0;
-          if (schedule.exceptions && schedule.exceptions.length > 0) {
-            const exceptionsInMonth = schedule.exceptions.filter(exc => {
-              const excDate = new Date(exc.date);
-              return excDate.getFullYear() === year &&
-                     excDate.getMonth() === month &&
-                     excDate.getDay() === day;
-            }).length;
-            actualOccurrences -= exceptionsInMonth;
-          }
-
-          const monthlyDuration = durationHours * actualOccurrences;
-
+      const currentDate = new Date(periodStart);
+      while (currentDate <= periodEnd) {
+        if (doesScheduleOccurOnDate(schedule, currentDate)) {
           if (schedule.type === "WORK") {
-            hoursPerUser[userId].work += monthlyDuration;
+            hoursPerUser[userId].work += durationHours;
           } else {
-            hoursPerUser[userId].other += monthlyDuration;
+            hoursPerUser[userId].other += durationHours;
           }
-          hoursPerUser[userId].total += monthlyDuration;
-        }
-      }
-    } else {
-      // WIDOK TYGODNIOWY - liczy dla zakresu dat tygodnia (może obejmować 2 miesiące)
-      const weekStart = new Date(currentWeekStart);
-      weekStart.setHours(0, 0, 0, 0);
-      const weekEnd = new Date(currentWeekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
-
-      for (const schedule of schedules) {
-        if (!schedule.isActive) continue;
-
-        const userId = schedule.userId;
-        if (!hoursPerUser[userId]) {
-          hoursPerUser[userId] = { work: 0, other: 0, total: 0 };
+          hoursPerUser[userId].total += durationHours;
         }
 
-        const [startH, startM] = schedule.startTime.split(":").map(Number);
-        const [endH, endM] = schedule.endTime.split(":").map(Number);
-        const durationHours = (endH * 60 + endM - startH * 60 - startM) / 60;
-
-        // Dla jednorazowych zajęć - sprawdź czy data jest w tym tygodniu
-        if (schedule.isOneTime && schedule.oneTimeDate) {
-          const oneTimeDate = new Date(schedule.oneTimeDate);
-          oneTimeDate.setHours(0, 0, 0, 0);
-
-          if (oneTimeDate >= weekStart && oneTimeDate <= weekEnd) {
-            if (schedule.type === "WORK") {
-              hoursPerUser[userId].work += durationHours;
-            } else {
-              hoursPerUser[userId].other += durationHours;
-            }
-            hoursPerUser[userId].total += durationHours;
-          }
-          continue;
-        }
-
-        // Dla cyklicznych - iteruj przez każdy dzień tygodnia i sprawdź czy harmonogram występuje
-        for (let i = 0; i < 7; i++) {
-          const currentDate = new Date(weekStart);
-          currentDate.setDate(currentDate.getDate() + i);
-          const dayOfWeek = currentDate.getDay();
-
-          // Sprawdź czy harmonogram występuje w tym dniu tygodnia
-          if (!schedule.dayOfWeek.includes(dayOfWeek)) continue;
-
-          // Sprawdź czy nie ma wyjątku dla tej konkretnej daty
-          const dateStr = format(currentDate, "yyyy-MM-dd");
-          const hasException = schedule.exceptions?.some(
-            (exc) => format(new Date(exc.date), "yyyy-MM-dd") === dateStr
-          );
-
-          if (!hasException) {
-            // Dodaj godziny dla tego dnia
-            if (schedule.type === "WORK") {
-              hoursPerUser[userId].work += durationHours;
-            } else {
-              hoursPerUser[userId].other += durationHours;
-            }
-            hoursPerUser[userId].total += durationHours;
-          }
-        }
+        currentDate.setDate(currentDate.getDate() + 1);
       }
     }
 
@@ -393,8 +345,20 @@ export function ScheduleClient({
       return;
     }
 
-    if (!newSchedule.isOneTime && newSchedule.daysOfWeek.length === 0) {
+    const parsedSpecificDates = parseSpecificDatesInput(newSchedule.specificDatesInput);
+
+    if (!newSchedule.isOneTime && parsedSpecificDates.length === 0 && newSchedule.recurrenceUnit === "WEEKLY" && newSchedule.daysOfWeek.length === 0) {
       toast.error("Wybierz dni tygodnia");
+      return;
+    }
+
+    if (!newSchedule.isOneTime && newSchedule.recurrenceUnit === "MONTHLY" && !newSchedule.effectiveFrom) {
+      toast.error("Dla cyklu miesiecznego ustaw date rozpoczecia");
+      return;
+    }
+
+    if (newSchedule.effectiveFrom && newSchedule.effectiveTo && new Date(newSchedule.effectiveFrom) > new Date(newSchedule.effectiveTo)) {
+      toast.error("Data zakonczenia musi byc pozniejsza od daty rozpoczecia");
       return;
     }
 
@@ -418,6 +382,11 @@ export function ScheduleClient({
           isActive: true,
           isOneTime: newSchedule.isOneTime,
           oneTimeDate: newSchedule.isOneTime ? new Date(newSchedule.oneTimeDate).toISOString() : null,
+          recurrenceUnit: newSchedule.recurrenceUnit,
+          repeatEvery: newSchedule.repeatEvery,
+          effectiveFrom: newSchedule.effectiveFrom ? new Date(newSchedule.effectiveFrom).toISOString() : null,
+          effectiveTo: newSchedule.effectiveTo ? new Date(newSchedule.effectiveTo).toISOString() : null,
+          specificDates: parsedSpecificDates,
         }),
       });
 
@@ -425,17 +394,7 @@ export function ScheduleClient({
         const result = await response.json();
         setSchedules([...schedules, result]);
         setIsAddDialogOpen(false);
-        setNewSchedule({
-          name: "",
-          type: "WORK",
-          userId: currentUserId,
-          daysOfWeek: [],
-          startTime: "09:00",
-          endTime: "17:00",
-          location: "",
-          isOneTime: false,
-          oneTimeDate: "",
-        });
+        setNewSchedule(createDefaultScheduleState(currentUserId));
         toast.success(newSchedule.isOneTime ? "Jednorazowe zajęcie zostało dodane" : "Harmonogram został dodany");
       }
     } catch {
@@ -470,6 +429,11 @@ export function ScheduleClient({
       location: schedule.location || "",
       isOneTime: schedule.isOneTime,
       oneTimeDate: schedule.oneTimeDate ? format(new Date(schedule.oneTimeDate), "yyyy-MM-dd") : "",
+      recurrenceUnit: schedule.recurrenceUnit,
+      repeatEvery: schedule.repeatEvery,
+      effectiveFrom: schedule.effectiveFrom ? format(new Date(schedule.effectiveFrom), "yyyy-MM-dd") : "",
+      effectiveTo: schedule.effectiveTo ? format(new Date(schedule.effectiveTo), "yyyy-MM-dd") : "",
+      specificDatesInput: (schedule.specificDates || []).map((date) => format(new Date(date), "yyyy-MM-dd")).join("\n"),
     });
     setIsEditDialogOpen(true);
   };
@@ -478,7 +442,22 @@ export function ScheduleClient({
     if (!editingSchedule) return;
 
     if (!newSchedule.name || (!newSchedule.isOneTime && newSchedule.daysOfWeek.length === 0)) {
-      toast.error("Wypełnij wymagane pola");
+      const parsedSpecificDates = parseSpecificDatesInput(newSchedule.specificDatesInput);
+      if (!newSchedule.isOneTime && parsedSpecificDates.length === 0 && newSchedule.recurrenceUnit === "WEEKLY" && newSchedule.daysOfWeek.length === 0) {
+        toast.error("Wypelnij wymagane pola");
+        return;
+      }
+    }
+
+    const parsedSpecificDates = parseSpecificDatesInput(newSchedule.specificDatesInput);
+
+    if (!newSchedule.isOneTime && newSchedule.recurrenceUnit === "MONTHLY" && !newSchedule.effectiveFrom) {
+      toast.error("Dla cyklu miesiecznego ustaw date rozpoczecia");
+      return;
+    }
+
+    if (newSchedule.effectiveFrom && newSchedule.effectiveTo && new Date(newSchedule.effectiveFrom) > new Date(newSchedule.effectiveTo)) {
+      toast.error("Data zakonczenia musi byc pozniejsza od daty rozpoczecia");
       return;
     }
 
@@ -498,6 +477,11 @@ export function ScheduleClient({
           oneTimeDate: newSchedule.isOneTime && newSchedule.oneTimeDate
             ? new Date(newSchedule.oneTimeDate).toISOString()
             : null,
+          recurrenceUnit: newSchedule.recurrenceUnit,
+          repeatEvery: newSchedule.repeatEvery,
+          effectiveFrom: newSchedule.effectiveFrom ? new Date(newSchedule.effectiveFrom).toISOString() : null,
+          effectiveTo: newSchedule.effectiveTo ? new Date(newSchedule.effectiveTo).toISOString() : null,
+          specificDates: parsedSpecificDates,
         }),
       });
 
@@ -723,29 +707,9 @@ export function ScheduleClient({
     // Dodaj dni bieżącego miesiąca
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const dayOfWeek = date.getDay();
 
-      // Znajdź harmonogramy dla tego dnia tygodnia
-      const daySchedules = filteredSchedules.filter((s) => {
-        // Sprawdź czy to jednorazowe zajęcie
-        if (s.isOneTime && s.oneTimeDate) {
-          const oneTimeDateStr = format(new Date(s.oneTimeDate), "yyyy-MM-dd");
-          const currentDateStr = format(date, "yyyy-MM-dd");
-          // Pokaż tylko jeśli to dokładnie ta data
-          return oneTimeDateStr === currentDateStr;
-        }
-
-        // Dla normalnych harmonogramów - sprawdź dzień tygodnia
-        if (!s.dayOfWeek.includes(dayOfWeek)) return false;
-
-        // Sprawdź czy nie ma wyjątku dla tej daty
-        const dateStr = format(date, "yyyy-MM-dd");
-        const hasException = s.exceptions?.some(
-          (exc) => format(new Date(exc.date), "yyyy-MM-dd") === dateStr
-        );
-
-        return !hasException;
-      });
+      // Znajdz harmonogramy dla tej daty
+      const daySchedules = filteredSchedules.filter((s) => doesScheduleOccurOnDate(s, date));
 
       const hasException = filteredSchedules.some((s) =>
         s.exceptions?.some(
@@ -1297,12 +1261,12 @@ export function ScheduleClient({
 
       {/* Dialog dodawania */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Nowy harmonogram</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[65vh] overflow-y-auto pr-1">
             <div className="space-y-2">
               <Label>Nazwa</Label>
               <Input
@@ -1393,7 +1357,68 @@ export function ScheduleClient({
                 </div>
               ) : (
                 <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Powtarzanie</Label>
+                      <Select
+                        value={newSchedule.recurrenceUnit}
+                        onValueChange={(value) =>
+                          setNewSchedule({
+                            ...newSchedule,
+                            recurrenceUnit: value as RecurrenceUnit,
+                            daysOfWeek: value === "MONTHLY" ? [] : newSchedule.daysOfWeek,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="WEEKLY">Tygodniowo</SelectItem>
+                          <SelectItem value="MONTHLY">Miesiecznie</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Co ile</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={newSchedule.repeatEvery}
+                        onChange={(e) =>
+                          setNewSchedule({
+                            ...newSchedule,
+                            repeatEvery: Math.max(1, Number(e.target.value) || 1),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Obowiazuje od</Label>
+                      <Input
+                        type="date"
+                        value={newSchedule.effectiveFrom}
+                        onChange={(e) => setNewSchedule({ ...newSchedule, effectiveFrom: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Obowiazuje do</Label>
+                      <Input
+                        type="date"
+                        value={newSchedule.effectiveTo}
+                        onChange={(e) => setNewSchedule({ ...newSchedule, effectiveTo: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {newSchedule.recurrenceUnit === "WEEKLY" && (
                   <Label>Dni tygodnia (powtarzające się)</Label>
+                  )}
+                  {newSchedule.recurrenceUnit === "WEEKLY" && (
                   <div className="flex flex-wrap gap-2">
                     {daysOfWeek.slice(1).concat(daysOfWeek[0]).map((day) => (
                       <Button
@@ -1406,6 +1431,41 @@ export function ScheduleClient({
                         {day.short}
                       </Button>
                     ))}
+                  </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>Konkretne daty (np. zjazdy)</Label>
+                    <Textarea
+                      rows={3}
+                      placeholder="Wpisz daty oddzielone przecinkami lub nowa linia"
+                      value={newSchedule.specificDatesInput}
+                      onChange={(e) => setNewSchedule({ ...newSchedule, specificDatesInput: e.target.value })}
+                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" type="button" className="w-full">
+                          <Calendar className="mr-2 h-4 w-4" />
+                          Wybierz daty z kalendarza
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <DatePickerCalendar
+                          mode="multiple"
+                          selected={selectedSpecificDates}
+                          onSelect={(dates) =>
+                            setNewSchedule({
+                              ...newSchedule,
+                              specificDatesInput: calendarSelectionToDatesInput(dates),
+                            })
+                          }
+                          captionLayout="dropdown"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <p className="text-xs text-muted-foreground">
+                      Format: YYYY-MM-DD, np. 2026-04-12, 2026-04-26
+                    </p>
                   </div>
                 </>
               )}
@@ -1481,12 +1541,12 @@ export function ScheduleClient({
 
       {/* Dialog edycji harmonogramu */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Edytuj harmonogram</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[65vh] overflow-y-auto pr-1">
             <div className="space-y-2">
               <Label>Nazwa</Label>
               <Input
@@ -1543,29 +1603,125 @@ export function ScheduleClient({
             </div>
 
             {!newSchedule.isOneTime && (
-              <div className="space-y-2">
-                <Label>Dni tygodnia</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {daysOfWeek.slice(1).concat(daysOfWeek.slice(0, 1)).map((day) => (
-                    <Button
-                      key={day.value}
-                      type="button"
-                      variant={
-                        newSchedule.daysOfWeek.includes(day.value)
-                          ? "default"
-                          : "outline"
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Powtarzanie</Label>
+                    <Select
+                      value={newSchedule.recurrenceUnit}
+                      onValueChange={(value) =>
+                        setNewSchedule({
+                          ...newSchedule,
+                          recurrenceUnit: value as RecurrenceUnit,
+                          daysOfWeek: value === "MONTHLY" ? [] : newSchedule.daysOfWeek,
+                        })
                       }
-                      size="sm"
-                      onClick={() => {
-                        const newDays = newSchedule.daysOfWeek.includes(day.value)
-                          ? newSchedule.daysOfWeek.filter((d) => d !== day.value)
-                          : [...newSchedule.daysOfWeek, day.value];
-                        setNewSchedule({ ...newSchedule, daysOfWeek: newDays });
-                      }}
                     >
-                      {day.short}
-                    </Button>
-                  ))}
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="WEEKLY">Tygodniowo</SelectItem>
+                        <SelectItem value="MONTHLY">Miesiecznie</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Co ile</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={newSchedule.repeatEvery}
+                      onChange={(e) =>
+                        setNewSchedule({
+                          ...newSchedule,
+                          repeatEvery: Math.max(1, Number(e.target.value) || 1),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Obowiazuje od</Label>
+                    <Input
+                      type="date"
+                      value={newSchedule.effectiveFrom}
+                      onChange={(e) => setNewSchedule({ ...newSchedule, effectiveFrom: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Obowiazuje do</Label>
+                    <Input
+                      type="date"
+                      value={newSchedule.effectiveTo}
+                      onChange={(e) => setNewSchedule({ ...newSchedule, effectiveTo: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {newSchedule.recurrenceUnit === "WEEKLY" && (
+                  <div className="space-y-2">
+                    <Label>Dni tygodnia</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {daysOfWeek.slice(1).concat(daysOfWeek.slice(0, 1)).map((day) => (
+                        <Button
+                          key={day.value}
+                          type="button"
+                          variant={
+                            newSchedule.daysOfWeek.includes(day.value)
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() => {
+                            const newDays = newSchedule.daysOfWeek.includes(day.value)
+                              ? newSchedule.daysOfWeek.filter((d) => d !== day.value)
+                              : [...newSchedule.daysOfWeek, day.value];
+                            setNewSchedule({ ...newSchedule, daysOfWeek: newDays });
+                          }}
+                        >
+                          {day.short}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Konkretne daty (np. zjazdy)</Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="Wpisz daty oddzielone przecinkami lub nowa linia"
+                    value={newSchedule.specificDatesInput}
+                    onChange={(e) => setNewSchedule({ ...newSchedule, specificDatesInput: e.target.value })}
+                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" type="button" className="w-full">
+                        <Calendar className="mr-2 h-4 w-4" />
+                        Wybierz daty z kalendarza
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <DatePickerCalendar
+                        mode="multiple"
+                        selected={selectedSpecificDates}
+                        onSelect={(dates) =>
+                          setNewSchedule({
+                            ...newSchedule,
+                            specificDatesInput: calendarSelectionToDatesInput(dates),
+                          })
+                        }
+                        captionLayout="dropdown"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-muted-foreground">
+                    Format: YYYY-MM-DD, np. 2026-04-12, 2026-04-26
+                  </p>
                 </div>
               </div>
             )}

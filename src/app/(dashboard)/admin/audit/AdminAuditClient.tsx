@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { FileText, Search, Download, ArrowLeft, Filter, Calendar } from 'lucide-react';
+import { FileText, Search, Download, ArrowLeft, Calendar } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -32,7 +32,7 @@ interface AuditLog {
   action: string;
   entity: string;
   entityId: string | null;
-  details: any;
+  details: unknown;
   ipAddress: string | null;
   userAgent: string | null;
   createdAt: Date;
@@ -53,11 +53,11 @@ export function AdminAuditClient() {
     try {
       const response = await fetch('/api/admin/audit');
       if (response.ok) {
-        const data = await response.json();
-        setLogs(data.logs.map((log: any) => ({
+        const data = await response.json() as {logs: unknown[]};
+        setLogs((data.logs as Array<Partial<AuditLog> & {createdAt: string | Date}>).map((log) => ({
           ...log,
           createdAt: new Date(log.createdAt),
-        })));
+        } as AuditLog)));
       }
     } catch (error) {
       console.error('Error loading audit logs:', error);
@@ -287,7 +287,7 @@ export function AdminAuditClient() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {log.details && (
+                      {!!log.details && (
                         <pre className="text-xs max-w-md overflow-auto">
                           {JSON.stringify(log.details, null, 2)}
                         </pre>

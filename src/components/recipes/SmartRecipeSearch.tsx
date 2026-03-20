@@ -359,7 +359,7 @@ export const SmartRecipeSearch = forwardRef<HTMLInputElement, SmartRecipeSearchP
             {/* No Results */}
             {!hasResults && !hasSuggestions && debouncedQuery.length >= 2 && !isLoading && (
               <div className="p-4 text-center text-sm text-muted-foreground">
-                Nie znaleziono przepisów dla "{debouncedQuery}"
+                Nie znaleziono przepisów dla &quot;{debouncedQuery}&quot;
               </div>
             )}
           </div>

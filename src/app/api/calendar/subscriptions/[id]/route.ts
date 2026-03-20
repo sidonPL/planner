@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { fetchICS, parseICS } from "@/lib/ical";
 import { z } from "zod";
 
 const updateSchema = z.object({

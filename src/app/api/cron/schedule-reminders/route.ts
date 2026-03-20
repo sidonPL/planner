@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
-import { addMinutes, getDay, isWithinInterval } from "date-fns";
+import { addMinutes, endOfDay, isWithinInterval, startOfDay } from "date-fns";
+import { doesScheduleOccurOnDate } from "@/lib/schedule-occurrence";
 
 // Wysyła powiadomienia 15 minut przed rozpoczęciem zajęć z harmonogramu
 
@@ -16,13 +17,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const now = new Date();
-    const currentDayOfWeek = getDay(now); // 0 = niedziela, 1 = poniedziałek, etc.
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
 
-    // Pobierz aktywne harmonogramy na dzisiejszy dzień tygodnia
+    // Pobierz aktywne harmonogramy i odfiltruj je przez reguły wystąpień.
     const schedules = await prisma.schedule.findMany({
       where: {
         isActive: true,
-        dayOfWeek: { has: currentDayOfWeek },
       },
       include: {
         user: {
@@ -39,8 +40,8 @@ export async function GET(request: NextRequest) {
         exceptions: {
           where: {
             date: {
-              gte: new Date(now.toDateString()),
-              lt: addMinutes(new Date(now.toDateString()), 24 * 60),
+              gte: todayStart,
+              lte: todayEnd,
             },
           },
         },
@@ -51,8 +52,7 @@ export async function GET(request: NextRequest) {
     const reminderMinutes = 15; // 15 minut przed
 
     for (const schedule of schedules) {
-      // Sprawdź czy jest wyjątek na dzisiaj
-      if (schedule.exceptions.length > 0) {
+      if (!doesScheduleOccurOnDate(schedule, now)) {
         continue;
       }
 
@@ -65,10 +65,12 @@ export async function GET(request: NextRequest) {
       const reminderTime = addMinutes(scheduleStart, -reminderMinutes);
 
       // Sprawdź czy teraz jest okno przypomnienia (+/- 2 minuty)
-      const windowStart = addMinutes(now, -2);
-      const windowEnd = addMinutes(now, 2);
+      const reminderWindowStart = addMinutes(now, -2);
+      const reminderWindowEnd = addMinutes(now, 2);
 
-      if (isWithinInterval(reminderTime, { start: windowStart, end: windowEnd })) {
+      if (isWithinInterval(reminderTime, { start: reminderWindowStart, end: reminderWindowEnd })) {
+        const notificationMessage = `${schedule.name} rozpoczyna się o ${schedule.startTime}${schedule.location ? ` (${schedule.location})` : ""}`;
+
         // Sprawdź czy powiadomienie już nie zostało wysłane
         const existingNotification = await prisma.notification.findFirst({
           where: {
@@ -76,11 +78,9 @@ export async function GET(request: NextRequest) {
             type: "EVENT_REMINDER",
             link: `/schedule`,
             createdAt: {
-              gte: addMinutes(now, -10),
+              gte: todayStart,
             },
-            message: {
-              contains: schedule.name,
-            },
+            message: notificationMessage,
           },
         });
 
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
             userId: schedule.userId,
             householdId: schedule.householdId,
             title: `${scheduleTypeLabels[schedule.type] || "Zajęcia"} za 15 minut`,
-            message: `${schedule.name} rozpoczyna się o ${schedule.startTime}${schedule.location ? ` (${schedule.location})` : ""}`,
+            message: notificationMessage,
             type: "EVENT_REMINDER",
             link: "/schedule",
           });

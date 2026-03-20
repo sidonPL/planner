@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
 import {
@@ -90,11 +90,7 @@ export function TripItinerary({ tripId, startDate, endDate }: TripItineraryProps
     notes: "",
   });
 
-  useEffect(() => {
-    fetchItinerary();
-  }, [tripId]);
-
-  const fetchItinerary = async () => {
+  const fetchItinerary = useCallback(async () => {
     try {
       const response = await fetch(`/api/trips/${tripId}/itinerary`);
       if (response.ok) {
@@ -104,10 +100,27 @@ export function TripItinerary({ tripId, startDate, endDate }: TripItineraryProps
     } catch (error) {
       console.error("Error fetching itinerary:", error);
       toast.error("Nie udało się pobrać planu");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [tripId]);
+
+  useEffect(() => {
+    const loadItinerary = async () => {
+      try {
+        const response = await fetch(`/api/trips/${tripId}/itinerary`);
+        if (response.ok) {
+          const data = await response.json();
+          setItinerary(data);
+        }
+      } catch (error) {
+        console.error("Error fetching itinerary:", error);
+        toast.error("Nie udało się pobrać planu");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadItinerary();
+  }, [tripId]);
 
   const handleAddDay = async () => {
     if (!newDay.date || newDay.activities.length === 0) {

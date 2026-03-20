@@ -8,6 +8,7 @@
  *   0 0 * * * cd /path/to/planner && node scripts/generate-daily-quests.js >> /var/log/planner/cron.log 2>&1
  */
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -153,4 +154,3 @@ async function main() {
 }
 
 main();
-

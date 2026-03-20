@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,11 +39,7 @@ export function QuestTemplatesManagement() {
     isActive: true,
   });
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/gamification/quest-templates');
       if (response.ok) {
@@ -53,7 +49,15 @@ export function QuestTemplatesManagement() {
     } catch (error) {
       console.error('Error loading templates:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      void loadTemplates();
+    }, 0);
+
+    return () => clearTimeout(timeout);
+  }, [loadTemplates]);
 
   const handleCreate = async () => {
     try {
@@ -71,7 +75,7 @@ export function QuestTemplatesManagement() {
       } else {
         toast.error('Błąd tworzenia szablonu');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     }
   };
@@ -92,7 +96,7 @@ export function QuestTemplatesManagement() {
       } else {
         toast.error('Błąd aktualizacji');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     }
   };
@@ -111,7 +115,7 @@ export function QuestTemplatesManagement() {
       } else {
         toast.error('Błąd usuwania');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     }
   };

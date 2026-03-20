@@ -12,7 +12,7 @@ const subscriptionSchema = z.object({
 });
 
 // GET - Lista subskrypcji użytkownika
-export async function GET(request: NextRequest) {
+export async function GET(): Promise<NextResponse> {
   try {
     const session = await auth();
     if (!session?.user?.id) {

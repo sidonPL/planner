@@ -187,16 +187,16 @@ export function deepClone<T>(obj: T): T {
 /**
  * Porównuje dwa obiekty (shallow)
  */
-export function shallowEqual(obj1: any, obj2: any): boolean {
+export function shallowEqual(obj1: unknown, obj2: unknown): boolean {
   if (obj1 === obj2) return true;
   if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
   if (obj1 === null || obj2 === null) return false;
 
-  const keys1 = Object.keys(obj1);
-  const keys2 = Object.keys(obj2);
+  const keys1 = Object.keys(obj1 as Record<string, unknown>);
+  const keys2 = Object.keys(obj2 as Record<string, unknown>);
 
   if (keys1.length !== keys2.length) return false;
 
-  return keys1.every(key => obj1[key] === obj2[key]);
+  return keys1.every(key => (obj1 as Record<string, unknown>)[key] === (obj2 as Record<string, unknown>)[key]);
 }
 

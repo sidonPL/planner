@@ -27,10 +27,11 @@ interface AuditLog {
   id: string;
   action: string;
   createdAt: Date;
-  details: any;
+  details: unknown;
 }
 
 export function SecurityTab({ userId }: SecurityTabProps) {
+  void userId;
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -48,8 +49,8 @@ export function SecurityTab({ userId }: SecurityTabProps) {
     try {
       const response = await fetch('/api/user/login-history');
       if (response.ok) {
-        const data = await response.json();
-        setLoginHistory(data.history.map((h: any) => ({
+        const data = await response.json() as { history: Array<Omit<AuditLog, 'createdAt'> & { createdAt: string | Date }> };
+        setLoginHistory(data.history.map((h) => ({
           ...h,
           createdAt: new Date(h.createdAt),
         })));
@@ -97,11 +98,19 @@ export function SecurityTab({ userId }: SecurityTabProps) {
         const error = await response.json();
         toast.error(error.message || 'Nie udało się zmienić hasła');
       }
-    } catch (error) {
+    } catch {
       toast.error('Wystąpił błąd');
     } finally {
       setChanging(false);
     }
+  };
+
+  const getIpFromDetails = (details: unknown): string => {
+    if (!details || typeof details !== 'object' || Array.isArray(details)) {
+      return 'N/A';
+    }
+    const ip = (details as Record<string, unknown>).ip;
+    return typeof ip === 'string' && ip.length > 0 ? ip : 'N/A';
   };
 
   return (
@@ -236,7 +245,7 @@ export function SecurityTab({ userId }: SecurityTabProps) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {log.details?.ip || 'N/A'}
+                      {getIpFromDetails(log.details)}
                     </TableCell>
                   </TableRow>
                 ))}

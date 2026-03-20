@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getAuthorizationUrl } from "@/lib/google-calendar";
 
 // GET - Rozpocznij OAuth flow
-export async function GET(request: NextRequest) {
+export async function GET(): Promise<NextResponse> {
   try {
     const session = await auth();
     if (!session?.user?.id) {

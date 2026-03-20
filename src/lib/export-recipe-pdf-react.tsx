@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/alt-text */
 import { Document, Page, Text, View, StyleSheet, pdf, Image } from '@react-pdf/renderer';
 import QRCode from "qrcode";
 

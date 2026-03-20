@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowLeft, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RecipeUsageStats } from "@/components/recipes/RecipeUsageStats";
-import { UsageCharts } from "@/components/recipes/UsageCharts";
 import {
   Select,
   SelectContent,

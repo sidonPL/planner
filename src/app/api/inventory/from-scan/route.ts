@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function POST(request: Request) {
   try {
@@ -143,7 +144,7 @@ export async function POST(request: Request) {
           scannedProductId: scannedProduct.id,
           brand: scannedProduct.brand,
           imageUrl: scannedProduct.imageUrl,
-          nutritionData: nutritionData as any,
+          nutritionData: nutritionData as Prisma.InputJsonValue,
         },
         include: {
           scannedProduct: true,

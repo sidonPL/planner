@@ -189,13 +189,22 @@ export function useGeofence(options: UseGeofenceOptions = {}) {
 
   // Auto-start/stop w zależności od opcji
   useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+
     if (enabled) {
-      startTracking();
+      timer = setTimeout(() => {
+        void startTracking();
+      }, 0);
     } else {
-      stopTracking();
+      timer = setTimeout(() => {
+        stopTracking();
+      }, 0);
     }
 
     return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
       stopTracking();
     };
   }, [enabled, startTracking, stopTracking]);

@@ -131,7 +131,7 @@ export function TaskCard({ task, onEdit, onDelete, onToggleComplete, onTogglePin
           checkAndNotifyAchievementProgress('userId', ['TASKS_COMPLETED'])
             .catch(err => console.error('Achievement notification error:', err));
         }, 500);
-      } catch (error) {
+      } catch {
         // Fallback - pokazuj zwykły toast
         toast.success(`+${xpReward} XP`, {
           description: "Zadanie ukończone!",

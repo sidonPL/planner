@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfWeek, endOfWeek, addDays } from "date-fns";
+import { ChallengeType } from "@prisma/client";
 
 // GET - pobierz aktualne wyzwania
 export async function GET() {
@@ -85,7 +86,14 @@ export async function POST(req: Request) {
     }
 
     // Szablon wyzwań
-    const challengeTemplates = [
+    const challengeTemplates: Array<{
+      title: string;
+      description: string;
+      type: ChallengeType;
+      target: number;
+      reward: number;
+      icon: string;
+    }> = [
       {
         title: "Mistrz Zadań",
         description: "Wykonaj 10 zadań w tym tygodniu",
@@ -141,7 +149,7 @@ export async function POST(req: Request) {
             householdId: session.user.householdId!,
             title: template.title,
             description: template.description,
-            type: template.type as any,
+            type: template.type,
             target: template.target,
             reward: template.reward,
             icon: template.icon,

@@ -140,7 +140,6 @@ export function dividEvenly(
 
   // Rozłóż resztę na pierwszych N osób
   const remainder = Math.round((totalAmount - roundedAmount * participantIds.length) * 100) / 100;
-  const remainderPerPerson = Math.round((remainder / participantIds.length) * 100) / 100;
 
   return participantIds.map((userId, index) => ({
     userId,

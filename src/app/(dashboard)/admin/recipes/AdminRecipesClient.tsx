@@ -40,6 +40,10 @@ interface Recipe {
   createdAt: Date;
 }
 
+type ApiRecipe = Omit<Recipe, 'createdAt'> & {
+  createdAt: string | Date;
+};
+
 export function AdminRecipesClient() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,8 +59,8 @@ export function AdminRecipesClient() {
     try {
       const response = await fetch('/api/admin/recipes');
       if (response.ok) {
-        const data = await response.json();
-        setRecipes(data.recipes.map((r: any) => ({
+        const data = await response.json() as { recipes: ApiRecipe[] };
+        setRecipes(data.recipes.map((r) => ({
           ...r,
           createdAt: new Date(r.createdAt),
         })));
@@ -82,7 +86,7 @@ export function AdminRecipesClient() {
       } else {
         toast.error('Błąd zmiany widoczności');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     }
   };
@@ -101,7 +105,7 @@ export function AdminRecipesClient() {
       } else {
         toast.error('Błąd usuwania');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     }
   };

@@ -13,10 +13,6 @@ interface Achievement {
   xpReward: number;
 }
 
-interface EnhancedAchievementToastProps {
-  achievement: Achievement;
-  duration?: number;
-}
 
 /**
  * Pokazuje enhanced toast dla nowego osiągnięcia

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, TrendingUp, ChefHat, Package, Calendar } from "lucide-react";
@@ -15,20 +15,46 @@ interface UsageStatsProps {
   className?: string;
 }
 
+type UsageStatsData = {
+  summary: {
+    totalUsages: number;
+    uniqueRecipes: number;
+    uniqueIngredients: number;
+  };
+  popularRecipes: Array<{
+    recipeId: string;
+    recipeName: string;
+    recipeImage: string | null;
+    count: number;
+    lastUsed: string | Date;
+  }>;
+  popularIngredients: Array<{
+    name: string;
+    count: number;
+    totalQuantity: number;
+    unit: string;
+  }>;
+  recentHistory: Array<{
+    id: string;
+    quantity: number;
+    unit: string;
+    ingredient: string;
+    timestamp: string | Date;
+    recipe: { name: string };
+    user: { name: string | null; avatar?: string | null };
+  }>;
+};
+
 export function RecipeUsageStats({ days = 30, className }: UsageStatsProps) {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<UsageStatsData | null>(null);
 
-  useEffect(() => {
-    fetchStats();
-  }, [days]);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/recipes/usage-stats?days=${days}`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as UsageStatsData;
         setStats(data);
       }
     } catch (error) {
@@ -36,7 +62,11 @@ export function RecipeUsageStats({ days = 30, className }: UsageStatsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [days]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   if (loading) {
     return (
@@ -107,7 +137,7 @@ export function RecipeUsageStats({ days = 30, className }: UsageStatsProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {stats.popularRecipes.map((recipe: any, idx: number) => (
+            {stats.popularRecipes.map((recipe, idx: number) => (
               <Link
                 key={recipe.recipeId}
                 href={`/recipes/${recipe.recipeId}`}
@@ -156,7 +186,7 @@ export function RecipeUsageStats({ days = 30, className }: UsageStatsProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {stats.popularIngredients.map((ingredient: any, idx: number) => (
+            {stats.popularIngredients.map((ingredient, idx: number) => (
               <div
                 key={ingredient.name}
                 className="flex items-center justify-between p-2 rounded-lg hover:bg-accent"
@@ -184,7 +214,7 @@ export function RecipeUsageStats({ days = 30, className }: UsageStatsProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {stats.recentHistory.map((history: any) => (
+            {stats.recentHistory.map((history) => (
               <div key={history.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
                 <Avatar className="h-8 w-8 flex-shrink-0">
                   <AvatarImage src={history.user.avatar || undefined} />

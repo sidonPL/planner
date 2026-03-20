@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
 // GET - Pobierz wszystkie etykiety gospodarstwa
-export async function GET(req: NextRequest) {
+export async function GET(): Promise<NextResponse> {
   try {
     const session = await auth();
     if (!session?.user?.householdId) {

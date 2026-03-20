@@ -113,7 +113,7 @@ export function handleApiError(error: unknown): NextResponse {
 /**
  * Wrapper dla API route handlers z obsługą błędów
  */
-export function withErrorHandling<T>(
+export function withErrorHandling(
   handler: () => Promise<NextResponse>
 ): Promise<NextResponse> {
   return handler().catch(handleApiError);

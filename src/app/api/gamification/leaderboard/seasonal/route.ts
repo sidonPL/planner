@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     // Oblicz weekNumber/monthNumber dla bieżącego okresu
     let currentWeekNumber: number | null = null;
     let currentMonthNumber: number | null = null;
-    let currentYear = now.getFullYear();
+    const currentYear = now.getFullYear();
 
     if (period === 'WEEKLY') {
       const weekStart = startOfWeek(now, { weekStartsOn: 1 });

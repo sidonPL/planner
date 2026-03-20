@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma } from "@prisma/client";
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
 type RewardEffectData = {
   duration?: number;
@@ -15,16 +15,21 @@ type ActivationMetadata = {
   themeId?: string;
 };
 
+type ActivationBody = {
+  metadata?: ActivationMetadata;
+};
+
 function parseEffectData(effectData: unknown): RewardEffectData {
-  if (!effectData || typeof effectData !== 'object') {
+  if (!effectData || typeof effectData !== "object") {
     return {};
   }
+
   return effectData as RewardEffectData;
 }
 
 /**
  * POST /api/gamification/claimed-rewards/[id]/activate
- * Aktywuje kupioną nagrodę
+ * Aktywuje nagrodę użytkownika.
  */
 export async function POST(
   request: Request,
@@ -33,33 +38,44 @@ export async function POST(
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await context.params;
-    const body = await request.json();
-    const metadata = (body as { metadata?: ActivationMetadata }).metadata;
 
-    // Pobierz claimed reward
+    let body: ActivationBody;
+    try {
+      body = (await request.json()) as ActivationBody;
+    } catch {
+      body = {};
+    }
+
     const claimedReward = await prisma.claimedReward.findUnique({
       where: { id },
       include: { reward: true },
     });
 
     if (!claimedReward || claimedReward.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Reward not found' }, { status: 404 });
+      return NextResponse.json({ error: "Reward not found" }, { status: 404 });
     }
 
-    // Sprawdź czy można aktywować
     if (claimedReward.maxUses && claimedReward.usedCount >= claimedReward.maxUses) {
       return NextResponse.json(
-        { error: 'Maximum uses reached' },
+        { error: "Maximum uses reached" },
         { status: 400 }
       );
     }
 
     const reward = claimedReward.reward;
+    const metadata = body.metadata;
+    const effectData = parseEffectData(reward.effectData);
     const now = new Date();
+
+    const expiresAt =
+      effectData.duration && effectData.duration > 0
+        ? new Date(now.getTime() + effectData.duration * 1000)
+        : null;
+
     const nextMetadata =
       metadata !== undefined
         ? (metadata as Prisma.InputJsonValue)
@@ -67,93 +83,54 @@ export async function POST(
           ? Prisma.JsonNull
           : (claimedReward.metadata as Prisma.InputJsonValue);
 
-    // Oblicz datę wygaśnięcia bazując na typie nagrody
-    let expiresAt: Date | null = null;
-    if (reward.effectData && typeof reward.effectData === 'object') {
-      const effectData = parseEffectData(reward.effectData);
-      if (effectData.duration) {
-        // duration w sekundach
-        expiresAt = new Date(now.getTime() + effectData.duration * 1000);
-      }
-    }
-
-    // Transakcja - aktywuj nagrodę i zaktualizuj użytkownika
     const result = await prisma.$transaction(async (tx) => {
-      // Deaktywuj inne nagrody tego samego typu (jeśli wymagane)
-      if (reward.category === 'THEME') {
-        // Może być tylko jeden aktywny motyw
+      if (reward.category === "THEME") {
         await tx.claimedReward.updateMany({
           where: {
             userId: session.user.id,
             isActive: true,
-            reward: { category: 'THEME' },
+            id: { not: claimedReward.id },
+            reward: { category: "THEME" },
           },
           data: { isActive: false },
         });
 
-        // Ustaw aktywny motyw
-        const themeId =
-          metadata?.themeId ||
-          parseEffectData(reward.effectData).themeId ||
-          reward.id;
+        const themeId = metadata?.themeId || effectData.themeId || reward.id;
         await tx.user.update({
           where: { id: session.user.id },
           data: { activeTheme: themeId },
         });
       }
 
-      if (reward.category === 'TITLE') {
-        // Może być tylko jeden aktywny tytuł
+      if (reward.category === "TITLE") {
         await tx.claimedReward.updateMany({
           where: {
             userId: session.user.id,
             isActive: true,
-            reward: { category: 'TITLE' },
+            id: { not: claimedReward.id },
+            reward: { category: "TITLE" },
           },
           data: { isActive: false },
         });
 
-        // Ustaw aktywny tytuł na podstawie effectData.titleId, nie reward.name
-        const titleId = parseEffectData(reward.effectData).titleId || reward.id;
+        const titleId = effectData.titleId || reward.id;
         await tx.user.update({
           where: { id: session.user.id },
           data: { activeTitle: titleId },
         });
       }
 
-      if (reward.category === 'PERK') {
-        const effectData = parseEffectData(reward.effectData);
-
-        if (effectData?.type === 'xp_boost') {
-          // XP boost jest obsługiwany przez ClaimedReward.isActive
-          // Funkcja addXP automatycznie sprawdzi aktywne boosty
-          console.log(`XP Boost activated: ${effectData.multiplier}x`);
-        }
-
-        if (effectData?.type === 'permanent_xp_boost') {
-          // Permanent XP boost - również przez ClaimedReward.isActive
-          console.log(`Permanent XP Boost activated: ${effectData.multiplier}x`);
-        }
-
-        if (effectData?.type === 'vip_status') {
-          // VIP Status - combo of multiple perks
-          console.log('VIP Status activated: 1.5x XP boost');
-        }
-
-        if (effectData?.type === 'streak_shield') {
-          // Tarcza streaku - zapisz w metadata
-          // Będzie sprawdzana gdy użytkownik przerwie streak
-        }
+      if (reward.category === "PERK" && effectData.type === "xp_boost") {
+        console.log(`XP Boost activated: ${effectData.multiplier ?? 1}x`);
       }
 
-      // Aktywuj claimed reward
       const updated = await tx.claimedReward.update({
         where: { id },
         data: {
           isActive: true,
           activatedAt: now,
           expiresAt,
-          // Nie inkrementuj usedCount tutaj — będzie aktualizowane tylko podczas rzeczywistego użycia
+          usedCount: { increment: 1 },
           metadata: nextMetadata,
         },
         include: { reward: true },
@@ -165,12 +142,12 @@ export async function POST(
     return NextResponse.json({
       success: true,
       claimedReward: result,
-      message: 'Nagroda została aktywowana',
+      message: "Nagroda została aktywowana",
     });
   } catch (error) {
-    console.error('Error activating reward:', error);
+    console.error("Error activating reward:", error);
     return NextResponse.json(
-      { error: 'Failed to activate reward' },
+      { error: "Failed to activate reward" },
       { status: 500 }
     );
   }
@@ -178,74 +155,61 @@ export async function POST(
 
 /**
  * DELETE /api/gamification/claimed-rewards/[id]/activate
- * Deaktywuje nagrodę
+ * Deaktywuje nagrodę użytkownika.
  */
 export async function DELETE(
-  request: Request,
+  _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await context.params;
 
-    // Pobierz claimed reward
     const claimedReward = await prisma.claimedReward.findUnique({
       where: { id },
       include: { reward: true },
     });
 
     if (!claimedReward || claimedReward.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Reward not found' }, { status: 404 });
+      return NextResponse.json({ error: "Reward not found" }, { status: 404 });
     }
 
     const reward = claimedReward.reward;
 
-    // Transakcja - deaktywuj nagrodę i zaktualizuj użytkownika
     await prisma.$transaction(async (tx) => {
-      // Wyczyść ustawienia użytkownika
-      if (reward.category === 'THEME') {
+      await tx.claimedReward.update({
+        where: { id },
+        data: { isActive: false },
+      });
+
+      if (reward.category === "THEME") {
         await tx.user.update({
           where: { id: session.user.id },
-          data: { activeTheme: 'default' },
+          data: { activeTheme: "default" },
         });
       }
 
-      if (reward.category === 'TITLE') {
+      if (reward.category === "TITLE") {
         await tx.user.update({
           where: { id: session.user.id },
           data: { activeTitle: null },
         });
       }
-
-      if (reward.category === 'PERK') {
-        const effectData = parseEffectData(reward.effectData);
-        if (effectData?.type === 'xp_boost') {
-          // XP boost jest dezaktywowany przez ClaimedReward.isActive = false
-          console.log('XP Boost deactivated');
-        }
-      }
-
-      // Deaktywuj claimed reward
-      await tx.claimedReward.update({
-        where: { id },
-        data: { isActive: false },
-      });
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Nagroda została deaktywowana',
+      message: "Nagroda została deaktywowana",
     });
   } catch (error) {
-    console.error('Error deactivating reward:', error);
+    console.error("Error deactivating reward:", error);
     return NextResponse.json(
-      { error: 'Failed to deactivate reward' },
+      { error: "Failed to deactivate reward" },
       { status: 500 }
     );
   }
 }
-

@@ -18,6 +18,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import {
+  getNameDayDateOptionsByName,
+  getNameDayNames,
+  isValidNameDayFormat,
+  normalizeNameDayInput,
+} from "@/lib/namedays-resolver";
 
 interface User {
   id: string;
@@ -101,11 +108,42 @@ export default function ProfileClient({ user }: ProfileClientProps) {
     microsoft: boolean;
   }>({ google: false, facebook: false, microsoft: false });
   const [loadingOAuth, setLoadingOAuth] = useState(true);
+  const [preferFirstAutoNameDay, setPreferFirstAutoNameDay] = useState(true);
+
+  const normalizedProfileNameDay = normalizeNameDayInput(formData.nameDay || "");
+  const nameDayOptionsFromTypedValue =
+    !normalizedProfileNameDay && formData.nameDay
+      ? getNameDayDateOptionsByName(formData.nameDay)
+      : [];
+  const nameDayOptionsFromName = getNameDayDateOptionsByName(formData.name || "");
+  const profileNameDayOptions =
+    nameDayOptionsFromTypedValue.length > 0 ? nameDayOptionsFromTypedValue : nameDayOptionsFromName;
 
   // Unikamy hydration mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("namedays-prefer-first-auto");
+    if (stored === "false") {
+      setPreferFirstAutoNameDay(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("namedays-prefer-first-auto", String(preferFirstAutoNameDay));
+  }, [preferFirstAutoNameDay]);
+
+  useEffect(() => {
+    if (formData.nameDay) return;
+    if (profileNameDayOptions.length === 0) return;
+    if (profileNameDayOptions.length > 1 && !preferFirstAutoNameDay) return;
+
+    setFormData((prev) => ({ ...prev, nameDay: profileNameDayOptions[0] }));
+  }, [formData.nameDay, profileNameDayOptions, preferFirstAutoNameDay]);
 
   // Ładuj rocznice i OAuth connections
   useEffect(() => {
@@ -421,17 +459,56 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                   <div className="space-y-2">
                     <Label htmlFor="nameDay">
                       <Calendar className="inline h-4 w-4 mr-2" />
-                      Imię (dla imienin)
+                      Imieniny (DD-MM lub imie)
                     </Label>
                     <Input
                       id="nameDay"
                       value={formData.nameDay}
                       onChange={(e) => setFormData({ ...formData, nameDay: e.target.value })}
-                      placeholder="np. Jan, Anna"
+                      placeholder="np. Jan albo 24-06"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Wprowadź swoje imię, aby aplikacja przypominała o imieninach
+                      Wpisz imie, aby system sam dobral date, albo wpisz date recznie (DD-MM)
                     </p>
+
+                    {profileNameDayOptions.length > 1 && (
+                      <div className="space-y-2 rounded-md border p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">Preferuj pierwsza date automatycznie</p>
+                            <p className="text-xs text-muted-foreground">
+                              Wylacz, aby zawsze wybierac recznie przy wielu dopasowaniach
+                            </p>
+                          </div>
+                          <Switch
+                            checked={preferFirstAutoNameDay}
+                            onCheckedChange={setPreferFirstAutoNameDay}
+                          />
+                        </div>
+
+                        <Select
+                          value={isValidNameDayFormat(formData.nameDay) ? formData.nameDay : undefined}
+                          onValueChange={(value) => setFormData((prev) => ({ ...prev, nameDay: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Wybierz prawidlowa date imienin" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {profileNameDayOptions.map((option) => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {isValidNameDayFormat(formData.nameDay) && (
+                      <p className="text-xs text-muted-foreground">
+                        Imiona tego dnia: {getNameDayNames(formData.nameDay).join(", ") || "-"}
+                      </p>
+                    )}
                   </div>
 
                   {/* Kolor */}

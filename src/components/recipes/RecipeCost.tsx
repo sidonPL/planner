@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DollarSign, Loader2, TrendingDown, AlertCircle } from "lucide-react";
@@ -11,20 +11,36 @@ interface RecipeCostProps {
   className?: string;
 }
 
+type IngredientCost = {
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  pricePerUnit: number | null;
+  totalCost: number | null;
+  available: boolean;
+};
+
+type RecipeCostData = {
+  recipeId: string;
+  recipeName: string;
+  servings: number;
+  totalCost: number;
+  costPerServing: number;
+  hasAllPrices: boolean;
+  completeness: number;
+  ingredients: IngredientCost[];
+};
+
 export function RecipeCost({ recipeId, className }: RecipeCostProps) {
   const [loading, setLoading] = useState(true);
-  const [cost, setCost] = useState<any>(null);
+  const [cost, setCost] = useState<RecipeCostData | null>(null);
 
-  useEffect(() => {
-    fetchCost();
-  }, [recipeId]);
-
-  const fetchCost = async () => {
+  const fetchCost = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/recipes/${recipeId}/cost`);
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as RecipeCostData;
         setCost(data);
       }
     } catch (error) {
@@ -32,7 +48,11 @@ export function RecipeCost({ recipeId, className }: RecipeCostProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [recipeId]);
+
+  useEffect(() => {
+    fetchCost();
+  }, [fetchCost]);
 
   if (loading) {
     return (
@@ -113,7 +133,7 @@ export function RecipeCost({ recipeId, className }: RecipeCostProps) {
         <div>
           <p className="text-sm font-medium mb-2">Breakdown składników:</p>
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {cost.ingredients.map((ingredient: any, idx: number) => (
+            {cost.ingredients.map((ingredient, idx: number) => (
               <div
                 key={idx}
                 className={`flex items-center justify-between p-2 rounded-md text-sm ${

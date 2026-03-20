@@ -1,21 +1,35 @@
 "use client";
 
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { pl } from "date-fns/locale";
 import { Briefcase, GraduationCap, BookOpen, Clock, MapPin } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { doesScheduleOccurOnDate } from "@/lib/schedule-occurrence";
 
 interface Schedule {
   id: string;
   name: string;
   type: string;
+  isActive: boolean;
   dayOfWeek: number[];
   startTime: string;
   endTime: string;
   location: string | null;
   color: string | null;
+  isOneTime: boolean;
+  oneTimeDate: Date | null;
+  effectiveFrom?: Date | null;
+  effectiveTo?: Date | null;
+  recurrenceUnit?: "WEEKLY" | "MONTHLY";
+  repeatEvery?: number;
+  specificDates?: Date[];
+  exceptions: {
+    id: string;
+    date: Date;
+    reason: string | null;
+  }[];
   user: {
     id: string;
     name: string | null;
@@ -37,14 +51,6 @@ const typeIcons: Record<string, React.ReactNode> = {
   OTHER: <Clock className="h-4 w-4" />,
 };
 
-const typeLabels: Record<string, string> = {
-  WORK: "Praca",
-  SCHOOL: "Szkoła",
-  UNIVERSITY: "Studia",
-  COURSE: "Kurs",
-  OTHER: "Inne",
-};
-
 export function ScheduleWidget({
   schedules,
   viewMode,
@@ -53,10 +59,37 @@ export function ScheduleWidget({
   const today = new Date();
   const dayOfWeek = today.getDay(); // 0 = niedziela
 
+  const parseTimeToMinutes = (time: string) => {
+    const [hoursRaw, minutesRaw] = time.split(":");
+    const hours = Number(hoursRaw) || 0;
+    const minutes = Number(minutesRaw) || 0;
+    return hours * 60 + minutes;
+  };
+
+  const isScheduleForToday = (schedule: Schedule) => {
+    const hasExceptionToday = schedule.exceptions?.some((exception) =>
+      isSameDay(new Date(exception.date), today)
+    );
+
+    if (hasExceptionToday) {
+      return false;
+    }
+
+    if (schedule.isOneTime) {
+      if (!schedule.oneTimeDate) return false;
+      return isSameDay(new Date(schedule.oneTimeDate), today);
+    }
+
+    return schedule.dayOfWeek.includes(dayOfWeek);
+  };
+
   // Filtruj harmonogramy na dzisiaj
-  const todaySchedules = schedules.filter((schedule) =>
-    schedule.dayOfWeek.includes(dayOfWeek)
-  );
+  const todaySchedules = schedules.filter((schedule) => {
+    if (isScheduleForToday(schedule)) {
+      return true;
+    }
+    return doesScheduleOccurOnDate(schedule, today);
+  });
 
   // Filtruj per użytkownik jeśli widok osobisty
   const filteredSchedules =
@@ -66,9 +99,7 @@ export function ScheduleWidget({
 
   // Sortuj po godzinie rozpoczęcia
   const sortedSchedules = [...filteredSchedules].sort((a, b) => {
-    const timeA = a.startTime.split(":").map(Number);
-    const timeB = b.startTime.split(":").map(Number);
-    return timeA[0] * 60 + timeA[1] - (timeB[0] * 60 + timeB[1]);
+    return parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime);
   });
 
   // Znajdź aktualny/następny wpis
@@ -76,16 +107,13 @@ export function ScheduleWidget({
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   const currentSchedule = sortedSchedules.find((s) => {
-    const [startH, startM] = s.startTime.split(":").map(Number);
-    const [endH, endM] = s.endTime.split(":").map(Number);
-    const start = startH * 60 + startM;
-    const end = endH * 60 + endM;
-    return currentMinutes >= start && currentMinutes <= end;
+    const start = parseTimeToMinutes(s.startTime);
+    const end = parseTimeToMinutes(s.endTime);
+    return currentMinutes >= start && currentMinutes < end;
   });
 
   const nextSchedule = sortedSchedules.find((s) => {
-    const [startH, startM] = s.startTime.split(":").map(Number);
-    const start = startH * 60 + startM;
+    const start = parseTimeToMinutes(s.startTime);
     return start > currentMinutes;
   });
 

@@ -117,7 +117,6 @@ export function PresenceClient({
   geofenceZones: initialZones,
   geofenceEvents: initialGeofenceEvents,
   currentUserId,
-  householdId,
 }: PresenceClientProps) {
   const [members, setMembers] = useState(initialMembers);
   const [history, setHistory] = useState(initialHistory);

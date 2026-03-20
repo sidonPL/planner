@@ -24,8 +24,6 @@ export function ImageUpload({
   disabled = false,
   maxSizeMB = 5,
   aspectRatio,
-  folder: _folder = 'misc',
-  placeholder: _placeholder = 'Dodaj zdjęcie',
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);

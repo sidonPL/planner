@@ -21,7 +21,7 @@ export default function TermsOfServicePage() {
         </CardHeader>
         <CardContent className="prose prose-sm max-w-none dark:prose-invert">
           <p>
-            Niniejszy Regulamin określa zasady korzystania z aplikacji Family Planner ("Aplikacja", "Usługa").
+            Niniejszy Regulamin określa zasady korzystania z aplikacji Family Planner (&quot;Aplikacja&quot;, &quot;Usługa&quot;).
             Korzystając z Aplikacji, akceptujesz warunki niniejszego Regulaminu.
           </p>
         </CardContent>

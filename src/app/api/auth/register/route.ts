@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { getNameDayDateByName } from "@/lib/namedays-resolver";
 import { z } from "zod";
 
 const registerSchema = z.object({
@@ -74,11 +75,14 @@ export async function POST(req: Request) {
     }
 
     // Utwórz użytkownika
+    const resolvedNameDay = getNameDayDateByName(name);
+
     const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
+        nameDay: resolvedNameDay,
         role: household ? (inviteCode || householdId ? "USER" : "ADMIN") : "USER",
         householdId: household?.id,
       },

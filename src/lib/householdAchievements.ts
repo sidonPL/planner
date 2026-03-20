@@ -95,7 +95,7 @@ async function checkAllTasksCompletedToday(householdId: string): Promise<boolean
   if (members.length === 0) return false;
 
   // Sprawdź zadania dla każdego członka (bez rutyn)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   for (const member of members) {
     const memberTasks = await prisma.task.findMany({
       where: {

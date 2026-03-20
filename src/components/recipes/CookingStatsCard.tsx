@@ -13,13 +13,18 @@ import {
   Star,
   ChefHat,
   Trophy,
-  Target,
   Calendar,
   BarChart3
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";
 import Link from "next/link";
+
+type RecipeSummary = {
+  id: string;
+  name: string;
+  image: string | null;
+};
 
 interface CookingStatsData {
   stats: {
@@ -34,7 +39,7 @@ interface CookingStatsData {
     level: number;
   };
   mostCookedRecipes: Array<{
-    recipe: any;
+    recipe: RecipeSummary;
     count: number;
   }>;
   favoriteCategories: Array<{
@@ -42,12 +47,12 @@ interface CookingStatsData {
     count: number;
   }>;
   topRatedRecipes: Array<{
-    recipe: any;
+    recipe: RecipeSummary;
     rating: number;
     cookedAt: string;
   }>;
   recentlyCooked: Array<{
-    recipe: any;
+    recipe: RecipeSummary;
     rating: number;
     cookedAt: string;
   }>;

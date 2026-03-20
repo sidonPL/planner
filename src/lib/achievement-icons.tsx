@@ -2,13 +2,10 @@ import {
   Trophy,
   Pizza,
   Flame,
-  Target,
   ShoppingCart,
   Calendar,
   ChefHat,
   Star,
-  Award,
-  Crown,
   Utensils,
   Coffee,
   Cookie,
@@ -31,7 +28,7 @@ import {
   ListChecks,
   type LucideIcon,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { createElement, useMemo } from 'react';
 
 /**
  * Mapowanie emoji/string icons na komponenty Lucide React
@@ -39,9 +36,7 @@ import { useMemo } from 'react';
 const iconMap: Record<string, LucideIcon> = {
   // Podstawowe osiągnięcia
   '🏆': Trophy,
-  '👑': Crown,
   '⭐': Star,
-  '🎖️': Award,
   '✨': Sparkles,
 
   // Jedzenie i gotowanie
@@ -66,7 +61,6 @@ const iconMap: Record<string, LucideIcon> = {
   '💖': Heart,
 
   // Zadania i organizacja
-  '🎯': Target,
   '✅': CheckCircle,
   '📋': ListChecks,
   '🕐': Clock,
@@ -100,13 +94,12 @@ export function AchievementIcon({
   className?: string;
   unlocked?: boolean;
 }) {
-  const IconComponent = useMemo(() => getAchievementIcon(icon), [icon]);
   const finalClassName = useMemo(() =>
     `${className} ${unlocked ? 'text-yellow-500' : 'text-muted-foreground'}`,
     [className, unlocked]
   );
 
-  return <IconComponent className={finalClassName} />;
+  return createElement(getAchievementIcon(icon), { className: finalClassName });
 }
 
 /**
@@ -121,8 +114,6 @@ export function AchievementIconLarge({
   unlocked?: boolean;
   tier?: number | null;
 }) {
-  const IconComponent = useMemo(() => getAchievementIcon(icon), [icon]);
-
   // Kolory zależne od tier
   const tierColor = useMemo(() => {
     if (!tier || !unlocked) return 'text-muted-foreground';
@@ -147,7 +138,7 @@ export function AchievementIconLarge({
 
   return (
     <div className={containerClassName}>
-      <IconComponent className={`h-12 w-12 ${tierColor}`} />
+      {createElement(getAchievementIcon(icon), { className: `h-12 w-12 ${tierColor}` })}
       {unlocked && (
         <div className="absolute -top-1 -right-1">
           <CheckCircle className="h-6 w-6 text-green-500 fill-white dark:fill-slate-950" />

@@ -41,7 +41,7 @@ export async function triggerInventoryUpdate(
 export async function triggerGamificationUpdate(
   householdId: string,
   event: 'level-up' | 'achievement-unlocked' | 'quest-completed' | 'badge-unlocked' | 'xp-gained',
-  data: any
+  data: Record<string, unknown>
 ) {
   try {
     const Pusher = (await import('pusher')).default;

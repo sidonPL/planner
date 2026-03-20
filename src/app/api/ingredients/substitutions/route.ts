@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { handleApiError } from "@/lib/api-error-handler";
+import { Prisma } from "@prisma/client";
 
 /**
  * GET /api/ingredients/substitutions?ingredient=mleko
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Search for substitutions
-    const where: any = {
+    const where: Prisma.IngredientSubstitutionWhereInput = {
       OR: [
         { originalName: { contains: ingredient, mode: "insensitive" } },
         { originalName: { equals: ingredient, mode: "insensitive" } },

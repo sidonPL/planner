@@ -32,7 +32,7 @@ export function NotificationSettings() {
       } else {
         toast.error('Błąd zapisywania');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     }
   };

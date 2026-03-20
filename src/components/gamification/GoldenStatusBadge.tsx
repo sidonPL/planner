@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Crown, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,7 @@ export function GoldenStatusBadge({ className }: GoldenStatusBadgeProps) {
   const [hasGoldenStatus, setHasGoldenStatus] = useState(false);
   const [multiplier, setMultiplier] = useState(1.0);
 
-  const loadGoldenStatus = async () => {
+  const loadGoldenStatus = useCallback(async () => {
     try {
       const response = await fetch('/api/gamification/xp-boost/status');
       if (response.ok) {
@@ -27,11 +27,15 @@ export function GoldenStatusBadge({ className }: GoldenStatusBadgeProps) {
     } catch (error) {
       console.error('Failed to load golden status:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadGoldenStatus();
-  }, []);
+    const timeout = setTimeout(() => {
+      void loadGoldenStatus();
+    }, 0);
+
+    return () => clearTimeout(timeout);
+  }, [loadGoldenStatus]);
 
   if (!hasGoldenStatus) return null;
 

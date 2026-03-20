@@ -3,6 +3,19 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { differenceInDays } from "date-fns";
 
+type SuggestionItem = {
+  name: string;
+  currentQuantity: number;
+  suggestedQuantity: number;
+  unit: string | null;
+  reason: string;
+  priority: "high" | "medium" | "low";
+};
+
+function isSuggestionItem(value: SuggestionItem | null): value is SuggestionItem {
+  return value !== null;
+}
+
 export async function GET() {
   try {
     const session = await auth();
@@ -89,9 +102,9 @@ export async function GET() {
       }, {} as Record<string, { totalUsed: number; count: number }>);
 
       // Znajdź często używane produkty które mają niski stan
-      const frequentlyUsed = Object.entries(usageStats)
-        .filter(([name, stats]) => stats.count >= 3) // używane minimum 3 razy
-        .map(([name, stats]) => {
+      const frequentlyUsed: SuggestionItem[] = Object.entries(usageStats)
+        .filter(([, stats]) => stats.count >= 3) // używane minimum 3 razy
+        .map<SuggestionItem | null>(([name, stats]) => {
           const item = items.find((i) => i.name === name);
           if (!item) return null;
 
@@ -111,12 +124,12 @@ export async function GET() {
           }
           return null;
         })
-        .filter(Boolean);
+        .filter(isSuggestionItem);
 
       if (frequentlyUsed.length > 0) {
         suggestions.push({
           category: "Na podstawie historii użycia",
-          items: frequentlyUsed as any,
+          items: frequentlyUsed,
         });
       }
     } catch (historyError) {

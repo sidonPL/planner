@@ -7,7 +7,6 @@ import { pl } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Landmark, Eye, EyeOff, ArrowRight, TrendingUp, TrendingDown } from "lucide-react";
 import type { FinancialAccount, Transaction } from "@prisma/client";
 

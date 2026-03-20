@@ -5,6 +5,7 @@ import Facebook from "next-auth/providers/facebook";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { getNameDayDateByName } from "@/lib/namedays-resolver";
 import { z } from "zod";
 import { UserRole } from "@prisma/client";
 
@@ -102,10 +103,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
 
           if (!dbUser) {
+            const displayName = user.name || user.email.split("@")[0];
             dbUser = await prisma.user.create({
               data: {
                 email: user.email,
-                name: user.name || user.email.split("@")[0],
+                name: displayName,
+                nameDay: getNameDayDateByName(displayName),
                 avatar: user.image || null,
                 role: UserRole.USER,
                 color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,

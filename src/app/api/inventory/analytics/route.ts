@@ -128,7 +128,7 @@ export async function GET() {
 
     const avgItemsPerCategory = totalItems / Object.keys(categoryStats).length;
     const overloadedCategories = Object.entries(categoryStats)
-      .filter(([_cat, stats]) => stats.count > avgItemsPerCategory * 1.5)
+      .filter(([, stats]) => stats.count > avgItemsPerCategory * 1.5)
       .map(([cat]) => cat);
 
     if (overloadedCategories.length > 0) {

@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { createElement } from 'react';
 import { Lock, Star, Sparkles, Crown, Zap } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { getAchievementIcon } from '@/lib/achievement-icons';
+import { AchievementIcon } from '@/lib/achievement-icons';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -69,30 +69,14 @@ const rarityConfig = {
 };
 
 export function EnhancedAchievementCard({ achievement, onClick }: EnhancedAchievementCardProps) {
-  const IconComponent = getAchievementIcon(achievement.icon);
   const isLocked = !achievement.unlocked;
   const rarity = achievement.rarity || 'COMMON';
   const rarityInfo = rarityConfig[rarity];
-  const RarityIcon = rarityInfo.icon;
 
   // Jeśli secret i locked, ukryj szczegóły
   const isHiddenSecret = achievement.isSecret && isLocked;
 
-  // Pre-render icons using useMemo to avoid creating components during render
-  const achievementIcon = useMemo(
-    () => <IconComponent className={`h-8 w-8 ${isLocked ? 'text-gray-400' : rarityInfo.color}`} />,
-    [IconComponent, isLocked, rarityInfo.color]
-  );
-
-  const lockedIcon = useMemo(
-    () => <Lock className="h-8 w-8 text-gray-400" />,
-    []
-  );
-
-  const rarityIcon = useMemo(
-    () => <RarityIcon className={`h-4 w-4 ${rarityInfo.color}`} />,
-    [RarityIcon, rarityInfo.color]
-  );
+  const rarityIcon = createElement(rarityInfo.icon, { className: `h-4 w-4 ${rarityInfo.color}` });
 
   return (
     <TooltipProvider>
@@ -126,7 +110,15 @@ export function EnhancedAchievementCard({ achievement, onClick }: EnhancedAchiev
                     isLocked ? 'bg-gray-500/20' : rarityInfo.bg
                   }`}
                 >
-                  {isLocked && !isHiddenSecret ? lockedIcon : achievementIcon}
+                  {isLocked && !isHiddenSecret ? (
+                    <Lock className="h-8 w-8 text-gray-400" />
+                  ) : (
+                    <AchievementIcon
+                      icon={achievement.icon}
+                      className={`h-8 w-8 ${isLocked ? 'text-gray-400' : rarityInfo.color}`}
+                      unlocked={false}
+                    />
+                  )}
                 </div>
               </div>
 

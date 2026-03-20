@@ -26,7 +26,6 @@ import { GamificationTour } from "@/components/gamification/GamificationTour";
 import { XPBoostIndicator } from "@/components/gamification/XPBoostIndicator";
 import { UserTitleBadge } from "@/components/gamification/UserTitleBadge";
 import { StreakShieldIndicator } from "@/components/gamification/StreakShieldIndicator";
-import { GoldenStatusBadge } from "@/components/gamification/GoldenStatusBadge";
 import { useTTS } from "@/hooks/useTTS";
 import { useChromecast } from "@/hooks/useChromecast";
 import Link from "next/link";

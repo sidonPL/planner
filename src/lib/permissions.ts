@@ -57,7 +57,8 @@ export function getPermissionsForRole(role: UserRole): string[] {
 }
 
 // Sprawdź czy użytkownik może zarządzać innym użytkownikiem
-export function canManageUser(managerRole: UserRole, targetRole: UserRole): boolean {
+export function canManageUser(managerRole: UserRole, _targetRole: UserRole): boolean {
+  void _targetRole;
   // Tylko admin może zarządzać użytkownikami
   if (managerRole !== "ADMIN") return false;
 

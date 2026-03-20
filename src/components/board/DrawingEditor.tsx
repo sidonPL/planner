@@ -18,16 +18,34 @@ type DrawingPath = {
   width: number;
 };
 
+function parseInitialDrawing(initialDrawing?: string): DrawingPath[] {
+  if (!initialDrawing) return [];
+
+  try {
+    const parsed = JSON.parse(initialDrawing);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error("Error loading drawing:", error);
+    return [];
+  }
+}
+
 export function DrawingEditor({ initialDrawing, onDrawingChange, className }: DrawingEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [tool, setTool] = useState<"pen" | "eraser">("pen");
   const [color, setColor] = useState("#000000");
   const [lineWidth, setLineWidth] = useState(3);
-  const [paths, setPaths] = useState<DrawingPath[]>([]);
+  const [paths, setPaths] = useState<DrawingPath[]>(() => parseInitialDrawing(initialDrawing));
   const [currentPath, setCurrentPath] = useState<DrawingPath | null>(null);
-  const [history, setHistory] = useState<DrawingPath[][]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [history, setHistory] = useState<DrawingPath[][]>(() => {
+    const initialPaths = parseInitialDrawing(initialDrawing);
+    return initialPaths.length > 0 ? [initialPaths] : [];
+  });
+  const [historyIndex, setHistoryIndex] = useState(() => {
+    const initialPaths = parseInitialDrawing(initialDrawing);
+    return initialPaths.length > 0 ? 0 : -1;
+  });
 
   const colors = [
     "#000000", // Czarny
@@ -40,20 +58,6 @@ export function DrawingEditor({ initialDrawing, onDrawingChange, className }: Dr
     "#14B8A6", // Turkusowy
   ];
 
-  // Wczytaj rysunek z JSON
-  useEffect(() => {
-    if (initialDrawing) {
-      try {
-        const loadedPaths = JSON.parse(initialDrawing);
-        // Użyj callback aby uniknąć ostrzeżenia
-        setPaths(() => loadedPaths);
-        setHistory(() => [loadedPaths]);
-        setHistoryIndex(0);
-      } catch (error) {
-        console.error("Error loading drawing:", error);
-      }
-    }
-  }, [initialDrawing]);
 
   // Rysuj na canvasie
   useEffect(() => {

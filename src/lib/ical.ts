@@ -26,7 +26,6 @@ export function parseICS(icalData: string): ICalEvent[] {
   const lines = icalData.split(/\r?\n/);
 
   let currentEvent: Partial<ICalEvent> | null = null;
-  let currentProperty = '';
 
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i].trim();
@@ -96,12 +95,12 @@ export function parseICS(icalData: string): ICalEvent[] {
         break;
 
       case 'DTSTART':
-        currentEvent.start = parseICalDate(value, paramMap);
+        currentEvent.start = parseICalDate(value);
         currentEvent.isAllDay = paramMap.VALUE === 'DATE';
         break;
 
       case 'DTEND':
-        currentEvent.end = parseICalDate(value, paramMap);
+        currentEvent.end = parseICalDate(value);
         break;
 
       case 'RRULE':
@@ -144,7 +143,7 @@ export function parseICS(icalData: string): ICalEvent[] {
  * - 20231225T120000Z (UTC)
  * - 20231225T120000;TZID=Europe/Warsaw (ze strefą czasową)
  */
-function parseICalDate(value: string, params: Record<string, string>): Date {
+function parseICalDate(value: string): Date {
   // Usuń TZID jeśli jest
   const dateStr = value.replace(/TZID=[^:]+:/, '');
 

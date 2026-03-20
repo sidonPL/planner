@@ -72,10 +72,8 @@ export async function GET() {
 
     for (let i = 0; i < sortedDates.length; i++) {
       const currentDate = sortedDates[i];
-      const dateStr = currentDate.toDateString();
 
       if (lastDate) {
-        const lastDateStr = lastDate.toDateString();
         const daysDiff = Math.floor(
           (lastDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
         );

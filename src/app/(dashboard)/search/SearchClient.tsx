@@ -59,7 +59,8 @@ interface InventoryItem {
   expiryDate?: string;
 }
 
-export function SearchClient({ userId }: SearchClientProps) {
+export function SearchClient({ userId: _userId }: SearchClientProps) {
+  void _userId;
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialQuery = searchParams.get('q') || '';

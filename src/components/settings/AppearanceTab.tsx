@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Sun, Moon, Monitor, Save, Volume2, VolumeX } from 'lucide-react';
+import { Sun, Moon, Monitor, Save, Volume2, VolumeX, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import type { UserSettings } from '@prisma/client';
 import { ThemeSelector } from '@/components/gamification/ThemeSelector';
@@ -23,12 +23,67 @@ interface AppearanceTabProps {
   userSettings: UserSettings | null | undefined;
 }
 
+type NotificationCategories = {
+  tasks: boolean;
+  events: boolean;
+  reminders: boolean;
+  gamification: boolean;
+  household: boolean;
+  inventory: boolean;
+};
+
+const defaultNotificationCategories: NotificationCategories = {
+  tasks: true,
+  events: true,
+  reminders: true,
+  gamification: true,
+  household: true,
+  inventory: true,
+};
+
+function isNotificationCategories(value: unknown): value is Partial<NotificationCategories> {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  return Object.values(value).every((entry) => typeof entry === 'boolean');
+}
+
 export function AppearanceTab({ userSettings }: AppearanceTabProps) {
   const { theme, setTheme } = useTheme();
   const [fontSize, setFontSize] = useState(userSettings?.fontSize || 'medium');
   const [soundEnabled, setSoundEnabled] = useState(userSettings?.soundEnabled ?? true);
   const [language, setLanguage] = useState('pl');
   const [saving, setSaving] = useState(false);
+  const [notificationCategories, setNotificationCategories] = useState<NotificationCategories>(() => {
+    // Załaduj z localStorage lub userSettings
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('notificationCategories');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved) as unknown;
+          if (isNotificationCategories(parsed)) {
+            return { ...defaultNotificationCategories, ...parsed };
+          }
+        } catch {
+          // ...
+        }
+      }
+    }
+    // Fallback z userSettings lub domyślne
+    const settingsWithNotifications = userSettings as (UserSettings & {
+      notificationCategories?: unknown;
+    }) | null | undefined;
+
+    if (isNotificationCategories(settingsWithNotifications?.notificationCategories)) {
+      return {
+        ...defaultNotificationCategories,
+        ...settingsWithNotifications.notificationCategories,
+      };
+    }
+
+    return defaultNotificationCategories;
+  });
 
   const handleSave = async () => {
     setSaving(true);
@@ -39,11 +94,14 @@ export function AppearanceTab({ userSettings }: AppearanceTabProps) {
         body: JSON.stringify({
           fontSize,
           soundEnabled,
+          notificationCategories,
         }),
       });
 
       if (response.ok) {
-        toast.success('Ustawienia wyglądu zapisane');
+        // Zapisz kategorie powiadomień w localStorage
+        localStorage.setItem('notificationCategories', JSON.stringify(notificationCategories));
+        toast.success('Ustawienia wyglądu i powiadomień zapisane');
 
         // Apply font size to document
         document.documentElement.style.fontSize =
@@ -201,6 +259,133 @@ export function AppearanceTab({ userSettings }: AppearanceTabProps) {
           <p className="text-sm text-muted-foreground mt-2">
             💡 Zmiana języka będzie dostępna wkrótce
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Separator */}
+      <Separator className="my-6" />
+
+      {/* Kategorie powiadomień */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Kategorie powiadomień
+          </CardTitle>
+          <CardDescription>
+            Wybierz które kategorie powiadomień chcesz widzieć
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-0">
+          <div className="divide-y">
+            {/* Zadania */}
+            <div className="flex items-start justify-between py-4 first:pt-0">
+              <div className="flex-1">
+                <Label htmlFor="tasks" className="text-base font-medium">Zadania</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Powiadomienia o zadaniach domowych
+                </p>
+              </div>
+              <Switch
+                id="tasks"
+                checked={notificationCategories.tasks}
+                onCheckedChange={(checked) =>
+                  setNotificationCategories({ ...notificationCategories, tasks: checked })
+                }
+                className="ml-4 mt-1"
+              />
+            </div>
+
+            {/* Wydarzenia */}
+            <div className="flex items-start justify-between py-4">
+              <div className="flex-1">
+                <Label htmlFor="events" className="text-base font-medium">Wydarzenia</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Powiadomienia o zbliżających się wydarzeniach
+                </p>
+              </div>
+              <Switch
+                id="events"
+                checked={notificationCategories.events}
+                onCheckedChange={(checked) =>
+                  setNotificationCategories({ ...notificationCategories, events: checked })
+                }
+                className="ml-4 mt-1"
+              />
+            </div>
+
+            {/* Przypomnienia */}
+            <div className="flex items-start justify-between py-4">
+              <div className="flex-1">
+                <Label htmlFor="reminders" className="text-base font-medium">Przypomnienia</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Przypomnienia o ważnych terminach
+                </p>
+              </div>
+              <Switch
+                id="reminders"
+                checked={notificationCategories.reminders}
+                onCheckedChange={(checked) =>
+                  setNotificationCategories({ ...notificationCategories, reminders: checked })
+                }
+                className="ml-4 mt-1"
+              />
+            </div>
+
+            {/* Gamifikacja */}
+            <div className="flex items-start justify-between py-4">
+              <div className="flex-1">
+                <Label htmlFor="gamification" className="text-base font-medium">Gamifikacja</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Osiągnięcia, poziomy, questy
+                </p>
+              </div>
+              <Switch
+                id="gamification"
+                checked={notificationCategories.gamification}
+                onCheckedChange={(checked) =>
+                  setNotificationCategories({ ...notificationCategories, gamification: checked })
+                }
+                className="ml-4 mt-1"
+              />
+            </div>
+
+            {/* Gospodarstwo */}
+            <div className="flex items-start justify-between py-4">
+              <div className="flex-1">
+                <Label htmlFor="household" className="text-base font-medium">Gospodarstwo</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Zdarzenia w gospodarstwie
+                </p>
+              </div>
+              <Switch
+                id="household"
+                checked={notificationCategories.household}
+                onCheckedChange={(checked) =>
+                  setNotificationCategories({ ...notificationCategories, household: checked })
+                }
+                className="ml-4 mt-1"
+              />
+            </div>
+
+            {/* Inwentarz */}
+            <div className="flex items-start justify-between py-4">
+              <div className="flex-1">
+                <Label htmlFor="inventory" className="text-base font-medium">Inwentarz</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Powiadomienia o niskich zapasach i wygasających produktach
+                </p>
+              </div>
+              <Switch
+                id="inventory"
+                checked={notificationCategories.inventory}
+                onCheckedChange={(checked) =>
+                  setNotificationCategories({ ...notificationCategories, inventory: checked })
+                }
+                className="ml-4 mt-1"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

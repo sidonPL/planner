@@ -121,7 +121,6 @@ export function ChecklistWithCategories({
 
           const categoryCompleted = items.filter(i => i.isPacked).length;
           const categoryTotal = items.length;
-          const categoryProgress = (categoryCompleted / categoryTotal) * 100;
           const Icon = config.icon;
 
           return (

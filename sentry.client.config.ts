@@ -30,7 +30,7 @@ Sentry.init({
     "ChunkLoadError",
   ],
 
-  beforeSend(event, hint) {
+  beforeSend(event) {
     // Filter out development errors
     if (process.env.NODE_ENV === "development") {
       console.log("Sentry Event (dev):", event);

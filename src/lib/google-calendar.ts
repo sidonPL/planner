@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+import { google, calendar_v3 } from "googleapis";
 
 const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"];
 
@@ -88,60 +88,15 @@ export async function fetchGoogleCalendarEvents(
   return response.data.items || [];
 }
 
-/**
- * Konwertuje wydarzenie Google na nasze ICalEvent
- */
-export function convertGoogleEventToICalEvent(googleEvent: any) {
-  const startDate = googleEvent.start?.dateTime
-    ? new Date(googleEvent.start.dateTime)
-    : new Date(googleEvent.start?.date);
-
-  const endDate = googleEvent.end?.dateTime
-    ? new Date(googleEvent.end.dateTime)
-    : googleEvent.end?.date
-    ? new Date(googleEvent.end.date)
-    : undefined;
-
-  const isAllDay = Boolean(googleEvent.start?.date);
-
-  return {
-    uid: googleEvent.id,
-    summary: googleEvent.summary || "Bez tytułu",
-    description: googleEvent.description,
-    location: googleEvent.location,
-    start: startDate,
-    end: endDate,
-    isAllDay,
-    color: googleEvent.colorId,
-    attachments: googleEvent.attachments?.map((att: any) => ({
-      url: att.fileUrl,
-      name: att.title,
-    })),
-    categories: [],
-  };
-}
-
-/**
- * Tworzy wydarzenie w Google Calendar (dwukierunkowa sync)
- */
-export async function createGoogleCalendarEvent(
-  accessToken: string,
-  calendarId: string,
-  event: {
-    summary: string;
-    description?: string;
-    location?: string;
-    start: Date;
-    end?: Date;
-    isAllDay?: boolean;
-  }
-) {
-  const oauth2Client = getGoogleOAuthClient();
-  oauth2Client.setCredentials({ access_token: accessToken });
-
-  const calendar = google.calendar({ version: "v3", auth: oauth2Client });
-
-  const eventResource: any = {
+function buildGoogleEventResource(event: {
+  summary: string;
+  description?: string;
+  location?: string;
+  start: Date;
+  end?: Date;
+  isAllDay?: boolean;
+}): calendar_v3.Schema$Event {
+  const eventResource: calendar_v3.Schema$Event = {
     summary: event.summary,
     description: event.description,
     location: event.location,
@@ -166,6 +121,66 @@ export async function createGoogleCalendarEvent(
       timeZone: "Europe/Warsaw",
     };
   }
+
+  return eventResource;
+}
+
+/**
+ * Konwertuje wydarzenie Google na nasze ICalEvent
+ */
+export function convertGoogleEventToICalEvent(googleEvent: calendar_v3.Schema$Event) {
+  const startDate = googleEvent.start?.dateTime
+    ? new Date(googleEvent.start.dateTime)
+    : new Date(googleEvent.start?.date || new Date());
+
+  const endDate = googleEvent.end?.dateTime
+    ? new Date(googleEvent.end.dateTime)
+    : googleEvent.end?.date
+    ? new Date(googleEvent.end.date)
+    : undefined;
+
+  const isAllDay = Boolean(googleEvent.start?.date);
+
+  return {
+    uid: googleEvent.id || `google-${startDate.getTime()}`,
+    summary: googleEvent.summary || "Bez tytułu",
+    description: googleEvent.description || undefined,
+    location: googleEvent.location || undefined,
+    start: startDate,
+    end: endDate,
+    isAllDay,
+    color: googleEvent.colorId,
+    attachments: googleEvent.attachments
+      ?.filter((att) => !!att.fileUrl)
+      .map((att) => ({
+        url: att.fileUrl as string,
+        name: att.title || undefined,
+      })),
+    categories: [],
+  };
+}
+
+/**
+ * Tworzy wydarzenie w Google Calendar (dwukierunkowa sync)
+ */
+export async function createGoogleCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  event: {
+    summary: string;
+    description?: string;
+    location?: string;
+    start: Date;
+    end?: Date;
+    isAllDay?: boolean;
+  }
+) {
+  const oauth2Client = getGoogleOAuthClient();
+  oauth2Client.setCredentials({ access_token: accessToken });
+
+  const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
+  const eventResource = buildGoogleEventResource(event);
 
   const response = await calendar.events.insert({
     calendarId,
@@ -196,31 +211,7 @@ export async function updateGoogleCalendarEvent(
 
   const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
-  const eventResource: any = {
-    summary: event.summary,
-    description: event.description,
-    location: event.location,
-  };
-
-  if (event.isAllDay) {
-    eventResource.start = {
-      date: event.start.toISOString().split("T")[0],
-      timeZone: "Europe/Warsaw",
-    };
-    eventResource.end = {
-      date: (event.end || event.start).toISOString().split("T")[0],
-      timeZone: "Europe/Warsaw",
-    };
-  } else {
-    eventResource.start = {
-      dateTime: event.start.toISOString(),
-      timeZone: "Europe/Warsaw",
-    };
-    eventResource.end = {
-      dateTime: (event.end || event.start).toISOString(),
-      timeZone: "Europe/Warsaw",
-    };
-  }
+  const eventResource = buildGoogleEventResource(event);
 
   const response = await calendar.events.update({
     calendarId,

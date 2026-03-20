@@ -3,6 +3,31 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getProductByBarcode, ProductData } from "@/lib/openfoodfacts";
 
+type DbScannedProduct = {
+  barcode: string;
+  name: string;
+  brand: string | null;
+  manufacturer: string | null;
+  category: string | null;
+  quantity: string | null;
+  imageUrl: string | null;
+  calories: number | null;
+  protein: number | null;
+  carbohydrates: number | null;
+  fat: number | null;
+  fiber: number | null;
+  salt: number | null;
+  sugar: number | null;
+  ingredients: string | null;
+  allergens: string[];
+  labels: string[];
+  nutriScore: string | null;
+  novaGroup: number | null;
+  ecoScore: string | null;
+  source: string;
+  sourceUrl: string | null;
+};
+
 // Cache w pamięci (w produkcji użyj Redis)
 const productCache = new Map<string, { data: ProductData; timestamp: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 godziny
@@ -166,7 +191,7 @@ function shouldUseCache(lastSync: Date): boolean {
   return diff < CACHE_TTL;
 }
 
-function mapDbProductToProductData(product: any): ProductData {
+function mapDbProductToProductData(product: DbScannedProduct): ProductData {
   return {
     barcode: product.barcode,
     name: product.name,
@@ -190,7 +215,7 @@ function mapDbProductToProductData(product: any): ProductData {
     nutriScore: product.nutriScore || undefined,
     novaGroup: product.novaGroup || undefined,
     ecoScore: product.ecoScore || undefined,
-    source: product.source,
+    source: product.source as ProductData["source"],
     sourceUrl: product.sourceUrl || undefined,
   };
 }

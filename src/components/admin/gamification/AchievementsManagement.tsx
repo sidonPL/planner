@@ -1,8 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Trophy, Plus } from 'lucide-react';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AchievementsCard } from '@/components/gamification/AchievementsCard';
 
 export function AchievementsManagement() {

@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+type JsPdfWithAutoTable = jsPDF & {
+  lastAutoTable?: {
+    finalY: number;
+  };
+};
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -105,7 +111,9 @@ export async function GET(
         margin: { left: 20 },
       });
 
-      yPosition = (doc as any).lastAutoTable.finalY + 10;
+      yPosition = (doc as JsPdfWithAutoTable).lastAutoTable?.finalY
+        ? (doc as JsPdfWithAutoTable).lastAutoTable!.finalY + 10
+        : yPosition + 10;
     }
 
     // Nowa strona jeśli potrzeba
@@ -135,7 +143,9 @@ export async function GET(
       },
     });
 
-    yPosition = (doc as any).lastAutoTable.finalY + 10;
+    yPosition = (doc as JsPdfWithAutoTable).lastAutoTable?.finalY
+      ? (doc as JsPdfWithAutoTable).lastAutoTable!.finalY + 10
+      : yPosition + 10;
 
     // Nowa strona dla kroków
     if (yPosition > 200 || recipe.steps.length > 5) {

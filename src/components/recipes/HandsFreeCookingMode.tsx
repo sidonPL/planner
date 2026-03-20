@@ -35,22 +35,43 @@ export function HandsFreeCookingMode({
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [fontSize, setFontSize] = useState(20); // 20-40px
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-  const [wakeLockRef, setWakeLockRef] = useState<any>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(() => {
+    const initialDuration = steps[0]?.duration;
+    return initialDuration ? initialDuration * 60 : null;
+  });
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const currentStep = steps[currentStepIndex];
+  const currentStepDuration = currentStep?.duration;
   const progress = ((currentStepIndex + 1) / steps.length) * 100;
+
+  const nextStep = useCallback(() => {
+    setCurrentStepIndex(prev => {
+      if (prev >= steps.length - 1) return prev;
+
+      const nextIndex = prev + 1;
+      const stepDuration = steps[nextIndex]?.duration;
+      setTimeRemaining(stepDuration ? stepDuration * 60 : null);
+      setIsTimerRunning(false);
+      // Auto-scroll to top
+      containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return nextIndex;
+    });
+  }, [steps]);
 
   // Wake Lock - prevent screen from sleeping
   useEffect(() => {
     const requestWakeLock = async () => {
       try {
-        if ('wakeLock' in navigator) {
-          const wakeLock = await (navigator as any).wakeLock.request('screen');
-          setWakeLockRef(wakeLock);
+        const nav = navigator as Navigator & {
+          wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinel> };
+        };
+        if (nav.wakeLock) {
+          const wakeLock = await nav.wakeLock.request('screen');
+          wakeLockRef.current = wakeLock;
           console.log('Wake Lock aktywny');
         }
       } catch (err) {
@@ -61,8 +82,9 @@ export function HandsFreeCookingMode({
     requestWakeLock();
 
     return () => {
-      if (wakeLockRef) {
-        wakeLockRef.release();
+      if (wakeLockRef.current) {
+        void wakeLockRef.current.release();
+        wakeLockRef.current = null;
       }
     };
   }, []);
@@ -126,20 +148,9 @@ export function HandsFreeCookingMode({
 
       return () => clearInterval(interval);
     }
-  }, [isTimerRunning, timeRemaining, autoAdvance, currentStepIndex, steps.length, speakText]);
+  }, [isTimerRunning, timeRemaining, autoAdvance, currentStepIndex, steps.length, speakText, nextStep]);
 
-  // Start timer for current step
-  useEffect(() => {
-    if (currentStep?.duration) {
-      setTimeRemaining(currentStep.duration * 60);
-      setIsTimerRunning(false);
-    } else {
-      setTimeRemaining(null);
-      setIsTimerRunning(false);
-    }
-  }, [currentStepIndex, currentStep]);
-
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       containerRef.current?.requestFullscreen();
       setIsFullscreen(true);
@@ -147,24 +158,22 @@ export function HandsFreeCookingMode({
       document.exitFullscreen();
       setIsFullscreen(false);
     }
-  };
+  }, []);
 
-  const nextStep = () => {
-    if (currentStepIndex < steps.length - 1) {
-      setCurrentStepIndex(prev => prev + 1);
-      // Auto-scroll to top
+  const prevStep = useCallback(() => {
+    setCurrentStepIndex(prev => {
+      if (prev <= 0) return prev;
+
+      const nextIndex = prev - 1;
+      const stepDuration = steps[nextIndex]?.duration;
+      setTimeRemaining(stepDuration ? stepDuration * 60 : null);
+      setIsTimerRunning(false);
       containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
+      return nextIndex;
+    });
+  }, [steps]);
 
-  const prevStep = () => {
-    if (currentStepIndex > 0) {
-      setCurrentStepIndex(prev => prev - 1);
-      containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const toggleStepComplete = () => {
+  const toggleStepComplete = useCallback(() => {
     setCompletedSteps(prev => {
       const newSet = new Set(prev);
       if (newSet.has(currentStepIndex)) {
@@ -174,27 +183,27 @@ export function HandsFreeCookingMode({
       }
       return newSet;
     });
-  };
+  }, [currentStepIndex]);
 
-  const startTimer = () => {
+  const startTimer = useCallback(() => {
     if (timeRemaining !== null && timeRemaining > 0) {
       setIsTimerRunning(true);
       speakText("Timer uruchomiony");
     }
-  };
+  }, [timeRemaining, speakText]);
 
-  const pauseTimer = () => {
+  const pauseTimer = useCallback(() => {
     setIsTimerRunning(false);
     speakText("Timer zatrzymany");
-  };
+  }, [speakText]);
 
-  const resetTimer = () => {
-    if (currentStep?.duration) {
-      setTimeRemaining(currentStep.duration * 60);
+  const resetTimer = useCallback(() => {
+    if (currentStepDuration) {
+      setTimeRemaining(currentStepDuration * 60);
       setIsTimerRunning(false);
       speakText("Timer zresetowany");
     }
-  };
+  }, [currentStepDuration, speakText]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -215,7 +224,11 @@ export function HandsFreeCookingMode({
         case ' ':
           e.preventDefault();
           if (timeRemaining !== null) {
-            isTimerRunning ? pauseTimer() : startTimer();
+            if (isTimerRunning) {
+              pauseTimer();
+            } else {
+              startTimer();
+            }
           }
           break;
         case 'Enter':
@@ -235,7 +248,17 @@ export function HandsFreeCookingMode({
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [currentStepIndex, steps.length, timeRemaining, isTimerRunning]);
+  }, [
+    isTimerRunning,
+    nextStep,
+    pauseTimer,
+    prevStep,
+    resetTimer,
+    startTimer,
+    timeRemaining,
+    toggleFullscreen,
+    toggleStepComplete,
+  ]);
 
   return (
     <div

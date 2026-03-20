@@ -37,17 +37,17 @@ export function ThemeSelector() {
     try {
       const response = await fetch('/api/gamification/claimed-rewards');
       if (response.ok) {
-        const rewards = await response.json();
+        const rewards = await response.json() as Array<{reward: {category: string; effectData?: {themeId?: string}}}>;
         // Filtruj po kategorii THEME (nie COSMETIC) i obecności themeId w effectData
         const themeRewards = rewards.filter(
-          (r: any) => r.reward.category === 'THEME' && r.reward.effectData?.themeId
+          (r) => r.reward.category === 'THEME' && r.reward.effectData?.themeId
         );
 
         const unlocked = new Set<ThemeId>(['default']);
-        themeRewards.forEach((r: any) => {
-          const themeId = r.reward.effectData.themeId;
-          if (AVAILABLE_THEMES[themeId as ThemeId]) {
-            unlocked.add(themeId);
+        themeRewards.forEach((r) => {
+          const themeId = r.reward.effectData?.themeId;
+          if (themeId && AVAILABLE_THEMES[themeId as ThemeId]) {
+            unlocked.add(themeId as ThemeId);
           }
         });
 

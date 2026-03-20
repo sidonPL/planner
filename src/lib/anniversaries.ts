@@ -151,7 +151,6 @@ export function getTodaysAnniversaries(
  */
 export function formatAnniversaryMessage(anniversary: AnniversaryWithYears): string {
   const icon = anniversaryTypeIcons[anniversary.type];
-  const label = anniversaryTypeLabels[anniversary.type];
 
   if (anniversary.yearsAgo === 0) {
     return `${icon} ${anniversary.title}`;

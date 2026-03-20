@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { exchangeMicrosoftCode, listMicrosoftCalendars } from "@/lib/microsoft-calendar";
 
+type MicrosoftCalendarSummary = {
+  id: string;
+  name?: string;
+  isDefaultCalendar?: boolean;
+};
+
 // GET - Callback po autoryzacji Microsoft
 export async function GET(request: NextRequest) {
   try {
@@ -34,8 +40,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Pobierz listę kalendarzy
-    const calendars = await listMicrosoftCalendars(tokens.accessToken);
-    const primaryCalendar = calendars.find((cal: any) => cal.isDefaultCalendar) || calendars[0];
+    const calendars = (await listMicrosoftCalendars(
+      tokens.accessToken
+    )) as MicrosoftCalendarSummary[];
+    const primaryCalendar = calendars.find((cal) => cal.isDefaultCalendar) || calendars[0];
 
     if (!primaryCalendar?.id) {
       return NextResponse.redirect(

@@ -87,7 +87,7 @@ export async function DELETE(req: Request) {
 
 // GET - pobierz klucz publiczny VAPID
 export async function GET() {
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  const publicKey = process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
   if (!publicKey) {
     return NextResponse.json(

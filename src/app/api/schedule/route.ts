@@ -11,6 +11,13 @@ const scheduleSchema = z.object({
   startTime: z.string(),
   endTime: z.string(),
   location: z.string().nullable().optional(),
+  isOneTime: z.boolean().optional(),
+  oneTimeDate: z.string().nullable().optional(),
+  recurrenceUnit: z.enum(["WEEKLY", "MONTHLY"]).optional(),
+  repeatEvery: z.number().int().min(1).max(60).optional(),
+  effectiveFrom: z.string().nullable().optional(),
+  effectiveTo: z.string().nullable().optional(),
+  specificDates: z.array(z.string()).optional(),
 });
 
 // GET - pobierz harmonogramy
@@ -62,6 +69,14 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validatedData = scheduleSchema.parse(body);
 
+    if (validatedData.effectiveFrom && validatedData.effectiveTo) {
+      const from = new Date(validatedData.effectiveFrom);
+      const to = new Date(validatedData.effectiveTo);
+      if (from > to) {
+        return NextResponse.json({ error: "Data koncowa musi byc pozniejsza od poczatkowej" }, { status: 400 });
+      }
+    }
+
     // Sprawdź czy użytkownik należy do tego gospodarstwa
     const targetUser = await prisma.user.findFirst({
       where: {
@@ -83,8 +98,13 @@ export async function POST(req: Request) {
         startTime: validatedData.startTime,
         endTime: validatedData.endTime,
         location: validatedData.location,
-        isOneTime: body.isOneTime || false,
-        oneTimeDate: body.oneTimeDate ? new Date(body.oneTimeDate) : null,
+        isOneTime: validatedData.isOneTime || false,
+        oneTimeDate: validatedData.oneTimeDate ? new Date(validatedData.oneTimeDate) : null,
+        recurrenceUnit: validatedData.recurrenceUnit || "WEEKLY",
+        repeatEvery: validatedData.repeatEvery || 1,
+        effectiveFrom: validatedData.effectiveFrom ? new Date(validatedData.effectiveFrom) : null,
+        effectiveTo: validatedData.effectiveTo ? new Date(validatedData.effectiveTo) : null,
+        specificDates: (validatedData.specificDates || []).map((date) => new Date(date)),
         householdId: session.user.householdId,
       },
       include: {

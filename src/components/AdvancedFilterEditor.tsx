@@ -29,23 +29,6 @@ export function AdvancedFilterEditor({ value, onChange }: AdvancedFilterEditorPr
   ]);
   const [logic, setLogic] = useState<"AND" | "OR">("OR");
 
-  // Parse existing value
-  const parseValue = () => {
-    if (!value) return;
-
-    try {
-      if (value.trim().startsWith("{")) {
-        const config: EventFilterConfig = JSON.parse(value);
-        if (config.mode === "advanced" && config.rules) {
-          setMode("advanced");
-          setRules(config.rules);
-          setLogic(config.logic || "OR");
-        }
-      }
-    } catch {
-      // Keep as simple
-    }
-  };
 
   const addRule = () => {
     setRules([...rules, { field: "title", operator: "contains", value: "", caseSensitive: false }]);

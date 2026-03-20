@@ -34,8 +34,8 @@ export async function logAdminAction(params: {
   entityType: string;
   entityId?: string;
   changes?: {
-    before?: any;
-    after?: any;
+    before?: unknown;
+    after?: unknown;
   };
   request?: Request;
   successful?: boolean;
@@ -54,7 +54,7 @@ export async function logAdminAction(params: {
 
   try {
     // Prepare metadata
-    let metadataObj: any = changes || {};
+    let metadataObj: Record<string, unknown> = changes || {};
     if (!successful && errorMessage) {
       metadataObj = { ...metadataObj, successful: false, error: errorMessage };
     } else if (!changes && errorMessage) {

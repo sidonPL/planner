@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, Edit, Trash2, Clock, Loader2, Settings } from "lucide-react";
 import {
   Dialog,
@@ -80,6 +80,26 @@ export function RoutineTemplatesManager({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const refreshTemplates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/routine-templates");
+      if (response.ok) {
+        const data = await response.json();
+        setTemplates(data.filter((t: RoutineTemplate) => !t.isPublic));
+      }
+    } catch (error) {
+      console.error("Error loading templates:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się załadować szablonów",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   // Form state
   const [formData, setFormData] = useState({
     name: "",
@@ -95,9 +115,9 @@ export function RoutineTemplatesManager({
 
   useEffect(() => {
     if (open) {
-      loadTemplates();
+      void refreshTemplates();
     }
-  }, [open]);
+  }, [open, refreshTemplates]);
 
   useEffect(() => {
     if (editingTemplate) {
@@ -111,26 +131,6 @@ export function RoutineTemplatesManager({
     }
   }, [editingTemplate]);
 
-  const loadTemplates = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/routine-templates");
-      if (response.ok) {
-        const data = await response.json();
-        // Filtruj tylko własne (niepubliczne) szablony
-        setTemplates(data.filter((t: RoutineTemplate) => !t.isPublic));
-      }
-    } catch (error) {
-      console.error("Error loading templates:", error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się załadować szablonów",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
@@ -179,7 +179,7 @@ export function RoutineTemplatesManager({
             : "Szablon został utworzony",
         });
         resetForm();
-        loadTemplates();
+        void refreshTemplates();
         onTemplateChanged?.();
       } else {
         throw new Error("Failed to save template");
@@ -210,7 +210,7 @@ export function RoutineTemplatesManager({
           title: "✅ Usunięto",
           description: "Szablon został usunięty",
         });
-        loadTemplates();
+        void refreshTemplates();
         onTemplateChanged?.();
       } else {
         throw new Error("Failed to delete template");

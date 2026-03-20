@@ -11,10 +11,6 @@ import {
   PowerOff,
   Clock,
   Sparkles,
-  Zap,
-  Palette,
-  Crown,
-  Star,
   Gift
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -42,17 +38,6 @@ interface ClaimedReward {
   };
 }
 
-type IconComponent = React.ComponentType<{ className?: string }>;
-
-const categoryIcons: Record<string, IconComponent> = {
-  AVATAR: Palette,
-  BADGE: Star,
-  TITLE: Crown,
-  PERK: Zap,
-  THEME: Sparkles,
-  PHYSICAL: Gift,
-  OTHER: Sparkles,
-};
 
 const rarityColors: Record<string, string> = {
   COMMON: 'text-gray-500 border-gray-300',

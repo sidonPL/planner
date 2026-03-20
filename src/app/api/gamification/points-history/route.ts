@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+
+const POINT_TYPES = ['EARNED', 'SPENT', 'BONUS', 'PENALTY'] as const;
 
 // GET - pobierz historię punktów użytkownika
 export async function GET(req: Request) {
@@ -15,12 +18,12 @@ export async function GET(req: Request) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const type = searchParams.get('type'); // EARNED, SPENT, BONUS, PENALTY
 
-    const where: any = {
+    const where: Prisma.PointsHistoryWhereInput = {
       userId: session.user.id,
     };
 
-    if (type) {
-      where.type = type;
+    if (type && POINT_TYPES.includes(type as (typeof POINT_TYPES)[number])) {
+      where.type = type as Prisma.PointsHistoryWhereInput['type'];
     }
 
     const history = await prisma.pointsHistory.findMany({

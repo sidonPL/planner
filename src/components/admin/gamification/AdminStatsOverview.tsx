@@ -4,8 +4,36 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trophy, Users, Target, Award, TrendingUp, Zap } from 'lucide-react';
 
+type RecentActivityItem = {
+  message: string;
+  timestamp: string;
+  xp?: number;
+};
+
+type TopUserItem = {
+  id: string;
+  name: string;
+  level: number;
+  xp: number;
+  achievementsCount: number;
+};
+
+type AdminGamificationStats = {
+  activeUsers?: number;
+  totalXP?: number;
+  unlockedAchievements?: number;
+  totalAchievements?: number;
+  completedQuests?: number;
+  totalQuests?: number;
+  avgLevel?: number;
+  unlockedBadges?: number;
+  totalBadges?: number;
+  recentActivity?: RecentActivityItem[];
+  topUsers?: TopUserItem[];
+};
+
 export function AdminStatsOverview() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<AdminGamificationStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,7 +44,7 @@ export function AdminStatsOverview() {
     try {
       const response = await fetch('/api/admin/gamification/stats');
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as AdminGamificationStats;
         setStats(data);
       }
     } catch (error) {
@@ -108,7 +136,7 @@ export function AdminStatsOverview() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {stats.recentActivity?.map((activity: any, index: number) => (
+            {stats.recentActivity?.map((activity, index: number) => (
               <div key={index} className="flex items-center gap-3 p-3 rounded-lg border">
                 <div className="flex-1">
                   <p className="font-medium">{activity.message}</p>
@@ -131,7 +159,7 @@ export function AdminStatsOverview() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {stats.topUsers?.map((user: any, index: number) => (
+            {stats.topUsers?.map((user, index: number) => (
               <div
                 key={user.id}
                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"

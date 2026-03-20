@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+
+function getEffectDataType(effectData: Prisma.JsonValue | null): string | undefined {
+  if (!effectData || typeof effectData !== 'object' || Array.isArray(effectData)) {
+    return undefined;
+  }
+  const value = (effectData as Record<string, unknown>).type;
+  return typeof value === 'string' ? value : undefined;
+}
+
+function getEffectDataMultiplier(effectData: Prisma.JsonValue | null): number {
+  if (!effectData || typeof effectData !== 'object' || Array.isArray(effectData)) {
+    return 1.0;
+  }
+  const value = (effectData as Record<string, unknown>).multiplier;
+  return typeof value === 'number' ? value : 1.0;
+}
 
 /**
  * GET /api/gamification/rewards/stats
@@ -73,7 +90,7 @@ export async function GET(request: Request) {
     // Statystyki XP Boosts
     const xpBoostRewards = claimedRewards.filter(
       (cr) => cr.reward.category === 'PERK' &&
-      (cr.reward.effectData as any)?.type === 'xp_boost'
+      getEffectDataType(cr.reward.effectData) === 'xp_boost'
     );
 
     const xpBoostStats = {
@@ -85,7 +102,7 @@ export async function GET(request: Request) {
 
     if (xpBoostRewards.length > 0) {
       const multipliers = xpBoostRewards
-        .map((cr) => (cr.reward.effectData as any)?.multiplier || 1.0)
+        .map((cr) => getEffectDataMultiplier(cr.reward.effectData))
         .filter((m) => m > 1.0);
 
       if (multipliers.length > 0) {

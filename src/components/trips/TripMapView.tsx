@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from "@react-google-maps/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,24 +42,23 @@ const categoryColors: Record<string, string> = {
   OTHER: '#6B7280',       // gray
 };
 
-export function TripMapView({ places, tripName }: TripMapViewProps) {
+export function TripMapView({ places }: TripMapViewProps) {
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
   });
 
-  const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<TripPlace | null>(null);
-  const [center, setCenter] = useState(defaultCenter);
 
-  useEffect(() => {
-    // Calculate center from places with coordinates
-    const placesWithCoords = places.filter(p => p.latitude && p.longitude);
-    if (placesWithCoords.length > 0) {
-      const avgLat = placesWithCoords.reduce((sum, p) => sum + (p.latitude || 0), 0) / placesWithCoords.length;
-      const avgLng = placesWithCoords.reduce((sum, p) => sum + (p.longitude || 0), 0) / placesWithCoords.length;
-      setCenter({ lat: avgLat, lng: avgLng });
+  const center = useMemo(() => {
+    const placesWithCoords = places.filter((p) => p.latitude && p.longitude);
+    if (placesWithCoords.length === 0) {
+      return defaultCenter;
     }
+
+    const avgLat = placesWithCoords.reduce((sum, p) => sum + (p.latitude || 0), 0) / placesWithCoords.length;
+    const avgLng = placesWithCoords.reduce((sum, p) => sum + (p.longitude || 0), 0) / placesWithCoords.length;
+    return { lat: avgLat, lng: avgLng };
   }, [places]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
@@ -75,12 +74,9 @@ export function TripMapView({ places, tripName }: TripMapViewProps) {
       map.fitBounds(bounds);
     }
 
-    setMap(map);
   }, [places]);
 
-  const onUnmount = useCallback(() => {
-    setMap(null);
-  }, []);
+  const onUnmount = useCallback(() => {}, []);
 
   const handleOptimizeRoute = () => {
     // TODO: Implement route optimization using Google Directions API

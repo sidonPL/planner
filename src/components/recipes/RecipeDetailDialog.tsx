@@ -272,7 +272,6 @@ export function RecipeDetailDialog({
   const [mealType, setMealType] = useState<string>("LUNCH");
   const [cookingMode, setCookingMode] = useState(startInCookingMode);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
-  const [_activeStep, setActiveStep] = useState(0);
   const [usedIngredients, setUsedIngredients] = useState<Set<number>>(new Set());
 
 
@@ -611,7 +610,6 @@ export function RecipeDetailDialog({
                         size="sm"
                         onClick={() => {
                           setCookingMode(true);
-                          setActiveStep(0);
                         }}
                         className="gap-2"
                       >

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
+import webpush from "web-push";
 
 // Cron job - przypomnienia o rutynach o konkretnej godzinie
 // Uruchamiany co godzinę przez zewnętrzny serwis (np. cron-job.org)
@@ -49,9 +50,7 @@ export async function GET(req: Request) {
 
       for (const subscription of task.assignee.pushSubscriptions) {
         try {
-          // Używamy Web Push API
-          const webpush = require("web-push");
-
+          // Ustaw VAPID details
           webpush.setVapidDetails(
             process.env.NEXT_PUBLIC_APP_URL || "mailto:example@domain.com",
             process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
@@ -98,7 +97,8 @@ export async function GET(req: Request) {
           console.error(`[Routine Reminders] Error sending notification:`, error);
 
           // Jeśli subskrypcja jest nieważna, usuń ją
-          if ((error as any)?.statusCode === 410) {
+          const statusCode = error && typeof error === 'object' && 'statusCode' in error ? (error as { statusCode: number }).statusCode : null;
+          if (statusCode === 410) {
             await prisma.pushSubscription.delete({
               where: { id: subscription.id }
             });

@@ -3,6 +3,18 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
 
+type ImportInventoryItem = {
+  name: string;
+  quantity: string | number;
+  unit?: string | null;
+  category?: string | null;
+  location?: string | null;
+  expiryDate?: string | null;
+  minQuantity?: string | number | null;
+  price?: string | number | null;
+  autoRestock?: boolean | string;
+};
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
@@ -93,7 +105,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as {
+      items?: ImportInventoryItem[];
+      mode?: "add" | "replace";
+    };
     const { items, mode = "add" } = body; // mode: 'add' or 'replace'
 
     if (!items || !Array.isArray(items)) {
@@ -111,15 +126,15 @@ export async function POST(request: Request) {
 
     // Add new items
     const created = await prisma.inventoryItem.createMany({
-      data: items.map((item: any) => ({
+      data: items.map((item) => ({
         name: item.name,
-        quantity: parseFloat(item.quantity) || 0,
+        quantity: Number(item.quantity) || 0,
         unit: item.unit || null,
         category: item.category || null,
         location: item.location || null,
         expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
-        minQuantity: item.minQuantity ? parseFloat(item.minQuantity) : null,
-        price: item.price ? parseFloat(item.price) : null,
+        minQuantity: item.minQuantity ? Number(item.minQuantity) : null,
+        price: item.price ? Number(item.price) : null,
         autoRestock: item.autoRestock === true || item.autoRestock === "Tak",
         householdId: session.user.householdId!, // Non-null assertion - checked above
       })),

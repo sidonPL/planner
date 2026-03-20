@@ -55,7 +55,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         setProgress(100);
         options.onSuccess?.(result);
         return result;
-      } catch (err) {
+      } catch {
         const errorMessage = "Błąd połączenia podczas uploadu";
         setError(errorMessage);
         options.onError?.(errorMessage);

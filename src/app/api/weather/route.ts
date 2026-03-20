@@ -2,9 +2,90 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
+// Interfejsy dla danych pogodowych
+interface ForecastDay {
+  date: string;
+  dateIso: string;
+  tempMin: number;
+  tempMax: number;
+  description: string;
+  icon: string;
+  humidity: number;
+}
+
+interface WeatherData {
+  temperature: number;
+  dayTemperature?: number;
+  nightTemperature?: number;
+  feelsLike: number;
+  humidity: number;
+  windSpeed: number;
+  description: string;
+  icon: string;
+  city: string;
+  sunrise?: number;
+  sunset?: number;
+  isDemo: boolean;
+  forecast?: ForecastDay[];
+}
+
+interface CacheEntry {
+  data: WeatherData;
+  timestamp: number;
+}
+
+interface OpenWeatherMapResponse {
+  main: {
+    temp: number;
+    temp_min: number;
+    temp_max: number;
+    feels_like: number;
+    humidity: number;
+  };
+  wind: {
+    speed: number;
+  };
+  weather: Array<{
+    description: string;
+    icon: string;
+  }>;
+  name: string;
+  sys: {
+    sunrise: number;
+    sunset: number;
+  };
+}
+
+interface ForecastListResponse {
+  list: Array<{
+    dt: number;
+    main: {
+      temp: number;
+      temp_min: number;
+      temp_max: number;
+      humidity: number;
+    };
+    weather: Array<{
+      description: string;
+      icon: string;
+    }>;
+  }>;
+}
+
+interface OpenWeatherErrorResponse {
+  message?: string;
+}
+
 // Cache dla danych pogodowych (5 minut)
-const weatherCache = new Map<string, { data: any; timestamp: number }>();
+const weatherCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minut
+
+function toLocalDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,11 +100,26 @@ export async function GET(request: NextRequest) {
       where: { userId: session.user.id },
     });
 
-    const city = settings?.weatherCity || "Warsaw";
-    const apiKey = settings?.weatherApiKey || process.env.OPENWEATHERMAP_API_KEY;
+    const destination = request.nextUrl.searchParams.get("destination");
+
+    const weatherLocationMode =
+      ((settings as (typeof settings & { weatherLocationMode?: string }) | null)?.weatherLocationMode === "gps"
+        ? "gps"
+        : "city");
+
+    const weatherLatitude =
+      (settings as (typeof settings & { weatherLatitude?: number | null }) | null)?.weatherLatitude ?? null;
+    const weatherLongitude =
+      (settings as (typeof settings & { weatherLongitude?: number | null }) | null)?.weatherLongitude ?? null;
+
+    const city = destination || settings?.weatherCity || "Warsaw";
+    const apiKey = process.env.OPENWEATHERMAP_API_KEY;
+    const useGps = !destination && weatherLocationMode === "gps" && weatherLatitude !== null && weatherLongitude !== null;
 
     // Sprawdź cache
-    const cacheKey = city.toLowerCase();
+    const cacheKey = useGps
+      ? `gps:${weatherLatitude},${weatherLongitude}`
+      : `city:${city.toLowerCase()}`;
     const cached = weatherCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       return NextResponse.json(cached.data);
@@ -31,8 +127,25 @@ export async function GET(request: NextRequest) {
 
     // Jeśli nie ma API key, zwróć dane demo
     if (!apiKey) {
-      const demoData = {
+      const demoForecast: ForecastDay[] = Array.from({ length: 5 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() + i + 1);
+        const dateIso = toLocalDateKey(d);
+        return {
+          date: d.toLocaleDateString("pl-PL", { weekday: "short", day: "2-digit", month: "2-digit" }),
+          dateIso,
+          tempMin: Math.round(-1 + Math.random() * 6),
+          tempMax: Math.round(4 + Math.random() * 9),
+          description: ["Chmurnie", "Opad deszczu", "Pochmurnie", "Przejaśnienia", "Słonecznie"][i % 5],
+          icon: ["03d", "10d", "04d", "02d", "01d"][i % 5],
+          humidity: Math.round(60 + Math.random() * 30),
+        };
+      });
+
+      const demoData: WeatherData = {
         temperature: Math.round(5 + Math.random() * 10),
+        dayTemperature: Math.round(7 + Math.random() * 8),
+        nightTemperature: Math.round(-1 + Math.random() * 5),
         feelsLike: Math.round(2 + Math.random() * 8),
         humidity: Math.round(60 + Math.random() * 30),
         windSpeed: Math.round(10 + Math.random() * 20),
@@ -40,36 +153,121 @@ export async function GET(request: NextRequest) {
         icon: "03d",
         city: city,
         isDemo: true,
+        forecast: demoForecast,
       };
       return NextResponse.json(demoData);
     }
 
-    // Pobierz dane z OpenWeatherMap
-    const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=pl`
-    );
+    // Pobierz dane z OpenWeatherMap - weather endpoint + forecast dla prognozy
+    let weatherUrl: string;
+    let forecastUrl: string;
+    
+    if (useGps) {
+      weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${weatherLatitude}&lon=${weatherLongitude}&appid=${apiKey}&units=metric&lang=pl`;
+      forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${weatherLatitude}&lon=${weatherLongitude}&appid=${apiKey}&units=metric&lang=pl`;
+    } else {
+      // Najpierw pobierz koordinaty dla miasta
+      const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${apiKey}`;
+      const geoResponse = await fetch(geoUrl);
+      
+      if (!geoResponse.ok) {
+        console.error("Geo API error:", geoResponse.status);
+        return NextResponse.json(
+          { error: "Nie znaleziono miasta" },
+          { status: 404 }
+        );
+      }
+      
+      const geoData = await geoResponse.json() as Array<{ lat: number; lon: number; name: string }>;
+      if (geoData.length === 0) {
+        return NextResponse.json(
+          { error: "Nie znaleziono miasta" },
+          { status: 404 }
+        );
+      }
+      
+      const { lat, lon } = geoData[0];
+      weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=pl`;
+      forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=pl`;
+    }
+
+    // Pobierz aktualne dane pogody
+    const response = await fetch(weatherUrl);
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json() as OpenWeatherErrorResponse;
+      console.error("Weather API error:", error);
       return NextResponse.json(
         { error: error.message || "Nie udało się pobrać pogody" },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
+    const data = await response.json() as OpenWeatherMapResponse;
 
-    const weatherData = {
+    // Pobierz prognozę na kolejne dni
+    let forecast: ForecastDay[] = [];
+    try {
+      const forecastResponse = await fetch(forecastUrl);
+      if (forecastResponse.ok) {
+        const forecastData = await forecastResponse.json() as ForecastListResponse;
+        
+         // Pobierz prognozy dla każdego dnia (co 24 godziny w przybliżeniu)
+         if (forecastData.list && Array.isArray(forecastData.list)) {
+          const dailyForecasts: Record<string, ForecastListResponse["list"]> = {};
+          const todayKey = toLocalDateKey(new Date());
+          
+          // Grupuj prognozy po dniach
+          forecastData.list.forEach((item) => {
+            const itemDate = new Date(item.dt * 1000);
+            const dateKey = toLocalDateKey(itemDate);
+            if (!dailyForecasts[dateKey]) {
+              dailyForecasts[dateKey] = [];
+            }
+            dailyForecasts[dateKey].push(item);
+          });
+          
+          // Weź po jednej prognozie na kolejne dni (bez dzisiejszego)
+          forecast = Object.entries(dailyForecasts)
+            .filter(([dateStr]) => dateStr !== todayKey)
+            .slice(0, 5)
+            .map(([dateStr, items]) => {
+              const midItem = items[Math.floor(items.length / 2)];
+              return {
+                date: new Date(midItem.dt * 1000).toLocaleDateString("pl-PL", {
+                  weekday: "short",
+                  day: "2-digit",
+                  month: "2-digit",
+                }),
+                dateIso: dateStr,
+                tempMin: Math.round(Math.min(...items.map((i) => i.main.temp_min))),
+                tempMax: Math.round(Math.max(...items.map((i) => i.main.temp_max))),
+                description: midItem.weather[0]?.description || "Brak danych",
+                icon: midItem.weather[0]?.icon || "01d",
+                humidity: Math.round(items.reduce((sum, i) => sum + i.main.humidity, 0) / items.length),
+              };
+            });
+        }
+       }
+    } catch (forecastError) {
+      console.error("Forecast fetch error:", forecastError);
+      // Kontynuuj bez prognozy jeśli się nie uda
+    }
+
+    const weatherData: WeatherData = {
       temperature: Math.round(data.main.temp),
+      dayTemperature: Math.round(data.main.temp_max),
+      nightTemperature: Math.round(data.main.temp_min),
       feelsLike: Math.round(data.main.feels_like),
       humidity: data.main.humidity,
       windSpeed: Math.round(data.wind.speed * 3.6), // m/s -> km/h
-      description: data.weather[0].description,
-      icon: data.weather[0].icon,
-      city: data.name,
+      description: data.weather[0]?.description || 'Brak danych',
+      icon: data.weather[0]?.icon || '01d',
+      city: useGps ? `${data.name} (GPS)` : data.name,
       sunrise: data.sys.sunrise,
       sunset: data.sys.sunset,
       isDemo: false,
+      forecast: forecast.length > 0 ? forecast : undefined,
     };
 
     // Zapisz w cache
@@ -84,4 +282,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

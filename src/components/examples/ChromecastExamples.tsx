@@ -5,7 +5,7 @@
  * Możesz go użyć jako referencję lub skopiować kod do swoich komponentów.
  */
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 /* eslint-disable @next/next/no-img-element */
 
 "use client";

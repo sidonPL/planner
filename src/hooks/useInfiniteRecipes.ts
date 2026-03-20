@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface Recipe {
   id: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface PaginationData {
@@ -36,7 +36,6 @@ export function useInfiniteRecipes(
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState<PaginationData | null>(null);
   const [page, setPage] = useState(1);
-  const isInitialMount = useRef(true);
 
   const fetchRecipes = useCallback(
     async (pageNum: number, append = false) => {
@@ -73,22 +72,12 @@ export function useInfiniteRecipes(
     [filters.search, filters.category, filters.difficulty, filters.quickFilter]
   );
 
-  // Reset when filters change
+  // Initial load + reload when filters change
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
     setPage(1);
     setRecipes([]);
     fetchRecipes(1, false);
-  }, [filters.search, filters.category, filters.difficulty, filters.quickFilter, fetchRecipes]);
-
-  // Initial load
-  useEffect(() => {
-    fetchRecipes(1, false);
-  }, []);
+  }, [fetchRecipes]);
 
   const loadMore = useCallback(() => {
     if (!isLoading && hasMore) {

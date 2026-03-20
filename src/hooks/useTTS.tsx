@@ -28,24 +28,32 @@ interface TTSOptions {
 const TTSContext = createContext<TTSContextType | null>(null);
 
 export function TTSProvider({ children }: { children: ReactNode }) {
-  const [isSupported, setIsSupported] = useState(false);
+  const [isSupported] = useState(() =>
+    typeof window !== "undefined" && "speechSynthesis" in window
+  );
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
-  const [rate, setRate] = useState(1);
-  const [volume, setVolume] = useState(1);
-  const [enabled, setEnabled] = useState(false);
+  const [rate, setRate] = useState(() => {
+    if (typeof window === "undefined") return 1;
+    const savedRate = localStorage.getItem("tts-rate");
+    return savedRate ? parseFloat(savedRate) : 1;
+  });
+  const [volume, setVolume] = useState(() => {
+    if (typeof window === "undefined") return 1;
+    const savedVolume = localStorage.getItem("tts-volume");
+    return savedVolume ? parseFloat(savedVolume) : 1;
+  });
+  const [enabled, setEnabled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("tts-enabled") === "true";
+  });
 
   // Sprawdź czy TTS jest wspierany i załaduj głosy
   useEffect(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       return;
     }
-
-    // Ustaw isSupported asynchronicznie
-    const timer = setTimeout(() => {
-      setIsSupported(true);
-    }, 0);
 
     // Pobierz głosy
     const loadVoices = () => {
@@ -64,16 +72,9 @@ export function TTSProvider({ children }: { children: ReactNode }) {
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
 
-    // Wczytaj ustawienia z localStorage
-    const savedEnabled = localStorage.getItem("tts-enabled");
-    const savedRate = localStorage.getItem("tts-rate");
-    const savedVolume = localStorage.getItem("tts-volume");
-
-    if (savedEnabled) setEnabled(savedEnabled === "true");
-    if (savedRate) setRate(parseFloat(savedRate));
-    if (savedVolume) setVolume(parseFloat(savedVolume));
-
-    return () => clearTimeout(timer);
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
   }, []);
 
   // Zapisuj ustawienia

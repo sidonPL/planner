@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getNameDayDateByName, normalizeNameDayInput } from "@/lib/namedays-resolver";
 import { z } from "zod";
 
 const externalBirthdaySchema = z.object({
@@ -12,6 +13,7 @@ const externalBirthdaySchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   notes: z.string().optional(),
+  nameDay: z.string().optional().or(z.literal("")),
   color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
 });
 
@@ -63,11 +65,28 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const validatedData = externalBirthdaySchema.parse(body);
+    const manualNameDay = validatedData.nameDay?.trim();
+
+    if (manualNameDay) {
+      const normalized = normalizeNameDayInput(manualNameDay);
+      const resolvedFromName = normalized ? null : getNameDayDateByName(manualNameDay);
+      if (!normalized && !resolvedFromName) {
+        return NextResponse.json(
+          { error: "Nie znaleziono imienin dla podanej wartosci. Wpisz date recznie (DD-MM), np. 24-06." },
+          { status: 400 }
+        );
+      }
+    }
+
+    const resolvedNameDay = manualNameDay
+      ? (normalizeNameDayInput(manualNameDay) || getNameDayDateByName(manualNameDay))
+      : getNameDayDateByName(validatedData.name);
 
     const externalBirthday = await prisma.externalBirthday.create({
       data: {
         name: validatedData.name,
         birthDate: new Date(validatedData.birthDate),
+        nameDay: resolvedNameDay,
         relationship: validatedData.relationship,
         phone: validatedData.phone,
         email: validatedData.email || null,

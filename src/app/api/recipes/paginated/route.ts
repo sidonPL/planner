@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { handleApiError } from "@/lib/api-error-handler";
+import { Difficulty, Prisma } from "@prisma/client";
 
 const RECIPES_PER_PAGE = 24;
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
     const quickFilter = searchParams.get("quickFilter");
 
     // Build where clause
-    const where: any = {
+    const where: Prisma.RecipeWhereInput = {
       householdId: session.user.householdId,
     };
 
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
 
     // Difficulty filter
     if (difficulty && difficulty !== "all") {
-      where.difficulty = difficulty;
+      where.difficulty = difficulty as Difficulty;
     }
 
     // Quick filters

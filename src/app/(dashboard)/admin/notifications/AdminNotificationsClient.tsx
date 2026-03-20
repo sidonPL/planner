@@ -45,11 +45,16 @@ interface NotificationHistory {
   createdAt: Date;
 }
 
+type ApiNotificationHistory = Omit<NotificationHistory, 'createdAt'> & {
+  createdAt: string | Date;
+};
+
 interface AdminNotificationsClientProps {
   userId: string;
 }
 
 export function AdminNotificationsClient({ userId }: AdminNotificationsClientProps) {
+  void userId;
   const [stats, setStats] = useState<NotificationStats | null>(null);
   const [history, setHistory] = useState<NotificationHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,8 +89,8 @@ export function AdminNotificationsClient({ userId }: AdminNotificationsClientPro
     try {
       const response = await fetch('/api/admin/notifications/history');
       if (response.ok) {
-        const data = await response.json();
-        setHistory(data.history.map((h: any) => ({
+        const data = await response.json() as { history: ApiNotificationHistory[] };
+        setHistory(data.history.map((h) => ({
           ...h,
           createdAt: new Date(h.createdAt),
         })));
@@ -124,7 +129,7 @@ export function AdminNotificationsClient({ userId }: AdminNotificationsClientPro
       } else {
         toast.error('Błąd wysyłania powiadomienia');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     } finally {
       setSending(false);

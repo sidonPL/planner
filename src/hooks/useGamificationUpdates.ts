@@ -6,7 +6,7 @@ import Pusher from 'pusher-js';
 interface GamificationUpdate {
   type: 'LEVEL_UP' | 'ACHIEVEMENT_UNLOCKED' | 'QUEST_COMPLETED' | 'BADGE_UNLOCKED' | 'XP_GAINED';
   userId: string;
-  data: any;
+  data: unknown;
   timestamp: string;
 }
 
@@ -43,7 +43,9 @@ export function useGamificationUpdates(householdId?: string, userId?: string) {
 
       // Show notification if it's for current user
       if (data.userId === userId) {
-        showLevelUpNotification(data.data);
+        if (isLevelUpData(data.data)) {
+          showLevelUpNotification(data.data);
+        }
       }
     });
 
@@ -52,7 +54,9 @@ export function useGamificationUpdates(householdId?: string, userId?: string) {
       setUpdates((prev) => [...prev, { ...data, type: 'ACHIEVEMENT_UNLOCKED' }]);
 
       if (data.userId === userId) {
-        showAchievementNotification(data.data);
+        if (isAchievementData(data.data)) {
+          showAchievementNotification(data.data);
+        }
       }
     });
 
@@ -61,7 +65,9 @@ export function useGamificationUpdates(householdId?: string, userId?: string) {
       setUpdates((prev) => [...prev, { ...data, type: 'QUEST_COMPLETED' }]);
 
       if (data.userId === userId) {
-        showQuestCompletedNotification(data.data);
+        if (isQuestData(data.data)) {
+          showQuestCompletedNotification(data.data);
+        }
       }
     });
 
@@ -70,7 +76,9 @@ export function useGamificationUpdates(householdId?: string, userId?: string) {
       setUpdates((prev) => [...prev, { ...data, type: 'BADGE_UNLOCKED' }]);
 
       if (data.userId === userId) {
-        showBadgeNotification(data.data);
+        if (isBadgeData(data.data)) {
+          showBadgeNotification(data.data);
+        }
       }
     });
 
@@ -125,5 +133,53 @@ function showBadgeNotification(data: { name: string; points: number }) {
       icon: '/icon-192.png',
     });
   }
+}
+
+function isLevelUpData(data: unknown): data is { level: number; name: string } {
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    'level' in data &&
+    typeof (data as { level: unknown }).level === 'number' &&
+    'name' in data &&
+    typeof (data as { name: unknown }).name === 'string'
+  );
+}
+
+function isAchievementData(
+  data: unknown
+): data is { name: string; icon: string; xpReward: number } {
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    'name' in data &&
+    typeof (data as { name: unknown }).name === 'string' &&
+    'icon' in data &&
+    typeof (data as { icon: unknown }).icon === 'string' &&
+    'xpReward' in data &&
+    typeof (data as { xpReward: unknown }).xpReward === 'number'
+  );
+}
+
+function isQuestData(data: unknown): data is { title: string; reward: number } {
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    'title' in data &&
+    typeof (data as { title: unknown }).title === 'string' &&
+    'reward' in data &&
+    typeof (data as { reward: unknown }).reward === 'number'
+  );
+}
+
+function isBadgeData(data: unknown): data is { name: string; points: number } {
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    'name' in data &&
+    typeof (data as { name: unknown }).name === 'string' &&
+    'points' in data &&
+    typeof (data as { points: unknown }).points === 'number'
+  );
 }
 

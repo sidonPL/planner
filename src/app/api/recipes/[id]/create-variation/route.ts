@@ -2,6 +2,63 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { handleApiError } from "@/lib/api-error-handler";
+import { CookingMethod, Difficulty, OvenMode } from "@prisma/client";
+
+type VariationIngredientInput = {
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  optional?: boolean;
+};
+
+type VariationStepInput = {
+  order?: number;
+  content: string;
+  duration?: number | null;
+  temperature?: number | null;
+  image?: string | null;
+  tip?: string | null;
+  isOptional?: boolean;
+};
+
+type VariationModifications = {
+  name?: string;
+  description?: string | null;
+  instructions?: string | null;
+  category?: string | null;
+  prepTime?: number | null;
+  cookTime?: number | null;
+  restTime?: number | null;
+  totalTime?: number | null;
+  servings?: number | null;
+  difficulty?: Difficulty;
+  image?: string | null;
+  videoUrl?: string | null;
+  tags?: string[];
+  isVegetarian?: boolean;
+  isVegan?: boolean;
+  isGlutenFree?: boolean;
+  isDairyFree?: boolean;
+  cookingMethod?: CookingMethod | null;
+  ovenTemp?: number | null;
+  ovenMode?: OvenMode | null;
+  allergens?: string[];
+  calories?: number | null;
+  protein?: number | null;
+  carbs?: number | null;
+  fat?: number | null;
+  fiber?: number | null;
+  cuisine?: string | null;
+  tips?: string | null;
+  ingredients?: VariationIngredientInput[];
+  steps?: VariationStepInput[];
+};
+
+type CreateVariationBody = {
+  variationName?: string;
+  description?: string;
+  modifications: VariationModifications;
+};
 
 /**
  * POST /api/recipes/[id]/create-variation
@@ -26,7 +83,8 @@ export async function POST(
     }
 
     const { id: parentRecipeId } = await params;
-    const { variationName, description, modifications } = await req.json();
+    const { variationName, description, modifications } =
+      (await req.json()) as CreateVariationBody;
 
     // Get parent recipe
     const parentRecipe = await prisma.recipe.findUnique({
@@ -82,7 +140,7 @@ export async function POST(
         isPublic: false, // Variants are private by default
         // Copy ingredients
         ingredients: {
-          create: (modifications.ingredients || parentRecipe.ingredients).map((ing: any) => ({
+          create: (modifications.ingredients || parentRecipe.ingredients).map((ing) => ({
             name: ing.name,
             quantity: ing.quantity,
             unit: ing.unit,
@@ -91,7 +149,7 @@ export async function POST(
         },
         // Copy steps
         steps: {
-          create: (modifications.steps || parentRecipe.steps).map((step: any, index: number) => ({
+          create: (modifications.steps || parentRecipe.steps).map((step, index: number) => ({
             order: step.order ?? index,
             content: step.content,
             duration: step.duration,

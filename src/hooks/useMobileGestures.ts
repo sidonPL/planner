@@ -90,14 +90,10 @@ export function useIsMobile() {
  * Hook for touch-friendly interactions
  */
 export function useTouchFriendly() {
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
-
-  useEffect(() => {
-    setIsTouchDevice(
-      "ontouchstart" in window ||
-      navigator.maxTouchPoints > 0
-    );
-  }, []);
+  const [isTouchDevice] = useState(() =>
+    typeof window !== "undefined" &&
+    ("ontouchstart" in window || navigator.maxTouchPoints > 0)
+  );
 
   return isTouchDevice;
 }

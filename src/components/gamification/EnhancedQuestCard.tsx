@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   CheckCircle2,
   ArrowRight,
-  ExternalLink,
   Plus,
   ShoppingCart,
   Utensils,
@@ -14,9 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { emitXPEarned } from '@/lib/gamification-events';
 
 interface Quest {
   id: string;

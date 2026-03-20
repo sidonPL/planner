@@ -84,7 +84,7 @@ export function sanitizeArray(arr: string[] | null | undefined): string[] {
 /**
  * Sanityzuje obiekt z polami tekstowymi
  */
-export function sanitizeObject<T extends Record<string, any>>(
+export function sanitizeObject<T extends Record<string, unknown>>(
   obj: T,
   fields: (keyof T)[],
   sanitizer: (text: string) => string = sanitizePlainText
@@ -92,8 +92,9 @@ export function sanitizeObject<T extends Record<string, any>>(
   const sanitized = { ...obj };
 
   for (const field of fields) {
-    if (typeof sanitized[field] === 'string') {
-      sanitized[field] = sanitizer(sanitized[field] as string) as T[keyof T];
+    const fieldValue = sanitized[field];
+    if (typeof fieldValue === 'string') {
+      sanitized[field] = sanitizer(fieldValue) as T[keyof T];
     }
   }
 

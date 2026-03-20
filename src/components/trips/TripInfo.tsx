@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { Hotel, Plane, Plus, Trash2 } from "lucide-react";
@@ -94,36 +94,35 @@ export function TripInfo({ trip }: TripInfoProps) {
     notes: "",
   });
 
-  useEffect(() => {
-    fetchAccommodations();
-    fetchTransports();
+  const fetchAccommodations = useCallback(async () => {
+    const response = await fetch(`/api/trips/${trip.id}/accommodations`);
+    if (response.ok) {
+      const data = await response.json();
+      setAccommodations(data);
+    }
   }, [trip.id]);
 
-  const fetchAccommodations = async () => {
-    try {
-      const response = await fetch(`/api/trips/${trip.id}/accommodations`);
-      if (response.ok) {
-        const data = await response.json();
-        setAccommodations(data);
-      }
-    } catch (error) {
-      console.error("Error fetching accommodations:", error);
-    } finally {
-      setLoading(false);
+  const fetchTransports = useCallback(async () => {
+    const response = await fetch(`/api/trips/${trip.id}/transports`);
+    if (response.ok) {
+      const data = await response.json();
+      setTransports(data);
     }
-  };
+  }, [trip.id]);
 
-  const fetchTransports = async () => {
-    try {
-      const response = await fetch(`/api/trips/${trip.id}/transports`);
-      if (response.ok) {
-        const data = await response.json();
-        setTransports(data);
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await Promise.all([fetchAccommodations(), fetchTransports()]);
+      } catch (error) {
+        console.error("Error fetching trip data:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching transports:", error);
-    }
-  };
+    };
+
+    loadData();
+  }, [fetchAccommodations, fetchTransports]);
 
   const handleAddAccommodation = async () => {
     if (!newAccommodation.name) {

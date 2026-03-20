@@ -31,6 +31,14 @@ interface CalendarStats {
   }>;
 }
 
+type ApiUpcomingEvent = Omit<CalendarStats['upcomingList'][number], 'date'> & {
+  date: string | Date;
+};
+
+type ApiCalendarStats = Omit<CalendarStats, 'upcomingList'> & {
+  upcomingList: ApiUpcomingEvent[];
+};
+
 export function AdminCalendarClient() {
   const [stats, setStats] = useState<CalendarStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,10 +51,10 @@ export function AdminCalendarClient() {
     try {
       const response = await fetch('/api/admin/calendar/stats');
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { stats: ApiCalendarStats };
         setStats({
           ...data.stats,
-          upcomingList: data.stats.upcomingList.map((event: any) => ({
+          upcomingList: data.stats.upcomingList.map((event) => ({
             ...event,
             date: new Date(event.date),
           })),

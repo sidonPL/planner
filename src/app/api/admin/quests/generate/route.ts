@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { generateDailyQuests } from "@/lib/cron/generate-daily-quests";
@@ -7,7 +7,7 @@ import { generateDailyQuests } from "@/lib/cron/generate-daily-quests";
  * Manual trigger for daily quest generation (Admin only)
  * POST /api/admin/quests/generate
  */
-export async function POST(request: NextRequest) {
+export async function POST(): Promise<NextResponse> {
   try {
     const session = await auth();
 

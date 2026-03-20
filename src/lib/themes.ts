@@ -176,6 +176,7 @@ export function applyTheme(themeId: ThemeId | null) {
  * Sprawdza czy użytkownik ma dostęp do motywu
  */
 export async function hasThemeAccess(userId: string, themeId: ThemeId): Promise<boolean> {
+  void userId;
   const theme = AVAILABLE_THEMES[themeId];
 
   // Darmowe motywy są zawsze dostępne
@@ -187,12 +188,15 @@ export async function hasThemeAccess(userId: string, themeId: ThemeId): Promise<
   try {
     const response = await fetch('/api/gamification/active-rewards');
     if (response.ok) {
-      const data = await response.json();
+      const data = await response.json() as {
+        userSettings?: { activeTheme?: ThemeId | null };
+        activeRewards?: Array<{ reward?: { effectData?: { themeId?: ThemeId | null } } }>;
+      };
       const userSettings = data.userSettings;
 
       // Sprawdź claimed rewards
       const themeReward = data.activeRewards?.find(
-        (r: any) => r.reward.effectData?.themeId === themeId
+        (r) => r.reward?.effectData?.themeId === themeId
       );
 
       return !!themeReward || userSettings?.activeTheme === themeId;

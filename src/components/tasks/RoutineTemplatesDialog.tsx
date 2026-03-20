@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Clock, Sparkles, Loader2, Settings } from "lucide-react";
 import {
   Dialog,
@@ -46,13 +46,7 @@ export function RoutineTemplatesDialog({
   const [showManager, setShowManager] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (open) {
-      loadTemplates();
-    }
-  }, [open]);
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch("/api/routine-templates");
@@ -70,7 +64,13 @@ export function RoutineTemplatesDialog({
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (open) {
+      void loadTemplates();
+    }
+  }, [open, loadTemplates]);
 
   const handleUseTemplate = async (templateId: string) => {
     setUsingTemplateId(templateId);

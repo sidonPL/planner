@@ -24,7 +24,7 @@ export default async function DashboardPage() {
 
   const [
     todayTasks,
-    _upcomingTasks,
+    ,
     todayEvents,
     shoppingItems,
     monthTransactions,
@@ -151,6 +151,13 @@ export default async function DashboardPage() {
       },
       include: {
         user: { select: { id: true, name: true, color: true } },
+        exceptions: {
+          select: {
+            id: true,
+            date: true,
+            reason: true,
+          },
+        },
       },
     }),
     // Ustawienia użytkownika

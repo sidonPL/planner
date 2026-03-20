@@ -126,7 +126,7 @@ const popularProducts: Product[] = [
   { name: "Płyn do naczyń", category: "cleaning", unit: "ml", defaultQty: 500 },
 ];
 
-export function ShoppingClient({ initialItems, inventoryItems, householdUsers, currentUserId }: ShoppingClientProps) {
+export function ShoppingClient({ initialItems, householdUsers, currentUserId }: ShoppingClientProps) {
   // State
   const [items, setItems] = useState<ShoppingItemWithAssignment[]>(initialItems);
   const [searchQuery, setSearchQuery] = useState("");

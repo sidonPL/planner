@@ -3,9 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-// Typy dla Pusher (jeśli nie zainstalowany, używamy any z komentarzem)
-type PusherInstance = any; // TODO: Install pusher-js and use proper types
-type ChannelInstance = any;
+type PusherConnection = {
+  bind: (eventName: string, callback: () => void) => void;
+};
+
+type ChannelInstance = {
+  bind: (eventName: string, callback: (data: RealtimeEventData) => void) => void;
+  unbind_all: () => void;
+};
+
+type PusherInstance = {
+  subscribe: (channelName: string) => ChannelInstance;
+  unsubscribe: (channelName: string) => void;
+  disconnect: () => void;
+  connection: PusherConnection;
+};
 
 interface InventoryItem {
   id: string;

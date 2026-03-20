@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState } from "react";
 import { GitBranch, Plus, Calendar, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,13 @@ interface VariationsListProps {
   onCreateVariation: () => void;
 }
 
+type VariantParentInfo = {
+  parentRecipe: {
+    id: string;
+    name: string;
+  };
+};
+
 export function VariationsList({
   recipeId,
   recipeName,
@@ -49,7 +58,7 @@ export function VariationsList({
 }: VariationsListProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [variations, setVariations] = useState<Variation[]>([]);
-  const [isVariant, setIsVariant] = useState<any>(null);
+  const [isVariant, setIsVariant] = useState<VariantParentInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const loadVariations = async () => {
@@ -162,7 +171,7 @@ export function VariationsList({
                       {variation.variantRecipe.image && (
                         <img
                           src={variation.variantRecipe.image}
-                          alt={variation.variantRecipe.name}
+                          alt={`Zdjęcie wariantu: ${variation.variantRecipe.name}`}
                           className="w-16 h-16 rounded object-cover flex-shrink-0"
                         />
                       )}

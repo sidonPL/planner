@@ -216,6 +216,9 @@ model UserSettings {
   taskFilterPreferences Json?
   weatherApiKey         String?
   weatherCity           String?
+  weatherLocationMode   String   @default("city")
+  weatherLatitude       Float?
+  weatherLongitude      Float?
   fontSize              String   @default("medium")
   soundEnabled          Boolean  @default(true)
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -474,6 +477,7 @@ model ExternalBirthday {
   id           String    @id @default(cuid())
   name         String
   birthDate    DateTime
+  nameDay      String?
   relationship String?
   phone        String?
   email        String?
@@ -503,6 +507,11 @@ model Schedule {
   updatedAt   DateTime            @updatedAt
   isOneTime   Boolean             @default(false)
   oneTimeDate DateTime?
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  recurrenceUnit ScheduleRecurrenceUnit @default(WEEKLY)
+  repeatEvery  Int                 @default(1)
+  specificDates DateTime[]         @default([])
   household   Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
   user        User                @relation(fields: [userId], references: [id])
   exceptions  ScheduleException[]
@@ -514,6 +523,9 @@ model Schedule {
   @@index([isActive])
   @@index([isOneTime])
   @@index([oneTimeDate])
+  @@index([effectiveFrom])
+  @@index([effectiveTo])
+  @@index([recurrenceUnit])
 }
 
 model ScheduleException {
@@ -1935,6 +1947,11 @@ enum ScheduleType {
   UNIVERSITY
   COURSE
   OTHER
+}
+
+enum ScheduleRecurrenceUnit {
+  WEEKLY
+  MONTHLY
 }
 
 enum TripPlaceCategory {

@@ -35,16 +35,16 @@ export function TitleSelector() {
     try {
       const response = await fetch('/api/gamification/claimed-rewards');
       if (response.ok) {
-        const rewards = await response.json();
+        const rewards = await response.json() as Array<{reward: {category: string; effectData?: {titleId?: string}}}>;
         const titleRewards = rewards.filter(
-          (r: any) => r.reward.category === 'TITLE' && r.reward.effectData?.titleId
+          (r) => r.reward.category === 'TITLE' && r.reward.effectData?.titleId
         );
 
         const unlocked = new Set<TitleId>(['none']);
-        titleRewards.forEach((r: any) => {
-          const titleId = r.reward.effectData.titleId;
-          if (AVAILABLE_TITLES[titleId as TitleId]) {
-            unlocked.add(titleId);
+        titleRewards.forEach((r) => {
+          const titleId = r.reward.effectData?.titleId;
+          if (titleId && AVAILABLE_TITLES[titleId as TitleId]) {
+            unlocked.add(titleId as TitleId);
           }
         });
 

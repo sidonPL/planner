@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
  *
  * Dla WEEKLY/MONTHLY użyj /api/gamification/leaderboard/seasonal
  */
-export async function GET(request: NextRequest) {
+export async function GET(): Promise<NextResponse> {
   try {
     const session = await auth();
 

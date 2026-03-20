@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
-import { Prisma } from "@prisma/client";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -18,23 +17,6 @@ export async function GET(req: Request) {
     }
 
     console.log("[Daily Routine Digest] Starting...");
-
-    // Pobierz użytkowników którzy mają włączone email digest
-    // (zakładam że UserSettings ma pole emailRoutineDigest)
-    type UserWithHousehold = Prisma.UserGetPayload<{
-      include: {
-        household: {
-          include: {
-            tasks: {
-              include: {
-                category: true;
-                assignee: true;
-              };
-            };
-          };
-        };
-      };
-    }>;
 
     const users = await prisma.user.findMany({
       where: {
@@ -99,12 +81,13 @@ export async function GET(req: Request) {
         return "Nocne (23:00-4:59)";
       };
 
-      const groupedRoutines = userRoutines.reduce((acc: Record<string, any[]>, routine: any) => {
+      type UserRoutine = typeof userRoutines[number];
+      const groupedRoutines = userRoutines.reduce<Record<string, UserRoutine[]>>((acc, routine) => {
         const category = getTimeCategory(routine.dueTime);
         if (!acc[category]) acc[category] = [];
         acc[category].push(routine);
         return acc;
-      }, {} as Record<string, typeof userRoutines>);
+      }, {});
 
       try {
         // Utwórz HTML email
@@ -141,7 +124,7 @@ export async function GET(req: Request) {
       ${Object.entries(groupedRoutines).map(([category, routines]) => `
         <div class="time-group">
           <h3>${category}</h3>
-          ${(routines as any[]).map((routine: any) => `
+          ${routines.map((routine) => `
             <div class="routine">
               ${routine.dueTime ? `<div class="routine-time">🕐 ${routine.dueTime}</div>` : ''}
               <div class="routine-title">${routine.title}</div>

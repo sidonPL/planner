@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
 type RewardEffectData = {
   duration?: number;
@@ -9,11 +9,25 @@ type RewardEffectData = {
   titleId?: string;
 };
 
+type PurchaseBody = {
+  rewardId?: string;
+};
+
+function parseEffectData(effectData: unknown): RewardEffectData {
+  if (!effectData || typeof effectData !== "object") {
+    return {};
+  }
+
+  return effectData as RewardEffectData;
+}
+
 function getDurationExpiry(effectData: unknown, now: Date): Date | null {
-  if (!effectData || typeof effectData !== 'object') return null;
-  const duration = (effectData as RewardEffectData).duration;
-  if (!duration || duration <= 0) return null;
-  return new Date(now.getTime() + duration * 1000);
+  const parsed = parseEffectData(effectData);
+  if (!parsed.duration || parsed.duration <= 0) {
+    return null;
+  }
+
+  return new Date(now.getTime() + parsed.duration * 1000);
 }
 
 async function resolveHouseholdId(userId: string, sessionHouseholdId?: string | null) {
@@ -31,36 +45,45 @@ async function resolveHouseholdId(userId: string, sessionHouseholdId?: string | 
 
 /**
  * POST /api/gamification/rewards/purchase
- * Purchase a reward with XP
+ * Kupuje nagrodę ze sklepu gamifikacji.
  */
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const householdId = await resolveHouseholdId(session.user.id, session.user.householdId);
-    if (!householdId) {
-      return NextResponse.json({ error: 'No household assigned' }, { status: 400 });
+    let body: PurchaseBody;
+    try {
+      body = (await request.json()) as PurchaseBody;
+    } catch {
+      body = {};
     }
 
-    const { rewardId } = await request.json();
-
+    const rewardId = typeof body.rewardId === "string" ? body.rewardId : "";
     if (!rewardId) {
-      return NextResponse.json({ error: 'Reward ID is required' }, { status: 400 });
+      return NextResponse.json({ error: "Reward ID is required" }, { status: 400 });
     }
 
-    // Get reward and user data
+    const sessionHouseholdId =
+      "householdId" in session.user
+        ? (session.user.householdId as string | null | undefined)
+        : null;
+
+    const householdId = await resolveHouseholdId(session.user.id, sessionHouseholdId);
+
+    if (!householdId) {
+      return NextResponse.json({ error: "No household assigned" }, { status: 400 });
+    }
+
     const [reward, user] = await Promise.all([
       prisma.reward.findUnique({
         where: { id: rewardId },
       }),
       prisma.user.findUnique({
         where: { id: session.user.id },
-        select: {
-          xp: true,
-          level: true,
+        include: {
           userAchievements: {
             select: { achievementId: true },
           },
@@ -69,24 +92,35 @@ export async function POST(request: NextRequest) {
     ]);
 
     if (!reward) {
-      return NextResponse.json({ error: 'Reward not found' }, { status: 404 });
+      return NextResponse.json({ error: "Reward not found" }, { status: 404 });
     }
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // Validation
-    if (!reward.isActive) {
-      return NextResponse.json({ error: 'Reward is not available' }, { status: 400 });
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     if (reward.householdId !== householdId) {
-      return NextResponse.json({ error: 'Reward belongs to different household' }, { status: 403 });
+      return NextResponse.json(
+        { error: "Reward belongs to different household" },
+        { status: 403 }
+      );
+    }
+
+    if (!reward.isActive) {
+      return NextResponse.json({ error: "Reward is not available" }, { status: 400 });
+    }
+
+    const now = new Date();
+    if (reward.availableFrom && now < reward.availableFrom) {
+      return NextResponse.json({ error: "Reward is not available yet" }, { status: 400 });
+    }
+
+    if (reward.availableUntil && now > reward.availableUntil) {
+      return NextResponse.json({ error: "Reward is no longer available" }, { status: 400 });
     }
 
     if (user.xp < reward.pointsCost) {
-      return NextResponse.json({ error: 'Not enough XP' }, { status: 400 });
+      return NextResponse.json({ error: "Not enough XP" }, { status: 400 });
     }
 
     if (reward.requiredLevel && user.level < reward.requiredLevel) {
@@ -102,21 +136,17 @@ export async function POST(request: NextRequest) {
       );
       if (!hasAchievement) {
         return NextResponse.json(
-          { error: 'Required achievement not unlocked' },
+          { error: "Required achievement not unlocked" },
           { status: 400 }
         );
       }
     }
 
     if (reward.stock !== null && reward.stock <= 0) {
-      return NextResponse.json({ error: 'Reward is out of stock' }, { status: 400 });
+      return NextResponse.json({ error: "Reward out of stock" }, { status: 400 });
     }
 
-    if (reward.availableUntil && new Date() > new Date(reward.availableUntil)) {
-      return NextResponse.json({ error: 'Reward has expired' }, { status: 400 });
-    }
-
-    const singlePurchaseCategories = new Set(['THEME', 'TITLE', 'AVATAR', 'BADGE']);
+    const singlePurchaseCategories = new Set(["THEME", "TITLE", "AVATAR", "BADGE"]);
     if (singlePurchaseCategories.has(reward.category)) {
       const existingClaim = await prisma.claimedReward.findFirst({
         where: {
@@ -128,94 +158,42 @@ export async function POST(request: NextRequest) {
 
       if (existingClaim) {
         return NextResponse.json(
-          { error: 'Ta nagroda została już kupiona' },
+          { error: "Ta nagroda została już kupiona" },
           { status: 400 }
         );
       }
     }
 
-    // Transaction: deduct XP, create claim, update stock
+    const effectData = parseEffectData(reward.effectData);
+    const autoActivates =
+      reward.category === "THEME" ||
+      reward.category === "TITLE" ||
+      reward.category === "PERK";
+    const expiresAt = autoActivates ? getDurationExpiry(reward.effectData, now) : null;
+    const maxUses = effectData.uses && effectData.uses > 0 ? effectData.uses : null;
+
     const result = await prisma.$transaction(async (tx) => {
-      // Deduct XP
       await tx.user.update({
         where: { id: session.user.id },
         data: { xp: { decrement: reward.pointsCost } },
       });
-
-      // Create claimed reward with new fields
-      // Określ maxUses bazując na typie nagrody
-      let maxUses: number | null = null;
-      const now = new Date();
-      const autoActivates = reward.category === 'THEME' || reward.category === 'TITLE' || reward.category === 'PERK';
-      const expiresAt = autoActivates ? getDurationExpiry(reward.effectData, now) : null;
-
-      if (reward.effectData && typeof reward.effectData === 'object') {
-        const effectData = reward.effectData as RewardEffectData;
-        if (effectData.uses) {
-          maxUses = effectData.uses;
-        }
-      }
 
       const claimedReward = await tx.claimedReward.create({
         data: {
           userId: session.user.id,
           rewardId: reward.id,
           isActive: autoActivates,
+          fulfilled: autoActivates,
           activatedAt: autoActivates ? now : null,
           expiresAt,
-          fulfilled: autoActivates,
           maxUses,
+          usedCount: autoActivates ? 1 : 0,
         },
         include: {
           reward: true,
         },
       });
 
-      if (reward.category === 'THEME') {
-        await tx.claimedReward.updateMany({
-          where: {
-            userId: session.user.id,
-            isActive: true,
-            id: { not: claimedReward.id },
-            reward: { category: 'THEME' },
-          },
-          data: { isActive: false },
-        });
-
-        const themeId =
-          (reward.effectData && typeof reward.effectData === 'object'
-            ? (reward.effectData as RewardEffectData).themeId
-            : undefined) || reward.id;
-
-        await tx.user.update({
-          where: { id: session.user.id },
-          data: { activeTheme: themeId },
-        });
-      }
-
-      if (reward.category === 'TITLE') {
-        await tx.claimedReward.updateMany({
-          where: {
-            userId: session.user.id,
-            isActive: true,
-            id: { not: claimedReward.id },
-            reward: { category: 'TITLE' },
-          },
-          data: { isActive: false },
-        });
-
-        const titleId =
-          (reward.effectData && typeof reward.effectData === 'object'
-            ? (reward.effectData as RewardEffectData).titleId
-            : undefined) || reward.id;
-
-        await tx.user.update({
-          where: { id: session.user.id },
-          data: { activeTitle: titleId },
-        });
-      }
-
-      // Update stock if limited
       if (reward.stock !== null) {
         await tx.reward.update({
           where: { id: reward.id },
@@ -223,29 +201,62 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Add to points history
       await tx.pointsHistory.create({
         data: {
           userId: session.user.id,
           amount: -reward.pointsCost,
-          reason: `Zakup: ${reward.name}`,
-          type: 'SPENT',
+          reason: `Zakup nagrody: ${reward.name}`,
+          type: "SPENT",
         },
       });
 
-      return {
-        ...claimedReward,
-        activatedAutomatically: autoActivates,
-      };
+      if (reward.category === "THEME" && autoActivates) {
+        await tx.claimedReward.updateMany({
+          where: {
+            userId: session.user.id,
+            isActive: true,
+            id: { not: claimedReward.id },
+            reward: { category: "THEME" },
+          },
+          data: { isActive: false },
+        });
+
+        await tx.user.update({
+          where: { id: session.user.id },
+          data: { activeTheme: effectData.themeId || reward.id },
+        });
+      }
+
+      if (reward.category === "TITLE" && autoActivates) {
+        await tx.claimedReward.updateMany({
+          where: {
+            userId: session.user.id,
+            isActive: true,
+            id: { not: claimedReward.id },
+            reward: { category: "TITLE" },
+          },
+          data: { isActive: false },
+        });
+
+        await tx.user.update({
+          where: { id: session.user.id },
+          data: { activeTitle: effectData.titleId || reward.id },
+        });
+      }
+
+      return claimedReward;
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      success: true,
+      claimedReward: result,
+      activatedAutomatically: autoActivates,
+    });
   } catch (error) {
-    console.error('Error purchasing reward:', error);
+    console.error("Error purchasing reward:", error);
     return NextResponse.json(
-      { error: 'Failed to purchase reward' },
+      { error: "Failed to purchase reward" },
       { status: 500 }
     );
   }
 }
-

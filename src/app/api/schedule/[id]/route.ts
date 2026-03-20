@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+const updateScheduleSchema = z.object({
+  name: z.string().min(1).optional(),
+  type: z.enum(["WORK", "SCHOOL", "UNIVERSITY", "COURSE", "OTHER"]).optional(),
+  userId: z.string().optional(),
+  dayOfWeek: z.array(z.number().min(0).max(6)).optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  location: z.string().nullable().optional(),
+  isActive: z.boolean().optional(),
+  isOneTime: z.boolean().optional(),
+  oneTimeDate: z.string().nullable().optional(),
+  recurrenceUnit: z.enum(["WEEKLY", "MONTHLY"]).optional(),
+  repeatEvery: z.number().int().min(1).max(60).optional(),
+  effectiveFrom: z.string().nullable().optional(),
+  effectiveTo: z.string().nullable().optional(),
+  specificDates: z.array(z.string()).optional(),
+});
 
 // GET - pobierz szczegóły harmonogramu
 export async function GET(
@@ -111,7 +130,18 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { name, type, dayOfWeek, startTime, endTime, location, isActive } = body;
+    const validatedData = updateScheduleSchema.parse(body);
+
+    if (validatedData.effectiveFrom && validatedData.effectiveTo) {
+      const from = new Date(validatedData.effectiveFrom);
+      const to = new Date(validatedData.effectiveTo);
+      if (from > to) {
+        return NextResponse.json(
+          { error: "Data koncowa musi byc pozniejsza od poczatkowej" },
+          { status: 400 }
+        );
+      }
+    }
 
     // Sprawdź czy harmonogram istnieje i należy do gospodarstwa
     const schedule = await prisma.schedule.findFirst({
@@ -131,13 +161,29 @@ export async function PATCH(
     const updatedSchedule = await prisma.schedule.update({
       where: { id },
       data: {
-        ...(name && { name }),
-        ...(type && { type }),
-        ...(dayOfWeek && { dayOfWeek }),
-        ...(startTime && { startTime }),
-        ...(endTime && { endTime }),
-        ...(location !== undefined && { location }),
-        ...(isActive !== undefined && { isActive }),
+        ...(validatedData.name && { name: validatedData.name }),
+        ...(validatedData.type && { type: validatedData.type }),
+        ...(validatedData.userId && { userId: validatedData.userId }),
+        ...(validatedData.dayOfWeek && { dayOfWeek: validatedData.dayOfWeek }),
+        ...(validatedData.startTime && { startTime: validatedData.startTime }),
+        ...(validatedData.endTime && { endTime: validatedData.endTime }),
+        ...(validatedData.location !== undefined && { location: validatedData.location }),
+        ...(validatedData.isActive !== undefined && { isActive: validatedData.isActive }),
+        ...(validatedData.isOneTime !== undefined && { isOneTime: validatedData.isOneTime }),
+        ...(validatedData.oneTimeDate !== undefined && {
+          oneTimeDate: validatedData.oneTimeDate ? new Date(validatedData.oneTimeDate) : null,
+        }),
+        ...(validatedData.recurrenceUnit && { recurrenceUnit: validatedData.recurrenceUnit }),
+        ...(validatedData.repeatEvery !== undefined && { repeatEvery: validatedData.repeatEvery }),
+        ...(validatedData.effectiveFrom !== undefined && {
+          effectiveFrom: validatedData.effectiveFrom ? new Date(validatedData.effectiveFrom) : null,
+        }),
+        ...(validatedData.effectiveTo !== undefined && {
+          effectiveTo: validatedData.effectiveTo ? new Date(validatedData.effectiveTo) : null,
+        }),
+        ...(validatedData.specificDates !== undefined && {
+          specificDates: validatedData.specificDates.map((date) => new Date(date)),
+        }),
       },
       include: {
         user: {
@@ -155,11 +201,21 @@ export async function PATCH(
 
     return NextResponse.json(updatedSchedule);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Nieprawidlowe dane", details: error.issues }, { status: 400 });
+    }
     console.error("Błąd podczas edycji harmonogramu:", error);
     return NextResponse.json(
       { error: "Nie udało się edytować harmonogramu" },
       { status: 500 }
     );
   }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return PATCH(request, { params });
 }
 

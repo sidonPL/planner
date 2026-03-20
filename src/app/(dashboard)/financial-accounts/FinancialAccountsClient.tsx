@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Wallet, TrendingUp, TrendingDown, DollarSign, Edit, Trash2, Eye, EyeOff, BarChart3 } from "lucide-react";
+import { Plus, Wallet, TrendingUp, TrendingDown, Edit, Trash2, Eye, EyeOff, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -115,7 +115,7 @@ export function FinancialAccountsClient({
       } else {
         toast.error("Nie udało się dodać konta");
       }
-    } catch (error) {
+    } catch {
       toast.error("Wystąpił błąd");
     }
   };
@@ -147,7 +147,7 @@ export function FinancialAccountsClient({
       } else {
         toast.error("Nie udało się zaktualizować konta");
       }
-    } catch (error) {
+    } catch {
       toast.error("Wystąpił błąd");
     }
   };
@@ -168,7 +168,7 @@ export function FinancialAccountsClient({
         const data = await response.json();
         toast.error(data.error || "Nie udało się usunąć konta");
       }
-    } catch (error) {
+    } catch {
       toast.error("Wystąpił błąd");
     } finally {
       setIsDeleting(false);

@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState, useRef } from "react";
 import { Camera, Upload, Loader2, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -105,7 +107,7 @@ export function OCRImportDialog({ onSuccess }: OCRImportDialogProps) {
             <div className="border rounded-lg overflow-hidden">
               <img
                 src={previewImage}
-                alt="Preview"
+                alt="Podgląd receptury"
                 className="w-full h-auto max-h-[300px] object-contain"
               />
             </div>

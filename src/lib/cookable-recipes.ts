@@ -5,6 +5,7 @@
 
 import { prisma } from './prisma';
 import { checkRecipeAvailability } from './recipe-availability';
+import { Difficulty } from '@prisma/client';
 
 export interface CookableRecipe {
   recipeId: string;
@@ -111,7 +112,7 @@ export async function findCookableRecipes(
           { prepTime: null },
         ],
       } : {}),
-      ...(difficulty && difficulty.length > 0 ? { difficulty: { in: difficulty as any } } : {}),
+      ...(difficulty && difficulty.length > 0 ? { difficulty: { in: difficulty.filter((d): d is Difficulty => ['EASY', 'MEDIUM', 'HARD'].includes(d)) } } : {}),
     },
     select: {
       id: true,

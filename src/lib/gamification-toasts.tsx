@@ -19,7 +19,7 @@ export function showAchievementToast(achievement: Achievement) {
   });
 
   // Custom toast with gradient background
-  toast.custom((t) => (
+  toast.custom(() => (
     <div className="bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 p-4 rounded-lg shadow-xl border-2 border-white dark:border-gray-800">
       <div className="flex items-center gap-3">
         {/* Icon */}
@@ -77,7 +77,7 @@ export function showLevelUpToast(newLevel: number) {
     colors: ['#FFD700', '#FFA500', '#FF6347', '#9333EA'],
   });
 
-  toast.custom((t) => (
+  toast.custom(() => (
     <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 p-4 rounded-lg shadow-xl border-2 border-white dark:border-gray-800">
       <div className="flex items-center gap-3">
         <div className="text-5xl">

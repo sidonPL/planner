@@ -16,7 +16,6 @@ import {
   Key,
   Globe,
   Zap,
-  Database,
   Shield,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -65,7 +64,7 @@ export function AdminSettingsClient() {
       } else {
         toast.error('Błąd zapisywania');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     } finally {
       setSaving(false);
@@ -92,7 +91,7 @@ export function AdminSettingsClient() {
       } else {
         toast.error('Błąd zapisywania');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     } finally {
       setSaving(false);
@@ -118,7 +117,7 @@ export function AdminSettingsClient() {
       } else {
         toast.error('Błąd zapisywania');
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     } finally {
       setSaving(false);

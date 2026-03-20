@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { prisma } from '@/lib/prisma';
+import { AuditAction, Prisma } from '@prisma/client';
 
 /**
  * Admin Audit Log API
@@ -30,14 +31,14 @@ export async function GET(request: Request) {
     const dateTo = searchParams.get('dateTo');
 
     // Build where clause
-    const where: any = {};
+    const where: Prisma.AuditLogWhereInput = {};
 
     if (userId) {
       where.userId = userId;
     }
 
-    if (action) {
-      where.action = action;
+    if (action && Object.values(AuditAction).includes(action as AuditAction)) {
+      where.action = action as AuditAction;
     }
 
     if (entityType) {
@@ -45,13 +46,14 @@ export async function GET(request: Request) {
     }
 
     if (dateFrom || dateTo) {
-      where.createdAt = {};
+      const createdAtFilter: Prisma.DateTimeFilter = {};
       if (dateFrom) {
-        where.createdAt.gte = new Date(dateFrom);
+        createdAtFilter.gte = new Date(dateFrom);
       }
       if (dateTo) {
-        where.createdAt.lte = new Date(dateTo);
+        createdAtFilter.lte = new Date(dateTo);
       }
+      where.createdAt = createdAtFilter;
     }
 
     // Get logs with user info

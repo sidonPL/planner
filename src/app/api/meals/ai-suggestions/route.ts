@@ -104,21 +104,28 @@ export async function POST(req: NextRequest) {
       })
       .sort((a, b) => b.score - a.score);
 
-    // Meal type distribution for a week
-    const mealTypes = [
-      "BREAKFAST", "SECOND_BREAKFAST", "LUNCH", "SNACK",
-      "DINNER", "SUPPER", "DESSERT"
-    ];
+    type MealSuggestion = {
+      recipeId: string;
+      recipeName: string;
+      category: string | null;
+      totalTime: number | null;
+      difficulty: string;
+    };
+
+    type DaySuggestion = {
+      date: string;
+      meals: Record<string, MealSuggestion>;
+    };
 
     // Generate suggestions for 7 days
-    const suggestions = [];
+    const suggestions: DaySuggestion[] = [];
     const date = new Date(startDate);
 
     for (let day = 0; day < 7; day++) {
       const currentDate = new Date(date);
       currentDate.setDate(date.getDate() + day);
 
-      const daySuggestions: Record<string, any> = {
+      const daySuggestions: DaySuggestion = {
         date: currentDate.toISOString().split("T")[0],
         meals: {},
       };

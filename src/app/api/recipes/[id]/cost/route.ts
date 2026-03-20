@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
+type IngredientCost = {
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  pricePerUnit: number | null;
+  totalCost: number | null;
+  available: boolean;
+};
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -28,7 +37,7 @@ export async function GET(
 
     let totalCost = 0;
     let hasAllPrices = true;
-    const ingredientCosts: any[] = [];
+    const ingredientCosts: IngredientCost[] = [];
 
     // Oblicz koszt każdego składnika
     for (const ingredient of recipe.ingredients) {

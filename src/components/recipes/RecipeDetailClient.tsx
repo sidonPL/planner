@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Clock, ChefHat, Users, ArrowLeft, Edit, Trash2, Heart,
@@ -27,6 +27,61 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface RecipeDetailClientProps {
   recipeId: string;
+}
+
+interface RecipeIngredientView {
+  id: string;
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  optional?: boolean;
+}
+
+interface RecipeStepView {
+  id: string;
+  content: string;
+  duration: number | null;
+  temperature: number | null;
+  tip: string | null;
+  image: string | null;
+  isOptional: boolean;
+}
+
+interface RecipeView {
+  id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  category: string | null;
+  cuisine: string | null;
+  difficulty: string | null;
+  prepTime: number | null;
+  cookTime: number | null;
+  restTime: number | null;
+  servings: number;
+  tags: string[];
+  isVegetarian: boolean;
+  isVegan: boolean;
+  isGlutenFree: boolean;
+  isDairyFree: boolean;
+  source: string | null;
+  videoUrl: string | null;
+  cookingMethod: string | null;
+  ovenTemp: number | null;
+  ovenMode: string | null;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  fiber: number | null;
+  allergens: string[];
+  tips: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  createdBy?: { name: string | null };
+  favorites?: Array<{ id: string }>;
+  ingredients?: RecipeIngredientView[];
+  steps?: RecipeStepView[];
 }
 
 const difficultyLabels = {
@@ -58,7 +113,7 @@ const ovenModeLabels: Record<string, string> = {
 
 export function RecipeDetailClient({ recipeId }: RecipeDetailClientProps) {
   const router = useRouter();
-  const [recipe, setRecipe] = useState<any>(null);
+  const [recipe, setRecipe] = useState<RecipeView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -102,17 +157,13 @@ export function RecipeDetailClient({ recipeId }: RecipeDetailClientProps) {
     }
   }, [recipe?.servings]);
 
-  useEffect(() => {
-    loadRecipe();
-  }, [recipeId]);
-
-  const loadRecipe = async () => {
+  const loadRecipe = useCallback(async () => {
     try {
       const response = await fetch(`/api/recipes/${recipeId}`);
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as RecipeView;
         setRecipe(data);
-        setIsFavorite(data.favorites?.length > 0);
+        setIsFavorite((data.favorites?.length ?? 0) > 0);
       } else {
         toast.error("Nie udało się pobrać przepisu");
         router.push("/recipes");
@@ -123,7 +174,11 @@ export function RecipeDetailClient({ recipeId }: RecipeDetailClientProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [recipeId, router]);
+
+  useEffect(() => {
+    void loadRecipe();
+  }, [loadRecipe]);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -433,7 +488,12 @@ export function RecipeDetailClient({ recipeId }: RecipeDetailClientProps) {
                     ) : (
                       <Button
                         variant="secondary"
-                        onClick={() => startStepTimer(recipe.steps[activeStep].duration)}
+                        onClick={() => {
+                          const stepDuration = recipe.steps?.[activeStep]?.duration;
+                          if (stepDuration) {
+                            startStepTimer(stepDuration);
+                          }
+                        }}
                         className="gap-2"
                       >
                         <Timer className="h-4 w-4" />
@@ -658,7 +718,7 @@ export function RecipeDetailClient({ recipeId }: RecipeDetailClientProps) {
                   )}
                 </div>
                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                  {recipe.ingredients?.map((ing: { id: string; name: string; quantity: number | null; unit?: string }) => (
+                  {recipe.ingredients?.map((ing) => (
                     <li key={ing.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted">
                       <span className="text-primary">•</span>
                       <span className="font-medium">{ing.name}</span>
@@ -723,7 +783,7 @@ export function RecipeDetailClient({ recipeId }: RecipeDetailClientProps) {
               </CardHeader>
               <CardContent className="max-h-[500px] overflow-y-auto">
                 <ul className="space-y-3">
-                  {recipe.ingredients?.map((ingredient: { id: string; name: string; quantity: number | null; unit?: string; optional?: boolean }) => (
+                  {recipe.ingredients?.map((ingredient) => (
                     <li key={ingredient.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
                       <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
                       <span className="flex-1 font-medium">{ingredient.name}</span>
@@ -764,7 +824,7 @@ export function RecipeDetailClient({ recipeId }: RecipeDetailClientProps) {
               </CardHeader>
               <CardContent className="max-h-[500px] overflow-y-auto">
                 <div className="space-y-4">
-                  {recipe.steps?.map((step: { id: string; content: string; duration?: number; temperature?: number; isOptional?: boolean }, index: number) => (
+                  {recipe.steps?.map((step, index: number) => (
                     <div
                       key={step.id}
                       className={`flex gap-3 cursor-pointer p-3 rounded-lg transition-all ${
@@ -886,7 +946,10 @@ export function RecipeDetailClient({ recipeId }: RecipeDetailClientProps) {
                     Tryb gotowania
                   </Button>
                   <Button
-                    onClick={() => setActiveStep(Math.min(recipe.steps.length - 1, activeStep + 1))}
+                    onClick={() => {
+                      const maxStepIndex = (recipe.steps?.length ?? 1) - 1;
+                      setActiveStep(Math.min(maxStepIndex, activeStep + 1));
+                    }}
                     disabled={activeStep === recipe.steps.length - 1}
                     className="gap-2"
                   >

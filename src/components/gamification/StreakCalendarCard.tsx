@@ -114,7 +114,7 @@ export function StreakCalendarCard({
               {/* Weeks */}
               {weeks.map((week, weekIndex) => (
                 <div key={weekIndex} className="grid grid-cols-7 gap-1">
-                  {week.map((day, dayIndex) => {
+                  {week.map((day) => {
                     const date = parseISO(day.date);
                     return (
                       <div

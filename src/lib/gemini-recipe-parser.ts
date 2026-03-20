@@ -99,8 +99,9 @@ HTML przepisu:
 
 export async function parseRecipeWithGemini(
   html: string,
-  _url: string // prefixed with _ to indicate intentionally unused
+  _url?: string
 ): Promise<GeminiRecipeData | null> {
+  void _url;
   // Sprawdź czy Gemini jest dostępne
   if (!genAI) {
     console.warn("Gemini API not configured, skipping AI parsing");

@@ -47,7 +47,7 @@ export function NutritionGoalsDialog({ onGoalSet }: NutritionGoalsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [goals, setGoals] = useState<NutritionGoal[]>([]);
   const [activeGoal, setActiveGoal] = useState<NutritionGoal | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Form state

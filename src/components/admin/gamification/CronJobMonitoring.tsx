@@ -15,7 +15,16 @@ interface CronJob {
   lastRun: string | null;
   nextRun: string;
   status: 'success' | 'error' | 'pending' | 'running';
-  lastResult: any;
+  lastResult: {
+    success?: boolean;
+    message?: string;
+    error?: string;
+    householdsProcessed?: number;
+    results?: Array<{
+      householdName: string;
+      created?: number;
+    }>;
+  } | null;
 }
 
 export function CronJobMonitoring() {
@@ -55,13 +64,13 @@ export function CronJobMonitoring() {
       });
 
       if (response.ok) {
-        const result = await response.json();
+        await response.json();
         toast.success(`${jobName} wykonany pomyślnie!`);
         loadCronStatus();
       } else {
         toast.error(`Błąd uruchamiania ${jobName}`);
       }
-    } catch (error) {
+    } catch {
       toast.error('Błąd połączenia');
     } finally {
       setRunning(null);
@@ -167,7 +176,7 @@ export function CronJobMonitoring() {
                                 )}
                                 {job.lastResult.results && (
                                   <div className="mt-2 space-y-1">
-                                    {job.lastResult.results.map((r: any, i: number) => (
+                                    {job.lastResult.results.map((r, i: number) => (
                                       <p key={i} className="text-xs">
                                         • {r.householdName}: {r.created || 0} questów
                                       </p>

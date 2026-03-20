@@ -14,7 +14,7 @@ const zoneSchema = z.object({
 });
 
 // GET - Lista stref gospodarstwa
-export async function GET(request: NextRequest) {
+export async function GET(): Promise<NextResponse> {
   try {
     const session = await auth();
     if (!session?.user?.householdId) {

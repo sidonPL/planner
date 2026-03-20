@@ -17,14 +17,19 @@ export function UpdateIndicator({ className }: UpdateIndicatorProps) {
   useEffect(() => {
     if (lastEvent && lastEvent.timestamp !== lastEventTimeRef.current) {
       lastEventTimeRef.current = lastEvent.timestamp;
-      setShowPulse(true);
+      const startTimer = setTimeout(() => {
+        setShowPulse(true);
+      }, 0);
 
       // Ukryj animację po 2 sekundach
       const timer = setTimeout(() => {
         setShowPulse(false);
       }, 2000);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(startTimer);
+        clearTimeout(timer);
+      };
     }
   }, [lastEvent]);
 

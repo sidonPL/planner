@@ -64,7 +64,7 @@ export function useLocalStorage<T>(
 /**
  * Hook do auto-save formularza do localStorage
  */
-export function useAutoSaveForm<T extends Record<string, any>>(
+export function useAutoSaveForm<T extends Record<string, unknown>>(
   formId: string,
   initialData: T,
   saveDelay: number = 2000

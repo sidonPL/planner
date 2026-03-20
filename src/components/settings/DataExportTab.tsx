@@ -19,7 +19,8 @@ interface UserStats {
   daysActive: number;
 }
 
-export function DataExportTab({ userId }: DataExportTabProps) {
+export function DataExportTab({ userId: _userId }: DataExportTabProps) {
+  void _userId;
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -60,7 +61,7 @@ export function DataExportTab({ userId }: DataExportTabProps) {
       } else {
         toast.error('Nie udało się wyeksportować danych');
       }
-    } catch (error) {
+    } catch {
       toast.error('Wystąpił błąd');
     } finally {
       setExporting(false);

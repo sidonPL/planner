@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { handleApiError } from "@/lib/api-error-handler";
+import { Prisma } from "@prisma/client";
 
 /**
  * GET /api/nutrition/goals
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const onlyActive = searchParams.get("active") === "true";
 
-    const where: any = {
+    const where: Prisma.NutritionGoalWhereInput = {
       userId: session.user.id,
     };
 

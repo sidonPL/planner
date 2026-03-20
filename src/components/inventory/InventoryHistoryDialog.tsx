@@ -22,6 +22,12 @@ interface HistoryEntry {
   timestamp: Date;
 }
 
+interface HistoryStats {
+  totalAdded: number;
+  totalUsed: number;
+  averageUsagePerWeek: number;
+}
+
 interface InventoryHistoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -45,7 +51,7 @@ export function InventoryHistoryDialog({
 }: InventoryHistoryDialogProps) {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<HistoryStats | null>(null);
   const [predictedDepletion, setPredictedDepletion] = useState<Date | null>(null);
 
   useEffect(() => {

@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
+type TemplateTaskInput = {
+  title: string;
+  description?: string | null;
+  priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  estimatedMinutes?: number | null;
+  categoryId?: string | null;
+};
+
 // GET - Pobierz wszystkie szablony gospodarstwa
 export async function GET() {
   try {
@@ -69,7 +77,7 @@ export async function POST(req: NextRequest) {
         householdId: session.user.householdId,
         createdBy: session.user.id,
         taskTemplates: {
-          create: taskTemplates.map((task: any, index: number) => ({
+          create: (taskTemplates as TemplateTaskInput[]).map((task, index) => ({
             title: task.title.trim(),
             description: task.description?.trim() || null,
             priority: task.priority || "MEDIUM",
