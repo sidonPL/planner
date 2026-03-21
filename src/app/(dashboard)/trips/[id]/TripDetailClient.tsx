@@ -71,8 +71,19 @@ import { WeatherWidget } from "@/components/trips/WeatherWidget";
 import { TripCarPooling } from "@/components/trips/TripCarPooling";
 import { TripMealPlanning } from "@/components/trips/TripMealPlanning";
 import { TripBudgetAlerts } from "@/components/trips/TripBudgetAlerts";
-import { PhotoGallery, type TripPhoto } from "@/components/trips/PhotoGallery";
+import { PhotoGallery } from "@/components/trips/PhotoGallery";
 import { getSmartSuggestions } from "@/lib/packing-templates";
+
+interface TripPhoto {
+  id: string;
+  tripId: string;
+  url: string;
+  caption: string | null;
+  uploadedBy: string;
+  uploadedByName: string | null;
+  createdAt: Date;
+  likes: number;
+}
 
 interface TripPlace {
   id: string;
@@ -840,7 +851,6 @@ export function TripDetailClient({ trip, members, currentUserId }: TripDetailCli
           <PhotoGallery
             tripId={trip.id}
             photos={photos}
-            currentUserId={currentUserId}
             onPhotosChange={setPhotos}
           />
         </TabsContent>
