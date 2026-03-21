@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { buildInAppNotificationEmail, sendEmail } from "@/lib/email";
 import { NotificationType } from "@prisma/client";
+import webpush from "web-push";
 
 interface CreateNotificationParams {
   userId: string;
@@ -10,6 +12,89 @@ interface CreateNotificationParams {
   link?: string;
 }
 
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+const vapidSubject = process.env.VAPID_SUBJECT || "mailto:admin@planner.local";
+
+if (vapidPublicKey && vapidPrivateKey) {
+  webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+}
+
+async function dispatchNotificationChannels({
+  userId,
+  title,
+  message,
+  link,
+}: {
+  userId: string;
+  title: string;
+  message: string;
+  link?: string;
+}) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      settings: true,
+      pushSubscriptions: true,
+    },
+  });
+
+  if (!user) return;
+
+  const emailEnabled = user.settings?.emailEnabled === true;
+  const pushEnabled = user.settings?.pushEnabled === true;
+
+  if (emailEnabled && user.email) {
+    const appUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const targetUrl = link ? `${appUrl}${link}` : appUrl;
+    const emailHtml = buildInAppNotificationEmail({
+      title,
+      message,
+      targetUrl,
+    });
+
+    await sendEmail({
+      to: user.email,
+      subject: `Powiadomienie: ${title}`,
+      html: emailHtml,
+    });
+  }
+
+  if (pushEnabled && vapidPublicKey && vapidPrivateKey && user.pushSubscriptions.length > 0) {
+    const payload = {
+      title,
+      body: message,
+      icon: "/icon-192x192.png",
+      url: link || "/",
+      tag: `planner-${Date.now()}`,
+    };
+
+    await Promise.allSettled(
+      user.pushSubscriptions.map(async (sub) => {
+        try {
+          await webpush.sendNotification(
+            {
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: sub.p256dh,
+                auth: sub.auth,
+              },
+            },
+            JSON.stringify(payload)
+          );
+        } catch (error: unknown) {
+          if (error && typeof error === "object" && "statusCode" in error) {
+            const statusCode = (error as { statusCode: number }).statusCode;
+            if (statusCode === 404 || statusCode === 410) {
+              await prisma.pushSubscription.delete({ where: { id: sub.id } });
+            }
+          }
+        }
+      })
+    );
+  }
+}
+
 export async function createNotification({
   userId,
   householdId,
@@ -18,7 +103,7 @@ export async function createNotification({
   type,
   link,
 }: CreateNotificationParams) {
-  return prisma.notification.create({
+  const notification = await prisma.notification.create({
     data: {
       userId,
       householdId,
@@ -28,6 +113,19 @@ export async function createNotification({
       link,
     },
   });
+
+  try {
+    await dispatchNotificationChannels({
+      userId,
+      title,
+      message,
+      link,
+    });
+  } catch (error) {
+    console.error("Notification channel dispatch failed:", error);
+  }
+
+  return notification;
 }
 
 // Powiadomienie o przypisaniu zadania

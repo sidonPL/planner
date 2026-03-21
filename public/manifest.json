@@ -1,63 +1,49 @@
 {
-  "name": "Family Planner",
-  "short_name": "FamilyPlanner",
-  "description": "Kompleksowa aplikacja do zarządzania życiem rodzinnym",
+  "name": "Family Planner - Zarządzanie rodziną",
+  "short_name": "Planner",
+  "description": "Kompleksowa aplikacja do zarządzania życiem rodzinnym - plany, zadania, budżet, przepisy i wiele więcej",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#8B5CF6",
   "orientation": "portrait-primary",
-  "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
   "categories": ["productivity", "lifestyle"],
+  "icons": [
+    { "src": "/icon-72x72.png", "sizes": "72x72", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
   "shortcuts": [
     {
       "name": "Zadania",
       "short_name": "Zadania",
-      "description": "Otwórz listę zadań",
-      "url": "/tasks",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "description": "Szybki dostęp do listy zadań",
+      "url": "/tasks?utm_source=pwa_shortcut",
+      "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Przepisy",
       "short_name": "Przepisy",
-      "description": "Przeglądaj przepisy",
-      "url": "/recipes",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "description": "Szybki dostęp do przepisów",
+      "url": "/recipes?utm_source=pwa_shortcut",
+      "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Harmonogram",
       "short_name": "Harmonogram",
-      "description": "Zobacz harmonogram",
-      "url": "/schedule",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "description": "Szybki dostęp do harmonogramu",
+      "url": "/schedule?utm_source=pwa_shortcut",
+      "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     }
   ],
   "screenshots": [
-    {
-      "src": "/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
-    },
-    {
-      "src": "/screenshot-narrow.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow"
-    }
+    { "src": "/screenshot-narrow.png", "sizes": "540x720", "type": "image/png", "form_factor": "narrow" },
+    { "src": "/screenshot-wide.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide" }
   ]
 }
-

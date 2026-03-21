@@ -143,9 +143,9 @@ export function LeaderboardTabs({ }: LeaderboardTabsProps = {}) {
               </div>
             ) : (
               <div className="space-y-2">
-                {leaderboard.map((entry) => (
+                {leaderboard.map((entry, index) => (
                   <div
-                    key={entry.id}
+                    key={entry.id || `${entry.userId}-${period}-${index}`}
                     className={cn(
                       "flex items-center gap-3 p-3 rounded-lg transition-all",
                       entry.rank <= 3 ? getRankBadge(entry.rank) : "bg-muted/30",

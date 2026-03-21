@@ -14,6 +14,99 @@ const loginSchema = z.object({
   password: z.string().min(6, "Hasło musi mieć co najmniej 6 znaków"),
 });
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+const facebookClientId = process.env.FACEBOOK_CLIENT_ID;
+const facebookClientSecret = process.env.FACEBOOK_CLIENT_SECRET;
+const microsoftClientId = process.env.AZURE_AD_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID;
+const microsoftClientSecret = process.env.AZURE_AD_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET;
+
+const providers: any[] = [
+  Credentials({
+    name: "credentials",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Hasło", type: "password" },
+    },
+    async authorize(credentials) {
+      const validatedFields = loginSchema.safeParse(credentials);
+
+      if (!validatedFields.success) {
+        return null;
+      }
+
+      const { email, password } = validatedFields.data;
+
+      const user = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!user || !user.password) {
+        return null;
+      }
+
+      const passwordsMatch = await bcrypt.compare(password, user.password);
+
+      if (!passwordsMatch) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.avatar,
+        role: user.role,
+        householdId: user.householdId,
+        level: user.level,
+        xp: user.xp,
+        currentStreak: user.currentStreak,
+        longestStreak: user.longestStreak,
+      };
+    },
+  }),
+];
+
+if (googleClientId && googleClientSecret) {
+  providers.push(
+    Google({
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+          scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly",
+        },
+      },
+    })
+  );
+}
+
+if (facebookClientId && facebookClientSecret) {
+  providers.push(
+    Facebook({
+      clientId: facebookClientId,
+      clientSecret: facebookClientSecret,
+    })
+  );
+}
+
+if (microsoftClientId && microsoftClientSecret) {
+  providers.push(
+    MicrosoftEntraID({
+      clientId: microsoftClientId,
+      clientSecret: microsoftClientSecret,
+      authorization: {
+        params: {
+          scope: "openid profile email offline_access Calendars.Read",
+        },
+      },
+    })
+  );
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   session: {
@@ -23,76 +116,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
     error: "/login",
   },
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code",
-          scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly",
-        },
-      },
-    }),
-    Facebook({
-      clientId: process.env.FACEBOOK_CLIENT_ID!,
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
-    }),
-    MicrosoftEntraID({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          scope: "openid profile email offline_access Calendars.Read",
-        },
-      },
-    }),
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Hasło", type: "password" },
-      },
-      async authorize(credentials) {
-        const validatedFields = loginSchema.safeParse(credentials);
-
-        if (!validatedFields.success) {
-          return null;
-        }
-
-        const { email, password } = validatedFields.data;
-
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
-
-        if (!user || !user.password) {
-          return null;
-        }
-
-        const passwordsMatch = await bcrypt.compare(password, user.password);
-
-        if (!passwordsMatch) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.avatar,
-          role: user.role,
-          householdId: user.householdId,
-          level: user.level,
-          xp: user.xp,
-          currentStreak: user.currentStreak,
-          longestStreak: user.longestStreak,
-        };
-      },
-    }),
-  ],
+  providers,
   callbacks: {
     async signIn({ user, account }) {
       // For OAuth providers create/update user

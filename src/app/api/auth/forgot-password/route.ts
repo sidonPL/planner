@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { buildResetPasswordEmail, sendEmail } from "@/lib/email";
 import crypto from "crypto";
 
 // POST - wysłanie żądania resetu hasła
@@ -44,17 +45,25 @@ export async function POST(req: Request) {
       },
     });
 
-    // Tutaj w przyszłości można dodać wysyłanie emaila
-    // Na razie logujemy link do konsoli (dla developmentu)
     const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/reset-password?token=${token}`;
+
+    const html = buildResetPasswordEmail({
+      userName: user.name,
+      resetUrl,
+    });
+
+    const mailResult = await sendEmail({
+      to: user.email,
+      subject: "Reset hasła - Family Planner",
+      html,
+    });
 
     console.log("===========================================");
     console.log("Reset password link for:", email);
     console.log("Link:", resetUrl);
+    console.log("Email sent:", mailResult.success ? "YES" : "NO");
     console.log("===========================================");
 
-    // W produkcji wysłalibyśmy email:
-    // await sendResetPasswordEmail(user.email, resetUrl);
 
     return NextResponse.json({ success: true });
   } catch (error) {
