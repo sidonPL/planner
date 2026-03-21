@@ -28,6 +28,11 @@ type DbScannedProduct = {
   sourceUrl: string | null;
 };
 
+function normalizeImageUrl(url: string | null): string | undefined {
+  if (!url) return undefined;
+  return url.replace(/^http:\/\//i, "https://");
+}
+
 // Cache w pamięci (w produkcji użyj Redis)
 const productCache = new Map<string, { data: ProductData; timestamp: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 godziny
@@ -199,7 +204,7 @@ function mapDbProductToProductData(product: DbScannedProduct): ProductData {
     manufacturer: product.manufacturer || undefined,
     category: product.category || undefined,
     quantity: product.quantity || undefined,
-    imageUrl: product.imageUrl || undefined,
+    imageUrl: normalizeImageUrl(product.imageUrl),
     nutrition: {
       calories: product.calories || undefined,
       protein: product.protein || undefined,

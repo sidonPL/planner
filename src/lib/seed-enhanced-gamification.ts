@@ -114,6 +114,7 @@ export async function seedRewards(householdId: string) {
       type: RewardType.COSMETIC,
       category: RewardCategory.THEME,
       rarity: RewardRarity.RARE,
+      effectData: { themeId: 'ocean' },
       householdId,
     },
 
@@ -263,6 +264,7 @@ export async function seedRewards(householdId: string) {
       seasonName: 'Halloween 2026',
       availableFrom: new Date('2026-10-20'),
       availableUntil: new Date('2026-11-01'),
+      effectData: { themeId: 'midnight' },
       householdId,
     },
     {
@@ -277,6 +279,7 @@ export async function seedRewards(householdId: string) {
       seasonName: 'Wiosna 2026',
       availableFrom: new Date('2026-03-20'),
       availableUntil: new Date('2026-06-21'),
+      effectData: { themeId: 'lavender' },
       householdId,
     },
 

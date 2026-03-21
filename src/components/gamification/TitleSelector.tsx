@@ -79,9 +79,7 @@ export function TitleSelector() {
         toast.success('Tytuł zmieniony!', {
           description: `Aktywowano: ${AVAILABLE_TITLES[titleId].name}`,
         });
-
-        // Reload page to show new title
-        setTimeout(() => window.location.reload(), 1000);
+        window.dispatchEvent(new CustomEvent('cosmetics-updated'));
       } else {
         throw new Error('Failed to save title');
       }

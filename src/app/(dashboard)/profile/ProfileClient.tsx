@@ -19,6 +19,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { ThemeSelector } from "@/components/gamification/ThemeSelector";
+import { ImageUpload } from "@/components/inventory/ImageUpload";
+import { Separator } from "@/components/ui/separator";
 import {
   getNameDayDateOptionsByName,
   getNameDayNames,
@@ -74,6 +77,7 @@ export default function ProfileClient({ user }: ProfileClientProps) {
   const [formData, setFormData] = useState({
     name: user.name || "",
     email: user.email || "",
+    avatar: user.avatar || "",
     color: user.color,
     birthDate: user.birthDate ? format(new Date(user.birthDate), "yyyy-MM-dd") : "",
     nameDay: user.nameDay || "",
@@ -336,6 +340,7 @@ export default function ProfileClient({ user }: ProfileClientProps) {
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
+          avatar: formData.avatar || null,
           color: formData.color,
           birthDate: formData.birthDate || null,
           nameDay: formData.nameDay || null,
@@ -401,7 +406,7 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                   {/* Avatar */}
                   <div className="flex items-center gap-4">
                     <Avatar className="h-20 w-20">
-                      <AvatarImage src={user.avatar || ""} />
+                      <AvatarImage src={formData.avatar || ""} />
                       <AvatarFallback style={{ backgroundColor: formData.color }}>
                         {formData.name?.[0]?.toUpperCase() || "U"}
                       </AvatarFallback>
@@ -410,6 +415,20 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                       <p className="text-sm font-medium">{formData.name || "Użytkownik"}</p>
                       <p className="text-xs text-muted-foreground">{formData.email}</p>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Własny avatar</Label>
+                    <ImageUpload
+                      value={formData.avatar || null}
+                      onChange={(url) => setFormData((prev) => ({ ...prev, avatar: url }))}
+                      onRemove={() => setFormData((prev) => ({ ...prev, avatar: "" }))}
+                      maxSizeMB={3}
+                      folder="avatars"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Przesłany obraz zostanie użyty jako Twój avatar.
+                    </p>
                   </div>
 
                   {/* Imię */}
@@ -622,6 +641,16 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                     <p className="text-xs text-muted-foreground">
                       Aktualny kolor: <span className="font-medium">{accentColors.find(c => c.name === accentColor)?.label}</span>
                     </p>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Motywy z nagród</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Tu możesz aktywować kupione motywy gamifikacyjne.
+                    </p>
+                    <ThemeSelector />
                   </div>
                 </CardContent>
               </Card>

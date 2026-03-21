@@ -75,6 +75,11 @@ type MealWithRecipe = Meal & {
     name: string;
     description: string | null;
     icon: string | null;
+    calories: number | null;
+    protein: number | null;
+    carbs: number | null;
+    fat: number | null;
+    fiber: number | null;
   } | null;
 };
 
@@ -92,6 +97,11 @@ type SimpleDish = {
   name: string;
   description: string | null;
   icon: string | null;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  fiber: number | null;
   householdId: string;
   createdAt: Date;
   updatedAt: Date;

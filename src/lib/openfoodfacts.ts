@@ -74,6 +74,12 @@ interface OpenFoodFactsResponse {
   };
 }
 
+function normalizeProductImageUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  // Open Food Facts udostępnia obrazy po HTTPS; wymuszamy HTTPS, by uniknąć mixed content.
+  return url.replace(/^http:\/\//i, "https://");
+}
+
 /**
  * Pobierz informacje o produkcie po kodzie kreskowym
  */
@@ -153,7 +159,7 @@ export async function searchProducts(query: string, page = 1, pageSize = 20): Pr
         barcode: p.code!,
         name: p.product_name_pl || p.product_name || 'Nieznany produkt',
         brand: p.brands,
-        imageUrl: p.image_url,
+        imageUrl: normalizeProductImageUrl(p.image_url),
         nutriScore: p.nutriscore_grade?.toUpperCase(),
         novaGroup: p.nova_group,
         source: 'openfoodfacts' as const,
@@ -182,7 +188,7 @@ function mapOpenFoodFactsProduct(barcode: string, product: NonNullable<OpenFoodF
   const category = product.categories?.split(',')[0]?.trim();
 
   // Preferuj zdjęcie z przodu
-  const imageUrl = product.image_front_url || product.image_url;
+  const imageUrl = normalizeProductImageUrl(product.image_front_url || product.image_url);
 
   // Wartości odżywcze (na 100g/100ml)
   const nutrition: NutritionData | undefined = product.nutriments ? {

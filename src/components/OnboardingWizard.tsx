@@ -28,9 +28,11 @@ import { Progress } from '@/components/ui/progress';
 interface OnboardingWizardProps {
   open: boolean;
   onComplete: () => void;
+  hasHousehold?: boolean;
+  storageKey?: string;
 }
 
-const steps = [
+const defaultSteps = [
   {
     id: 1,
     title: 'Witaj w Family Planner! 👋',
@@ -69,37 +71,55 @@ const steps = [
   },
 ];
 
-export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
+export function OnboardingWizard({ open, onComplete, hasHousehold = false, storageKey = 'onboarding-completed' }: OnboardingWizardProps) {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [householdName, setHouseholdName] = useState('');
 
-  const progress = ((currentStep - 1) / (steps.length - 1)) * 100;
-  const currentStepData = steps[currentStep - 1];
+  const steps = hasHousehold
+    ? defaultSteps.map((step) =>
+        step.id === 2
+          ? {
+              ...step,
+              title: 'Twoje gospodarstwo jest już gotowe',
+              description: 'Jesteś już członkiem gospodarstwa domowego',
+            }
+          : step
+      )
+    : defaultSteps;
+
+  const visibleSteps = hasHousehold
+    ? steps.filter((step) => step.id !== 2)
+    : steps;
+
+  const progress = visibleSteps.length > 1
+    ? (currentStepIndex / (visibleSteps.length - 1)) * 100
+    : 100;
+  const currentStepData = visibleSteps[currentStepIndex];
 
   const handleNext = () => {
-    if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1);
+    if (currentStepIndex < visibleSteps.length - 1) {
+      setCurrentStepIndex((prev) => prev + 1);
     } else {
       // Mark onboarding as complete
-      localStorage.setItem('onboarding-completed', 'true');
+      localStorage.setItem(storageKey, 'true');
       onComplete();
     }
   };
 
   const handlePrev = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex((prev) => prev - 1);
     }
   };
 
   const handleSkip = () => {
-    localStorage.setItem('onboarding-completed', 'true');
+    localStorage.setItem(storageKey, 'true');
     onComplete();
   };
 
   const renderStepContent = () => {
-    switch (currentStep) {
+    switch (currentStepData?.id) {
       case 1:
         return (
           <div className="space-y-4 text-center py-8">
@@ -142,21 +162,32 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
                 <Users className="h-12 w-12 text-primary" />
               </div>
             </div>
-            <div className="space-y-4 max-w-md mx-auto">
-              <div>
-                <Label htmlFor="household-name">Nazwa gospodarstwa domowego</Label>
-                <Input
-                  id="household-name"
-                  placeholder="np. Rodzina Kowalskich"
-                  value={householdName}
-                  onChange={(e) => setHouseholdName(e.target.value)}
-                  className="mt-2"
-                />
-                <p className="text-sm text-muted-foreground mt-2">
-                  Możesz to zmienić później w ustawieniach
+            {hasHousehold ? (
+              <div className="space-y-4 max-w-md mx-auto text-center">
+                <p className="text-muted-foreground">
+                  Super, jesteś już w gospodarstwie domowym. W tym kroku nic nie musisz wpisywać.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Nazwę gospodarstwa możesz później zmienić w ustawieniach.
                 </p>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4 max-w-md mx-auto">
+                <div>
+                  <Label htmlFor="household-name">Nazwa gospodarstwa domowego</Label>
+                  <Input
+                    id="household-name"
+                    placeholder="np. Rodzina Kowalskich"
+                    value={householdName}
+                    onChange={(e) => setHouseholdName(e.target.value)}
+                    className="mt-2"
+                  />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Możesz to zmienić później w ustawieniach
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -222,7 +253,7 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
             <div className="max-w-md mx-auto">
               <Button
                 onClick={() => {
-                  localStorage.setItem('onboarding-completed', 'true');
+                  localStorage.setItem(storageKey, 'true');
                   router.push('/recipes?new=true');
                   onComplete();
                 }}
@@ -252,7 +283,7 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
             <div className="max-w-md mx-auto">
               <Button
                 onClick={() => {
-                  localStorage.setItem('onboarding-completed', 'true');
+                  localStorage.setItem(storageKey, 'true');
                   router.push('/tasks?new=true');
                   onComplete();
                 }}
@@ -301,7 +332,7 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {currentStepData.icon && <currentStepData.icon className="h-5 w-5" />}
-            Krok {currentStep} z {steps.length}
+            Krok {currentStepIndex + 1} z {visibleSteps.length}
           </DialogTitle>
           <DialogDescription>{currentStepData.description}</DialogDescription>
         </DialogHeader>
@@ -323,14 +354,14 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
           </Button>
 
           <div className="flex gap-2">
-            {currentStep > 1 && currentStep < steps.length && (
+            {currentStepIndex > 0 && currentStepIndex < visibleSteps.length - 1 && (
               <Button variant="outline" onClick={handlePrev}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Wstecz
               </Button>
             )}
             <Button onClick={handleNext}>
-              {currentStep === steps.length ? (
+              {currentStepIndex === visibleSteps.length - 1 ? (
                 'Zakończ'
               ) : (
                 <>
@@ -344,13 +375,13 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
 
         {/* Step indicators */}
         <div className="flex justify-center gap-2 pt-2">
-          {steps.map((step) => (
+          {visibleSteps.map((step, index) => (
             <div
               key={step.id}
               className={`h-2 w-2 rounded-full transition-colors ${
-                step.id === currentStep
+                index === currentStepIndex
                   ? 'bg-primary'
-                  : step.id < currentStep
+                  : index < currentStepIndex
                   ? 'bg-primary/50'
                   : 'bg-muted'
               }`}
@@ -363,22 +394,31 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
 }
 
 // Hook to check if onboarding is needed
-export function useOnboarding() {
+interface UseOnboardingOptions {
+  disabled?: boolean;
+  storageKey?: string;
+}
+
+export function useOnboarding(options?: UseOnboardingOptions) {
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const disabled = options?.disabled ?? false;
+  const storageKey = options?.storageKey ?? 'onboarding-completed';
 
   useEffect(() => {
+    if (disabled) return;
+
     // Check if we're in the browser (not SSR)
     if (typeof window !== 'undefined') {
-      const completed = localStorage.getItem('onboarding-completed');
+      const completed = localStorage.getItem(storageKey);
       if (!completed) {
         // Show onboarding after a short delay
         setTimeout(() => setShowOnboarding(true), 500);
       }
     }
-  }, []);
+  }, [disabled, storageKey]);
 
   return {
-    showOnboarding,
+    showOnboarding: disabled ? false : showOnboarding,
     setShowOnboarding,
   };
 }

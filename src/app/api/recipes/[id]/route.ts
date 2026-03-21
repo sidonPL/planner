@@ -2,6 +2,21 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { hasQuantityInput, parseIngredientQuantity } from "@/lib/ingredient-quantity";
+
+const ingredientQuantitySchema = z
+  .union([z.number(), z.string(), z.null(), z.undefined()])
+  .transform((value, ctx) => {
+    const parsed = parseIngredientQuantity(value);
+    if (hasQuantityInput(value) && parsed === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Nieprawidłowa ilość składnika",
+      });
+      return z.NEVER;
+    }
+    return parsed;
+  });
 
 const recipeUpdateSchema = z.object({
   name: z.string().min(1),
@@ -58,7 +73,7 @@ const recipeUpdateSchema = z.object({
   ingredients: z.array(
     z.object({
       name: z.string().min(1),
-      quantity: z.number().nullish(),
+      quantity: ingredientQuantitySchema,
       unit: z.string().nullish(),
       optional: z.boolean().optional(),
     })

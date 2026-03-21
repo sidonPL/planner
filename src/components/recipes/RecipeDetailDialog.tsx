@@ -40,6 +40,9 @@ import { ShareRecipe } from "@/components/recipes/ShareRecipe";
 import { IngredientSubstitutionSuggester } from "@/components/recipes/IngredientSubstitutionSuggester";
 import { VariationsList } from "@/components/recipes/VariationsList";
 import { RecipeTagsManager } from "@/components/recipes/RecipeTagsManager";
+import { CreateVariationDialog } from "@/components/recipes/CreateVariationDialog";
+import { RecipeWizardDialog } from "@/components/recipes/RecipeWizardDialog";
+import type { RecipeData } from "@/types/recipe";
 
 type RecipeIngredientWithRelations = RecipeIngredient & {
   stepIngredients: StepIngredient[];
@@ -273,6 +276,11 @@ export function RecipeDetailDialog({
   const [cookingMode, setCookingMode] = useState(startInCookingMode);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [usedIngredients, setUsedIngredients] = useState<Set<number>>(new Set());
+  
+  // Recipe Variations states
+  const [isCreateVariationOpen, setIsCreateVariationOpen] = useState(false);
+  const [variationMetadata, setVariationMetadata] = useState<{variationName: string; description?: string} | null>(null);
+  const [isVariationWizardOpen, setIsVariationWizardOpen] = useState(false);
 
 
   const handleExportPDF = async (options: ExportOptions) => {
@@ -329,7 +337,46 @@ export function RecipeDetailDialog({
   };
 
   const handleCreateVariation = () => {
-    toast.info("Funkcja tworzenia wariantów będzie dostępna wkrótce! Użyj 'Duplikuj przepis' i zmodyfikuj.");
+    setIsCreateVariationOpen(true);
+  };
+
+  const handleVariationMetadataSubmit = (data: {variationName: string; description?: string}) => {
+    setVariationMetadata(data);
+    setIsCreateVariationOpen(false);
+    setIsVariationWizardOpen(true);
+  };
+
+  const handleVariationRecipeCreated = async (recipeData: RecipeData) => {
+    if (!variationMetadata || !recipe) return;
+
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}/variations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          variationName: variationMetadata.variationName,
+          description: variationMetadata.description,
+          recipeData,
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Nie udało się utworzyć wariantu");
+      }
+
+      await res.json(); // Parse response
+      toast.success("Wariant przepisu został utworzony!");
+
+      // Reset states
+      setIsVariationWizardOpen(false);
+      setVariationMetadata(null);
+    } catch (error) {
+      console.error("Error creating variation:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Błąd podczas tworzenia wariantu"
+      );
+    }
   };
 
   if (!recipe) return null;
@@ -1156,6 +1203,93 @@ export function RecipeDetailDialog({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog tworzenia wariantu przepisu - krok 1: metadata */}
+      {recipe && (
+        <CreateVariationDialog
+          open={isCreateVariationOpen}
+          onOpenChange={setIsCreateVariationOpen}
+          parentRecipeName={recipe.name}
+          onSubmit={handleVariationMetadataSubmit}
+        />
+      )}
+
+      {/* Dialog tworzenia wariantu przepisu - krok 2: przepis */}
+      {recipe && variationMetadata && (
+        <RecipeWizardDialog
+          open={isVariationWizardOpen}
+          onOpenChange={(open) => {
+            setIsVariationWizardOpen(open);
+            if (!open) {
+              // Reset when closing
+              setVariationMetadata(null);
+            }
+          }}
+          recipe={{
+            id: "",
+            name: `${recipe.name} - ${variationMetadata.variationName}`,
+            description: recipe.description,
+            instructions: recipe.instructions,
+            image: recipe.image,
+            category: recipe.category,
+            prepTime: recipe.prepTime,
+            cookTime: recipe.cookTime,
+            restTime: recipe.restTime,
+            servings: recipe.servings,
+            difficulty: recipe.difficulty,
+            tags: recipe.tags,
+            allergens: recipe.allergens,
+            calories: recipe.calories,
+            protein: recipe.protein,
+            carbs: recipe.carbs,
+            fat: recipe.fat,
+            fiber: recipe.fiber,
+            isVegan: recipe.isVegan,
+            isVegetarian: recipe.isVegetarian,
+            isGlutenFree: recipe.isGlutenFree,
+            isDairyFree: recipe.isDairyFree,
+            cuisine: recipe.cuisine,
+            cookingMethod: recipe.cookingMethod,
+            ovenTemp: recipe.ovenTemp,
+            ovenMode: recipe.ovenMode,
+            source: recipe.source,
+            videoUrl: recipe.videoUrl,
+            tips: recipe.tips,
+            isPublic: recipe.isPublic,
+            ingredients: recipe.ingredients.map((ing) => ({
+              id: ing.id,
+              name: ing.name,
+              quantity: ing.quantity,
+              unit: ing.unit,
+              optional: ing.optional,
+              recipeId: ing.recipeId,
+              globalIngredientId: ing.globalIngredientId,
+              stepIngredients: ing.stepIngredients,
+            })),
+            steps: recipe.steps.map((step) => ({
+              id: step.id,
+              content: step.content,
+              order: step.order,
+              duration: step.duration,
+              temperature: step.temperature,
+              image: step.image,
+              tip: step.tip,
+              isOptional: step.isOptional,
+              recipeId: step.recipeId,
+              stepIngredients: step.stepIngredients,
+            })),
+            householdId: recipe.householdId,
+            createdById: recipe.createdById,
+            createdAt: recipe.createdAt,
+            updatedAt: recipe.updatedAt,
+            totalTime: recipe.totalTime,
+            createdBy: recipe.createdBy,
+            favorites: [],
+          }}
+          onRecipeCreated={handleVariationRecipeCreated}
+          onRecipeUpdated={handleVariationRecipeCreated}
+        />
+      )}
     </Dialog>
   );
 }

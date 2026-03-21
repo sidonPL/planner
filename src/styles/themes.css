@@ -4,129 +4,178 @@
  */
 
 /* Ocean Theme - Spokojne błękity */
-.theme-ocean {
-  --primary: 209 100% 48%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 188 96% 43%;
-  --secondary-foreground: 0 0% 100%;
-  --accent: 185 96% 59%;
-  --accent-foreground: 0 0% 9%;
-  --background: 204 100% 97%;
-  --foreground: 200 88% 24%;
-  --card: 0 0% 100%;
-  --card-foreground: 200 88% 24%;
-  --muted: 204 100% 94%;
-  --muted-foreground: 200 50% 35%;
+:root[data-reward-theme="ocean"] {
+  --secondary: hsl(188 96% 43%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --accent: hsl(185 96% 59%);
+  --accent-foreground: hsl(0 0% 9%);
+  --background: hsl(204 100% 97%);
+  --foreground: hsl(200 88% 24%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(200 88% 24%);
+  --muted: hsl(204 100% 94%);
+  --muted-foreground: hsl(200 50% 35%);
 }
 
 /* Forest Theme - Naturalne zielenie */
-.theme-forest {
-  --primary: 142 71% 45%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 78 72% 45%;
-  --secondary-foreground: 0 0% 100%;
-  --accent: 141 79% 74%;
-  --accent-foreground: 0 0% 9%;
-  --background: 138 100% 98%;
-  --foreground: 140 77% 14%;
-  --card: 0 0% 100%;
-  --card-foreground: 140 77% 14%;
-  --muted: 138 72% 92%;
-  --muted-foreground: 140 50% 25%;
+:root[data-reward-theme="forest"] {
+  --secondary: hsl(78 72% 45%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --accent: hsl(141 79% 74%);
+  --accent-foreground: hsl(0 0% 9%);
+  --background: hsl(138 100% 98%);
+  --foreground: hsl(140 77% 14%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(140 77% 14%);
+  --muted: hsl(138 72% 92%);
+  --muted-foreground: hsl(140 50% 25%);
 }
 
 /* Sunset Theme - Ciepłe pomarańcze */
-.theme-sunset {
-  --primary: 24 95% 53%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 22 93% 60%;
-  --secondary-foreground: 0 0% 100%;
-  --accent: 38 92% 56%;
-  --accent-foreground: 0 0% 9%;
-  --background: 33 100% 97%;
-  --foreground: 20 91% 27%;
-  --card: 0 0% 100%;
-  --card-foreground: 20 91% 27%;
-  --muted: 33 100% 94%;
-  --muted-foreground: 20 60% 35%;
+:root[data-reward-theme="sunset"] {
+  --secondary: hsl(22 93% 60%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --accent: hsl(38 92% 56%);
+  --accent-foreground: hsl(0 0% 9%);
+  --background: hsl(33 100% 97%);
+  --foreground: hsl(20 91% 27%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(20 91% 27%);
+  --muted: hsl(33 100% 94%);
+  --muted-foreground: hsl(20 60% 35%);
 }
 
 /* Midnight Theme - Głęboka ciemność z fioletami */
-.theme-midnight {
-  --primary: 258 90% 66%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 239 84% 67%;
-  --secondary-foreground: 0 0% 100%;
-  --accent: 258 90% 75%;
-  --accent-foreground: 0 0% 9%;
-  --background: 240 56% 21%;
-  --foreground: 226 100% 93%;
-  --card: 240 50% 18%;
-  --card-foreground: 226 100% 93%;
-  --muted: 240 56% 26%;
-  --muted-foreground: 226 70% 80%;
-  --border: 240 50% 30%;
-}
-
-.theme-midnight .dark {
-  --background: 240 56% 15%;
+:root[data-reward-theme="midnight"] {
+  --secondary: hsl(239 84% 67%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --accent: hsl(258 90% 75%);
+  --accent-foreground: hsl(0 0% 9%);
+  --background: hsl(240 56% 21%);
+  --foreground: hsl(226 100% 93%);
+  --card: hsl(240 50% 18%);
+  --card-foreground: hsl(226 100% 93%);
+  --muted: hsl(240 56% 26%);
+  --muted-foreground: hsl(226 70% 80%);
+  --border: hsl(240 50% 30%);
 }
 
 /* Cherry Theme - Energetyczne róże */
-.theme-cherry {
-  --primary: 347 77% 50%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 350 89% 60%;
-  --secondary-foreground: 0 0% 100%;
-  --accent: 351 91% 71%;
-  --accent-foreground: 0 0% 9%;
-  --background: 356 100% 97%;
-  --foreground: 346 87% 27%;
-  --card: 0 0% 100%;
-  --card-foreground: 346 87% 27%;
-  --muted: 356 100% 94%;
-  --muted-foreground: 346 60% 35%;
+:root[data-reward-theme="cherry"] {
+  --secondary: hsl(350 89% 60%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --accent: hsl(351 91% 71%);
+  --accent-foreground: hsl(0 0% 9%);
+  --background: hsl(356 100% 97%);
+  --foreground: hsl(346 87% 27%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(346 87% 27%);
+  --muted: hsl(356 100% 94%);
+  --muted-foreground: hsl(346 60% 35%);
 }
 
 /* Lavender Theme - Delikatne fiolety */
-.theme-lavender {
-  --primary: 271 81% 66%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 270 78% 75%;
-  --secondary-foreground: 0 0% 9%;
-  --accent: 270 80% 86%;
-  --accent-foreground: 0 0% 9%;
-  --background: 270 100% 98%;
-  --foreground: 271 91% 32%;
-  --card: 0 0% 100%;
-  --card-foreground: 271 91% 32%;
-  --muted: 270 100% 96%;
-  --muted-foreground: 271 60% 42%;
+:root[data-reward-theme="lavender"] {
+  --secondary: hsl(270 78% 75%);
+  --secondary-foreground: hsl(0 0% 9%);
+  --accent: hsl(270 80% 86%);
+  --accent-foreground: hsl(0 0% 9%);
+  --background: hsl(270 100% 98%);
+  --foreground: hsl(271 91% 32%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(271 91% 32%);
+  --muted: hsl(270 100% 96%);
+  --muted-foreground: hsl(271 60% 42%);
 }
 
 /* Golden Theme - Luksusowe złoto (VIP) */
-.theme-golden {
-  --primary: 38 92% 50%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 32 95% 44%;
-  --secondary-foreground: 0 0% 100%;
-  --accent: 38 92% 56%;
-  --accent-foreground: 0 0% 9%;
-  --background: 48 100% 96%;
-  --foreground: 30 92% 23%;
-  --card: 0 0% 100%;
-  --card-foreground: 30 92% 23%;
-  --muted: 48 100% 92%;
-  --muted-foreground: 30 60% 33%;
-  --border: 38 50% 75%;
+:root[data-reward-theme="golden"] {
+  --secondary: hsl(32 95% 44%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --accent: hsl(38 92% 56%);
+  --accent-foreground: hsl(0 0% 9%);
+  --background: hsl(48 100% 96%);
+  --foreground: hsl(30 92% 23%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(30 92% 23%);
+  --muted: hsl(48 100% 92%);
+  --muted-foreground: hsl(30 60% 33%);
+  --border: hsl(38 50% 75%);
+}
+
+/* Dark mode compatibility per reward theme */
+:root.dark[data-reward-theme="ocean"] {
+  --background: hsl(205 58% 13%);
+  --foreground: hsl(203 100% 92%);
+  --card: hsl(205 53% 16%);
+  --card-foreground: hsl(203 100% 92%);
+  --muted: hsl(205 45% 22%);
+  --muted-foreground: hsl(203 62% 78%);
+  --border: hsl(199 70% 30%);
+}
+
+:root.dark[data-reward-theme="forest"] {
+  --background: hsl(146 42% 11%);
+  --foreground: hsl(139 68% 90%);
+  --card: hsl(146 36% 14%);
+  --card-foreground: hsl(139 68% 90%);
+  --muted: hsl(146 30% 20%);
+  --muted-foreground: hsl(139 42% 76%);
+  --border: hsl(146 40% 28%);
+}
+
+:root.dark[data-reward-theme="sunset"] {
+  --background: hsl(19 70% 13%);
+  --foreground: hsl(32 100% 91%);
+  --card: hsl(19 62% 16%);
+  --card-foreground: hsl(32 100% 91%);
+  --muted: hsl(19 48% 22%);
+  --muted-foreground: hsl(31 70% 79%);
+  --border: hsl(24 55% 30%);
+}
+
+:root.dark[data-reward-theme="midnight"] {
+  --background: hsl(240 56% 12%);
+  --foreground: hsl(226 100% 93%);
+  --card: hsl(240 50% 16%);
+  --card-foreground: hsl(226 100% 93%);
+  --muted: hsl(240 44% 22%);
+  --muted-foreground: hsl(226 74% 82%);
+  --border: hsl(240 52% 30%);
+}
+
+:root.dark[data-reward-theme="cherry"] {
+  --background: hsl(345 60% 13%);
+  --foreground: hsl(345 100% 93%);
+  --card: hsl(345 54% 16%);
+  --card-foreground: hsl(345 100% 93%);
+  --muted: hsl(345 40% 22%);
+  --muted-foreground: hsl(345 66% 80%);
+  --border: hsl(345 52% 30%);
+}
+
+:root.dark[data-reward-theme="lavender"] {
+  --background: hsl(271 56% 13%);
+  --foreground: hsl(271 100% 93%);
+  --card: hsl(271 50% 16%);
+  --card-foreground: hsl(271 100% 93%);
+  --muted: hsl(271 36% 22%);
+  --muted-foreground: hsl(271 62% 82%);
+  --border: hsl(271 48% 32%);
+}
+
+:root.dark[data-reward-theme="golden"] {
+  --background: hsl(33 62% 13%);
+  --foreground: hsl(45 100% 90%);
+  --card: hsl(33 56% 16%);
+  --card-foreground: hsl(45 100% 90%);
+  --muted: hsl(33 40% 22%);
+  --muted-foreground: hsl(42 72% 80%);
+  --border: hsl(38 48% 34%);
 }
 
 /* Dodatkowe style dla motywów */
-.theme-golden .bg-primary {
-  background: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(32 95% 44%) 100%);
-}
-
-.theme-midnight .bg-card {
+:root[data-reward-theme="midnight"] .bg-card {
   background: linear-gradient(135deg, hsl(240 50% 18%) 0%, hsl(240 56% 21%) 100%);
 }
 
@@ -144,3 +193,217 @@
   transition-timing-function: ease;
 }
 
+/* ========================================
+   THEME VISUAL EFFECTS (animated backgrounds)
+   ======================================== */
+
+html[data-reward-theme] body {
+  position: relative;
+  isolation: isolate;
+}
+
+html[data-reward-theme] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.45;
+  background-size: 220% 220%;
+  animation: themeGradientShift 16s ease-in-out infinite;
+}
+
+/* Dodatkowa warstwa spięcia z kolorem akcentu użytkownika */
+html[data-reward-theme] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.14;
+  background:
+    radial-gradient(
+      circle at 52% 14%,
+      color-mix(in srgb, var(--primary) 40%, transparent) 0%,
+      transparent 58%
+    ),
+    radial-gradient(
+      circle at 18% 86%,
+      color-mix(in srgb, var(--primary) 28%, transparent) 0%,
+      transparent 62%
+    );
+  background-size: 180% 180%;
+  animation: accentPulse 14s ease-in-out infinite;
+}
+
+:root[data-reward-theme="ocean"] body::before {
+  background-image:
+    radial-gradient(circle at 18% 22%, rgba(34, 211, 238, 0.28), transparent 42%),
+    radial-gradient(circle at 82% 78%, rgba(14, 165, 233, 0.24), transparent 40%),
+    linear-gradient(130deg, rgba(224, 242, 254, 0.75), rgba(186, 230, 253, 0.5));
+}
+
+:root[data-reward-theme="ocean"] body::after {
+  background:
+    radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--primary) 46%, transparent) 0%, transparent 60%),
+    repeating-linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.08) 0 6px,
+      rgba(255, 255, 255, 0) 6px 18px
+    );
+  animation: oceanWaves 20s linear infinite;
+}
+
+:root[data-reward-theme="forest"] body::before {
+  background-image:
+    radial-gradient(circle at 12% 80%, rgba(34, 197, 94, 0.25), transparent 36%),
+    radial-gradient(circle at 85% 18%, rgba(132, 204, 22, 0.24), transparent 34%),
+    linear-gradient(145deg, rgba(240, 253, 244, 0.78), rgba(220, 252, 231, 0.55));
+}
+
+:root[data-reward-theme="forest"] body::after {
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--primary) 34%, transparent) 0%, transparent 52%),
+    repeating-radial-gradient(
+      circle at 15% 90%,
+      rgba(34, 197, 94, 0.12) 0 4px,
+      rgba(34, 197, 94, 0) 4px 18px
+    );
+  animation: forestBreeze 18s ease-in-out infinite;
+}
+
+:root[data-reward-theme="sunset"] body::before {
+  background-image:
+    radial-gradient(circle at 18% 20%, rgba(251, 146, 60, 0.30), transparent 38%),
+    radial-gradient(circle at 78% 75%, rgba(249, 115, 22, 0.30), transparent 40%),
+    linear-gradient(150deg, rgba(255, 237, 213, 0.78), rgba(254, 215, 170, 0.58));
+}
+
+:root[data-reward-theme="sunset"] body::after {
+  background:
+    radial-gradient(circle at 50% 110%, rgba(255, 184, 107, 0.25), transparent 58%),
+    linear-gradient(180deg, rgba(255, 201, 153, 0.10), rgba(255, 126, 95, 0.12));
+  animation: sunsetGlow 12s ease-in-out infinite;
+}
+
+:root[data-reward-theme="midnight"] body::before {
+  opacity: 0.58;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(167, 139, 250, 0.25), transparent 36%),
+    radial-gradient(circle at 80% 75%, rgba(99, 102, 241, 0.25), transparent 42%),
+    linear-gradient(145deg, rgba(30, 27, 75, 0.85), rgba(15, 23, 42, 0.75));
+  animation-duration: 20s;
+}
+
+:root[data-reward-theme="midnight"] body::after {
+  opacity: 0.18;
+  background:
+    radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.07) 0 1px, transparent 2px),
+    radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.06) 0 1.5px, transparent 2px);
+  background-size: 220px 220px, 180px 180px;
+  animation: nightSkyDrift 26s linear infinite;
+}
+
+:root[data-reward-theme="cherry"] body::before {
+  background-image:
+    radial-gradient(circle at 22% 24%, rgba(251, 113, 133, 0.28), transparent 36%),
+    radial-gradient(circle at 80% 70%, rgba(225, 29, 72, 0.22), transparent 42%),
+    linear-gradient(140deg, rgba(255, 241, 242, 0.8), rgba(254, 205, 211, 0.55));
+}
+
+:root[data-reward-theme="cherry"] body::after {
+  background:
+    radial-gradient(circle at 18% 20%, rgba(251, 113, 133, 0.2), transparent 44%),
+    radial-gradient(circle at 82% 78%, rgba(244, 63, 94, 0.16), transparent 44%);
+  animation: cherryBloom 14s ease-in-out infinite;
+}
+
+:root[data-reward-theme="lavender"] body::before {
+  background-image:
+    radial-gradient(circle at 20% 22%, rgba(216, 180, 254, 0.30), transparent 38%),
+    radial-gradient(circle at 80% 78%, rgba(192, 132, 252, 0.26), transparent 40%),
+    linear-gradient(145deg, rgba(250, 245, 255, 0.82), rgba(243, 232, 255, 0.58));
+}
+
+:root[data-reward-theme="lavender"] body::after {
+  background:
+    radial-gradient(circle at 15% 85%, rgba(216, 180, 254, 0.24), transparent 52%),
+    radial-gradient(circle at 85% 15%, rgba(192, 132, 252, 0.18), transparent 48%);
+  animation: lavenderMist 15s ease-in-out infinite;
+}
+
+:root[data-reward-theme="golden"] body::before {
+  opacity: 0.52;
+  background-image:
+    radial-gradient(circle at 14% 22%, rgba(251, 191, 36, 0.30), transparent 36%),
+    radial-gradient(circle at 84% 70%, rgba(245, 158, 11, 0.28), transparent 40%),
+    linear-gradient(145deg, rgba(255, 251, 235, 0.8), rgba(254, 243, 199, 0.58));
+  animation-duration: 13s;
+}
+
+:root[data-reward-theme="golden"] body::after {
+  opacity: 0.22;
+  background:
+    linear-gradient(120deg, rgba(255, 220, 120, 0.15), rgba(255, 255, 255, 0.02) 45%, rgba(255, 193, 7, 0.14)),
+    radial-gradient(circle at 80% 20%, rgba(255, 215, 64, 0.24), transparent 55%);
+  animation: goldenShine 9s ease-in-out infinite;
+}
+
+@keyframes themeGradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes accentPulse {
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: translate3d(0, -1%, 0) scale(1.02);
+  }
+}
+
+@keyframes oceanWaves {
+  0% { background-position: 0% 50%, 0% 0%; }
+  100% { background-position: 100% 50%, 200% 0%; }
+}
+
+@keyframes forestBreeze {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-1%, -1%, 0); }
+}
+
+@keyframes sunsetGlow {
+  0%, 100% { opacity: 0.14; filter: saturate(100%); }
+  50% { opacity: 0.24; filter: saturate(120%); }
+}
+
+@keyframes nightSkyDrift {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 220px 160px, -180px -120px; }
+}
+
+@keyframes cherryBloom {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -0.8%, 0) scale(1.03); }
+}
+
+@keyframes lavenderMist {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(1%, -1%, 0); }
+}
+
+@keyframes goldenShine {
+  0%, 100% { background-position: -20% 50%, 80% 20%; }
+  50% { background-position: 120% 50%, 70% 25%; }
+}

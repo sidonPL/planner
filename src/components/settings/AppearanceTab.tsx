@@ -17,6 +17,9 @@ import { Sun, Moon, Monitor, Save, Volume2, VolumeX, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import type { UserSettings } from '@prisma/client';
 import { ThemeSelector } from '@/components/gamification/ThemeSelector';
+import { TitleSelector } from '@/components/gamification/TitleSelector';
+import { BadgeSelector } from '@/components/gamification/BadgeSelector';
+import { AvatarSelector } from '@/components/gamification/AvatarSelector';
 import { Separator } from '@/components/ui/separator';
 
 interface AppearanceTabProps {
@@ -176,6 +179,36 @@ export function AppearanceTab({ userSettings }: AppearanceTabProps) {
           Odblokowuj nowe motywy w sklepie nagród gamifikacji!
         </p>
         <ThemeSelector />
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Tytuły</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Wybierz aktywny tytul odblokowany z nagrod i osiagniec.
+        </p>
+        <TitleSelector />
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Odznaki</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Wybierz aktywna odznake z kupionych nagrod.
+        </p>
+        <BadgeSelector />
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Avatar</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Ustaw avatar z odblokowanych nagród. Własny avatar wgrasz w Profilu.
+        </p>
+        <AvatarSelector />
       </div>
 
       {/* Separator */}

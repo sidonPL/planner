@@ -51,6 +51,7 @@ model Household {
   tripWishlists           TripWishlist[]
   members                 User[]
   weeklyChallenges        WeeklyChallenge[]
+  calendarImportedEvents  CalendarImportedEvent[]
 }
 
 model User {
@@ -1255,6 +1256,11 @@ model SimpleDish {
   category    String    @default("other")
   description String?
   icon        String?   @default("🍽️")
+  calories    Float?
+  protein     Float?
+  carbs       Float?
+  fat         Float?
+  fiber       Float?
   householdId String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -1646,6 +1652,7 @@ model CalendarImportedEvent {
   id            String              @id @default(cuid())
   integrationId String
   externalId    String
+  householdId   String?             // Dla szybszego filtrowania
   title         String
   description   String?
   startDate     DateTime
@@ -1658,8 +1665,11 @@ model CalendarImportedEvent {
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   integration   CalendarIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  household     Household?          @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@unique([integrationId, externalId])
+  @@index([householdId])
+  @@index([startDate])
 }
 
 model GeofenceZone {

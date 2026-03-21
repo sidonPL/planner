@@ -8,7 +8,7 @@ const profileUpdateSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-  avatar: z.string().optional(),
+  avatar: z.string().nullable().optional(),
   birthDate: z.string().nullable().optional().transform((val) => (val ? new Date(val) : undefined)),
   nameDay: z.string().nullable().optional(),
 });
@@ -33,7 +33,30 @@ export async function GET() {
         birthDate: true,
         nameDay: true,
         role: true,
+        activeTheme: true,
+        activeTitle: true,
         householdId: true,
+        claimedRewards: {
+          where: {
+            isActive: true,
+            reward: {
+              category: {
+                in: ["BADGE", "AVATAR"],
+              },
+            },
+          },
+          include: {
+            reward: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                category: true,
+                effectData: true,
+              },
+            },
+          },
+        },
         household: {
           select: {
             id: true,
@@ -47,7 +70,31 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json(user);
+    const activeBadgeReward = user.claimedRewards.find((cr) => cr.reward.category === "BADGE");
+    const activeAvatarReward = user.claimedRewards.find((cr) => cr.reward.category === "AVATAR");
+
+    const responseData = {
+      ...user,
+      activeBadge: activeBadgeReward
+        ? {
+            rewardId: activeBadgeReward.reward.id,
+            name: activeBadgeReward.reward.name,
+            icon: activeBadgeReward.reward.icon,
+          }
+        : null,
+      activeAvatarReward: activeAvatarReward
+        ? {
+            rewardId: activeAvatarReward.reward.id,
+            name: activeAvatarReward.reward.name,
+            icon: activeAvatarReward.reward.icon,
+          }
+        : null,
+    };
+
+    // Nie potrzebujemy expose całej listy claimedRewards w odpowiedzi profilu.
+    delete (responseData as { claimedRewards?: unknown }).claimedRewards;
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error("Error fetching profile:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

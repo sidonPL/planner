@@ -29,7 +29,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, quantity, unit, category, location, expiryDate, minQuantity, autoRestock } = body;
+    const {
+      name,
+      quantity,
+      unit,
+      category,
+      location,
+      expiryDate,
+      minQuantity,
+      autoRestock,
+      barcode,
+      brand,
+      imageUrl,
+    } = body;
 
     if (!name || quantity === undefined) {
       return NextResponse.json(
@@ -47,6 +59,9 @@ export async function POST(request: NextRequest) {
       expiryDate: expiryDate ? new Date(expiryDate) : null,
       minQuantity: minQuantity || null,
       autoRestock: autoRestock || false,
+      barcode: barcode || null,
+      brand: brand || null,
+      imageUrl: imageUrl || null,
       householdId: session.user.householdId!,
     });
 

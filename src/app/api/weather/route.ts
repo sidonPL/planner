@@ -13,6 +13,15 @@ interface ForecastDay {
   humidity: number;
 }
 
+interface HourlyForecastItem {
+  time: string;
+  dateIso: string;
+  temp: number;
+  description: string;
+  icon: string;
+  humidity: number;
+}
+
 interface WeatherData {
   temperature: number;
   dayTemperature?: number;
@@ -27,6 +36,8 @@ interface WeatherData {
   sunset?: number;
   isDemo: boolean;
   forecast?: ForecastDay[];
+  dailyAll?: ForecastDay[];
+  hourly?: HourlyForecastItem[];
 }
 
 interface CacheEntry {
@@ -87,6 +98,14 @@ function toLocalDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function formatForecastDate(date: Date): string {
+  return date.toLocaleDateString("pl-PL", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
@@ -127,18 +146,31 @@ export async function GET(request: NextRequest) {
 
     // Jeśli nie ma API key, zwróć dane demo
     if (!apiKey) {
-      const demoForecast: ForecastDay[] = Array.from({ length: 5 }, (_, i) => {
+      const demoDailyAll: ForecastDay[] = Array.from({ length: 6 }, (_, i) => {
         const d = new Date();
-        d.setDate(d.getDate() + i + 1);
+        d.setDate(d.getDate() + i);
         const dateIso = toLocalDateKey(d);
         return {
-          date: d.toLocaleDateString("pl-PL", { weekday: "short", day: "2-digit", month: "2-digit" }),
+          date: formatForecastDate(d),
           dateIso,
           tempMin: Math.round(-1 + Math.random() * 6),
           tempMax: Math.round(4 + Math.random() * 9),
           description: ["Chmurnie", "Opad deszczu", "Pochmurnie", "Przejaśnienia", "Słonecznie"][i % 5],
           icon: ["03d", "10d", "04d", "02d", "01d"][i % 5],
           humidity: Math.round(60 + Math.random() * 30),
+        };
+      });
+
+      const demoHourly: HourlyForecastItem[] = Array.from({ length: 12 }, (_, i) => {
+        const d = new Date();
+        d.setHours(d.getHours() + i * 3);
+        return {
+          time: d.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }),
+          dateIso: toLocalDateKey(d),
+          temp: Math.round(2 + Math.random() * 12),
+          description: ["Chmurnie", "Lekki deszcz", "Pochmurnie", "Przejaśnienia"][i % 4],
+          icon: ["03d", "10d", "04d", "02d"][i % 4],
+          humidity: Math.round(55 + Math.random() * 35),
         };
       });
 
@@ -153,7 +185,9 @@ export async function GET(request: NextRequest) {
         icon: "03d",
         city: city,
         isDemo: true,
-        forecast: demoForecast,
+        forecast: demoDailyAll.slice(1, 6),
+        dailyAll: demoDailyAll,
+        hourly: demoHourly,
       };
       return NextResponse.json(demoData);
     }
@@ -207,6 +241,8 @@ export async function GET(request: NextRequest) {
 
     // Pobierz prognozę na kolejne dni
     let forecast: ForecastDay[] = [];
+    let dailyAll: ForecastDay[] = [];
+    let hourly: HourlyForecastItem[] = [];
     try {
       const forecastResponse = await fetch(forecastUrl);
       if (forecastResponse.ok) {
@@ -216,6 +252,18 @@ export async function GET(request: NextRequest) {
          if (forecastData.list && Array.isArray(forecastData.list)) {
           const dailyForecasts: Record<string, ForecastListResponse["list"]> = {};
           const todayKey = toLocalDateKey(new Date());
+
+          hourly = forecastData.list.slice(0, 16).map((item) => {
+            const itemDate = new Date(item.dt * 1000);
+            return {
+              time: itemDate.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }),
+              dateIso: toLocalDateKey(itemDate),
+              temp: Math.round(item.main.temp),
+              description: item.weather[0]?.description || "Brak danych",
+              icon: item.weather[0]?.icon || "01d",
+              humidity: item.main.humidity,
+            };
+          });
           
           // Grupuj prognozy po dniach
           forecastData.list.forEach((item) => {
@@ -227,18 +275,12 @@ export async function GET(request: NextRequest) {
             dailyForecasts[dateKey].push(item);
           });
           
-          // Weź po jednej prognozie na kolejne dni (bez dzisiejszego)
-          forecast = Object.entries(dailyForecasts)
-            .filter(([dateStr]) => dateStr !== todayKey)
-            .slice(0, 5)
+          dailyAll = Object.entries(dailyForecasts)
+            .slice(0, 6)
             .map(([dateStr, items]) => {
               const midItem = items[Math.floor(items.length / 2)];
               return {
-                date: new Date(midItem.dt * 1000).toLocaleDateString("pl-PL", {
-                  weekday: "short",
-                  day: "2-digit",
-                  month: "2-digit",
-                }),
+                date: formatForecastDate(new Date(midItem.dt * 1000)),
                 dateIso: dateStr,
                 tempMin: Math.round(Math.min(...items.map((i) => i.main.temp_min))),
                 tempMax: Math.round(Math.max(...items.map((i) => i.main.temp_max))),
@@ -247,6 +289,11 @@ export async function GET(request: NextRequest) {
                 humidity: Math.round(items.reduce((sum, i) => sum + i.main.humidity, 0) / items.length),
               };
             });
+
+          // Kompatybilność: dashboard oczekuje, że forecast zaczyna się od jutra.
+          forecast = dailyAll
+            .filter((day) => day.dateIso !== todayKey)
+            .slice(0, 5);
         }
        }
     } catch (forecastError) {
@@ -268,6 +315,8 @@ export async function GET(request: NextRequest) {
       sunset: data.sys.sunset,
       isDemo: false,
       forecast: forecast.length > 0 ? forecast : undefined,
+      dailyAll: dailyAll.length > 0 ? dailyAll : undefined,
+      hourly: hourly.length > 0 ? hourly : undefined,
     };
 
     // Zapisz w cache

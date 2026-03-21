@@ -12,9 +12,13 @@ export async function GET() {
         isActive: true,
         icalUrl: { not: null },
       },
+      select: {
+        id: true,
+        icalUrl: true,
+        name: true,
+        userId: true,
+      },
     });
-
-    console.log(`[Calendar Sync] Found ${integrations.length} active subscriptions to sync`);
 
     const results = await Promise.allSettled(
       integrations.map((integration) => syncIntegration(integration))
@@ -39,12 +43,10 @@ export async function GET() {
   }
 }
 
-async function syncIntegration(integration: { id: string; icalUrl: string | null; name: string | null }) {
+async function syncIntegration(integration: { id: string; icalUrl: string | null; name: string | null; userId?: string }) {
   if (!integration.icalUrl) {
     throw new Error(`Integration ${integration.id} has no URL`);
   }
-
-  console.log(`[Calendar Sync] Syncing: ${integration.name || integration.id}`);
 
   try {
     // 1. Pobierz .ics
@@ -52,40 +54,52 @@ async function syncIntegration(integration: { id: string; icalUrl: string | null
 
     // 2. Parsuj wydarzenia
     const events = parseICS(icalData);
+    // Pobierz householdId użytkownika
+    let householdId: string | null = null;
+    if (integration.userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: integration.userId },
+        select: { householdId: true },
+      });
+      householdId = user?.householdId || null;
+    }
 
     console.log(`[Calendar Sync] Found ${events.length} events in ${integration.name}`);
 
-    // 3. Upsert wydarzenia
-    for (const event of events) {
-      await prisma.calendarImportedEvent.upsert({
-        where: {
-          integrationId_externalId: {
+    // 3. Upsert do bazy
+    await Promise.all(
+      events.map((event) =>
+        prisma.calendarImportedEvent.upsert({
+          where: {
+            integrationId_externalId: {
+              integrationId: integration.id,
+              externalId: event.uid,
+            },
+          },
+          create: {
             integrationId: integration.id,
             externalId: event.uid,
+            title: event.summary,
+            description: event.description,
+            startDate: event.start,
+            endDate: event.end,
+            location: event.location,
+            isAllDay: event.isAllDay,
+            rawIcal: event.raw,
           },
-        },
-        create: {
-          integrationId: integration.id,
-          externalId: event.uid,
-          title: event.summary,
-          description: event.description,
-          startDate: event.start,
-          endDate: event.end,
-          location: event.location,
-          isAllDay: event.isAllDay,
-          rawIcal: event.raw,
-        },
-        update: {
-          title: event.summary,
-          description: event.description,
-          startDate: event.start,
-          endDate: event.end,
-          location: event.location,
-          isAllDay: event.isAllDay,
-          rawIcal: event.raw,
-        },
-      });
-    }
+          update: {
+            title: event.summary,
+            description: event.description,
+            startDate: event.start,
+            endDate: event.end,
+            location: event.location,
+            isAllDay: event.isAllDay,
+            rawIcal: event.raw,
+            householdId: householdId,
+          },
+        })
+      )
+    );
 
     // 4. Usuń wydarzenia które zniknęły
     const currentEventIds = events.map((e) => e.uid);
@@ -135,4 +149,3 @@ async function syncIntegration(integration: { id: string; icalUrl: string | null
     throw error;
   }
 }
-

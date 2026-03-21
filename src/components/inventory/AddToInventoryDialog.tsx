@@ -63,13 +63,15 @@ export function AddToInventoryDialog({ open, onOpenChange, product, onSuccess }:
   const [autoRestock, setAutoRestock] = useState(false);
   const [loading, setLoading] = useState(false);
   const [productName, setProductName] = useState(product?.name || ""); // Edytowalna nazwa
+  const [productBrand, setProductBrand] = useState(product?.brand || "");
 
   // Reset nazwy gdy zmienia się produkt
   useEffect(() => {
     if (product?.name) {
       setProductName(product.name);
     }
-  }, [product?.name]);
+    setProductBrand(product?.brand || "");
+  }, [product?.name, product?.brand]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +97,7 @@ export function AddToInventoryDialog({ open, onOpenChange, product, onSuccess }:
         body: JSON.stringify({
           barcode: product.barcode,
           name: productName.trim(), // Użyj edytowanej nazwy
+          brand: productBrand.trim() || null,
           quantity: parseFloat(quantity),
           unit,
           location: location || null,
@@ -124,6 +127,7 @@ export function AddToInventoryDialog({ open, onOpenChange, product, onSuccess }:
       setMinQuantity("");
       setAutoRestock(false);
       setProductName("");
+      setProductBrand("");
 
       onOpenChange(false);
 
@@ -173,6 +177,17 @@ export function AddToInventoryDialog({ open, onOpenChange, product, onSuccess }:
               <p className="text-xs text-muted-foreground">
                 Możesz zmienić nazwę produktu przed dodaniem do inwentarza
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="productBrand">Marka (wariant)</Label>
+              <Input
+                id="productBrand"
+                type="text"
+                value={productBrand}
+                onChange={(e) => setProductBrand(e.target.value)}
+                placeholder="np. Kielecki, Winiary"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

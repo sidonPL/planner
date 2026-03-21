@@ -45,6 +45,7 @@ const CATEGORIES = [
 
 export function ManualProductDialog({ open, onOpenChange, barcode, onSuccess }: ManualProductDialogProps) {
   const [name, setName] = useState("");
+  const [brand, setBrand] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("szt");
   const [location, setLocation] = useState("pantry");
@@ -75,6 +76,7 @@ export function ManualProductDialog({ open, onOpenChange, barcode, onSuccess }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
+          brand: brand.trim() || null,
           quantity: parseFloat(quantity),
           unit,
           category,
@@ -96,6 +98,7 @@ export function ManualProductDialog({ open, onOpenChange, barcode, onSuccess }: 
 
       // Reset formularza
       setName("");
+      setBrand("");
       setQuantity("1");
       setUnit("szt");
       setCategory("other");
@@ -151,6 +154,17 @@ export function ManualProductDialog({ open, onOpenChange, barcode, onSuccess }: 
               placeholder="np. Domestos, Persil, Fairy"
               required
               autoFocus
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="brand">Marka (wariant)</Label>
+            <Input
+              id="brand"
+              type="text"
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              placeholder="np. Kielecki, Winiary"
             />
           </div>
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { autoSeedIngredients } from "@/lib/seed-ingredients";
+import { normalizeIngredientName } from "@/lib/name-normalization";
 
 export async function GET(request: Request) {
   try {
@@ -53,18 +54,24 @@ export async function GET(request: Request) {
           contains: searchTerm,
           mode: "insensitive",
         },
-        // Wyłącz te które już są w inwentarzu
-        NOT: {
-          name: {
-            in: inventoryItems.map(item => item.name),
-          },
-        },
       },
       take: 15, // Max 15 z bazy globalnej
       orderBy: [
         { usageCount: "desc" }, // Najpopularniejsze na górze
         { name: "asc" },
       ],
+    });
+
+    const inventoryNameKeys = new Set(
+      inventoryItems.map((item) => normalizeIngredientName(item.name))
+    );
+    const seenGlobalKeys = new Set<string>();
+    const dedupedGlobalIngredients = globalIngredients.filter((ingredient) => {
+      const key = normalizeIngredientName(ingredient.name);
+      if (inventoryNameKeys.has(key)) return false;
+      if (seenGlobalKeys.has(key)) return false;
+      seenGlobalKeys.add(key);
+      return true;
     });
 
     // 3. Mapuj inwentarz do formatu sugestii (z flagą fromInventory)
@@ -83,7 +90,7 @@ export async function GET(request: Request) {
     }));
 
     // 4. Mapuj składniki globalne do formatu sugestii
-    const globalSuggestions = globalIngredients.map((ingredient) => ({
+    const globalSuggestions = dedupedGlobalIngredients.map((ingredient) => ({
       id: ingredient.id,
       name: ingredient.name,
       fromInventory: false,

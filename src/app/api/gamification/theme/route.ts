@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { AVAILABLE_THEMES, ThemeId } from '@/lib/themes';
+import { resolveThemeIdFromRewardData } from '@/lib/theme-reward-utils';
 
 /**
  * POST /api/gamification/theme
@@ -26,20 +27,22 @@ export async function POST(request: Request) {
 
     // Sprawdź czy użytkownik ma dostęp do motywu
     if (!theme.free) {
-      const claimedReward = await prisma.claimedReward.findFirst({
+      const claimedRewards = await prisma.claimedReward.findMany({
         where: {
           userId: session.user.id,
-          reward: {
-            category: 'THEME',
-            effectData: {
-              path: ['themeId'],
-              equals: themeId,
-            },
-          },
+          reward: { category: 'THEME' },
         },
+        select: { reward: { select: { effectData: true, name: true } } },
       });
 
-      if (!claimedReward) {
+      const hasAccess = claimedRewards.some((cr) =>
+        resolveThemeIdFromRewardData({
+          effectData: cr.reward.effectData,
+          name: cr.reward.name,
+        }) === themeId
+      );
+
+      if (!hasAccess) {
         return NextResponse.json(
           { error: 'Theme not unlocked' },
           { status: 403 }
@@ -86,7 +89,8 @@ export async function GET() {
       select: { activeTheme: true },
     });
 
-    const themeId = (user?.activeTheme || 'default') as ThemeId;
+    const rawThemeId = user?.activeTheme as ThemeId | null;
+    const themeId: ThemeId = rawThemeId && AVAILABLE_THEMES[rawThemeId] ? rawThemeId : 'default';
     const theme = AVAILABLE_THEMES[themeId];
 
     return NextResponse.json({

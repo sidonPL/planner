@@ -29,6 +29,11 @@ type SimpleDish = {
   category: string;
   description: string | null;
   icon: string;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  fiber: number | null;
 };
 
 interface SimpleDishManagerProps {
@@ -49,6 +54,12 @@ const categories = [
 
 const defaultIcons = ["🍽️", "🥪", "🌭", "🍕", "🍔", "🥗", "🍝", "🍜", "🥣", "🍲", "🍳", "🥞", "🧇", "🍿", "🥤"];
 
+const parseNutritionInput = (value: string): number | null => {
+  if (!value.trim()) return null;
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 export function SimpleDishManager({ open, onOpenChange, onDishesUpdated }: SimpleDishManagerProps) {
   const [dishes, setDishes] = useState<SimpleDish[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +70,11 @@ export function SimpleDishManager({ open, onOpenChange, onDishesUpdated }: Simpl
     category: "other",
     description: "",
     icon: "🍽️",
+    calories: "",
+    protein: "",
+    carbs: "",
+    fat: "",
+    fiber: "",
   });
 
   useEffect(() => {
@@ -98,7 +114,14 @@ export function SimpleDishManager({ open, onOpenChange, onDishesUpdated }: Simpl
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          calories: parseNutritionInput(formData.calories),
+          protein: parseNutritionInput(formData.protein),
+          carbs: parseNutritionInput(formData.carbs),
+          fat: parseNutritionInput(formData.fat),
+          fiber: parseNutritionInput(formData.fiber),
+        }),
       });
 
       if (response.ok) {
@@ -145,6 +168,11 @@ export function SimpleDishManager({ open, onOpenChange, onDishesUpdated }: Simpl
       category: dish.category,
       description: dish.description || "",
       icon: dish.icon,
+      calories: dish.calories?.toString() || "",
+      protein: dish.protein?.toString() || "",
+      carbs: dish.carbs?.toString() || "",
+      fat: dish.fat?.toString() || "",
+      fiber: dish.fiber?.toString() || "",
     });
     setIsFormOpen(true);
   };
@@ -157,6 +185,11 @@ export function SimpleDishManager({ open, onOpenChange, onDishesUpdated }: Simpl
       category: "other",
       description: "",
       icon: "🍽️",
+      calories: "",
+      protein: "",
+      carbs: "",
+      fat: "",
+      fiber: "",
     });
   };
 
@@ -187,7 +220,17 @@ export function SimpleDishManager({ open, onOpenChange, onDishesUpdated }: Simpl
                 size="sm"
                 onClick={() => {
                   setEditingDish(null);
-                  setFormData({ name: "", category: "other", description: "", icon: "🍽️" });
+                  setFormData({
+                    name: "",
+                    category: "other",
+                    description: "",
+                    icon: "🍽️",
+                    calories: "",
+                    protein: "",
+                    carbs: "",
+                    fat: "",
+                    fiber: "",
+                  });
                   setIsFormOpen(true);
                 }}
               >
@@ -228,6 +271,12 @@ export function SimpleDishManager({ open, onOpenChange, onDishesUpdated }: Simpl
                                 <p className="font-medium truncate">{dish.name}</p>
                                 {dish.description && (
                                   <p className="text-xs text-muted-foreground truncate">{dish.description}</p>
+                                )}
+                                {(dish.calories || dish.protein || dish.carbs || dish.fat || dish.fiber) && (
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {dish.calories ? `${Math.round(dish.calories)} kcal` : "0 kcal"}
+                                    {` • B ${dish.protein ?? 0} g • W ${dish.carbs ?? 0} g • T ${dish.fat ?? 0} g`}
+                                  </p>
                                 )}
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -331,6 +380,53 @@ export function SimpleDishManager({ open, onOpenChange, onDishesUpdated }: Simpl
                       placeholder="np. Z serem żółtym i ogórkiem"
                       rows={3}
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Właściwości odżywcze (na porcję)</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        placeholder="Kalorie (kcal)"
+                        value={formData.calories}
+                        onChange={(e) => setFormData({ ...formData, calories: e.target.value })}
+                      />
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        placeholder="Białko (g)"
+                        value={formData.protein}
+                        onChange={(e) => setFormData({ ...formData, protein: e.target.value })}
+                      />
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        placeholder="Węglowodany (g)"
+                        value={formData.carbs}
+                        onChange={(e) => setFormData({ ...formData, carbs: e.target.value })}
+                      />
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        placeholder="Tłuszcz (g)"
+                        value={formData.fat}
+                        onChange={(e) => setFormData({ ...formData, fat: e.target.value })}
+                      />
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        placeholder="Błonnik (g)"
+                        value={formData.fiber}
+                        onChange={(e) => setFormData({ ...formData, fiber: e.target.value })}
+                        className="col-span-2"
+                      />
+                    </div>
                   </div>
                 </div>
 

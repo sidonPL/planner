@@ -161,6 +161,9 @@ export function ScheduleClient({
   const [schedules, setSchedules] = useState(initialSchedules);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedScheduleDetails, setSelectedScheduleDetails] = useState<ScheduleWithUser | null>(null);
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState<Date | null>(null);
   const [editingSchedule, setEditingSchedule] = useState<ScheduleWithUser | null>(null);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isExceptionDialogOpen, setIsExceptionDialogOpen] = useState(false);
@@ -765,6 +768,62 @@ export function ScheduleClient({
     return scheduleTypes.find((t) => t.value === type) || scheduleTypes[4];
   };
 
+  const openDetailsDialog = (schedule: ScheduleWithUser, date?: Date) => {
+    setSelectedScheduleDetails(schedule);
+    setSelectedScheduleDate(date ?? null);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const getRecurrenceLabel = (schedule: ScheduleWithUser) => {
+    if (schedule.isOneTime) {
+      return schedule.oneTimeDate
+        ? `Jednorazowe: ${format(new Date(schedule.oneTimeDate), "d MMM yyyy", { locale: pl })}`
+        : "Jednorazowe";
+    }
+
+    const specificDatesCount = schedule.specificDates?.length || 0;
+    if (specificDatesCount > 0) {
+      return `Konkretne daty: ${specificDatesCount}`;
+    }
+
+    if (schedule.recurrenceUnit === "MONTHLY") {
+      return `Co ${schedule.repeatEvery} mies.`;
+    }
+
+    const dayShort = schedule.dayOfWeek
+      .map((day) => daysOfWeek.find((d) => d.value === day)?.short)
+      .filter(Boolean)
+      .join(", ");
+
+    return `Co ${schedule.repeatEvery} tyg.${dayShort ? ` (${dayShort})` : ""}`;
+  };
+
+  const handleOpenEditFromDetails = () => {
+    if (!selectedScheduleDetails) return;
+    setIsDetailsDialogOpen(false);
+    openEditDialog(selectedScheduleDetails);
+  };
+
+  const handleOpenExceptionFromDetails = () => {
+    if (!selectedScheduleDetails) return;
+
+    setSelectedScheduleForException(selectedScheduleDetails);
+    setExceptionDate(
+      selectedScheduleDate ? format(selectedScheduleDate, "yyyy-MM-dd") : ""
+    );
+    setExceptionReason("");
+    setIsDetailsDialogOpen(false);
+    setIsExceptionDialogOpen(true);
+  };
+
+  const handleDeleteFromDetails = async () => {
+    if (!selectedScheduleDetails) return;
+
+    const scheduleId = selectedScheduleDetails.id;
+    setIsDetailsDialogOpen(false);
+    await handleDeleteSchedule(scheduleId);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -973,8 +1032,9 @@ export function ScheduleClient({
                     return (
                       <div
                         key={schedule.id}
+                        onClick={() => openDetailsDialog(schedule, day.date)}
                         className={cn(
-                          "p-2 rounded-lg text-white text-xs",
+                          "p-2 rounded-lg text-white text-xs cursor-pointer hover:brightness-95 transition",
                           typeInfo.color
                         )}
                       >
@@ -989,6 +1049,7 @@ export function ScheduleClient({
                                 variant="ghost"
                                 size="icon"
                                 className="h-5 w-5 text-white hover:bg-white/20"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <MoreVertical className="h-3 w-3" />
                               </Button>
@@ -1192,39 +1253,55 @@ export function ScheduleClient({
                         {day.schedules.slice(0, 2).map((schedule) => {
                           const typeInfo = getTypeInfo(schedule.type);
                           return (
-                            <DropdownMenu key={schedule.id}>
-                              <DropdownMenuTrigger asChild>
-                                <div
-                                  className={cn(
-                                    "text-[10px] p-1 rounded cursor-pointer text-white truncate",
-                                    typeInfo.color
-                                  )}
-                                >
-                                  {schedule.startTime} {schedule.name}
-                                </div>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => openEditDialog(schedule)}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edytuj harmonogram
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => day.date && openOverrideDialog(schedule, day.date)}>
-                                  <Calendar className="mr-2 h-4 w-4" />
-                                  Zmień na ten dzień
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => openExceptionDialog(schedule)}>
-                                  <CalendarOff className="mr-2 h-4 w-4" />
-                                  Dzień wolny
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleDeleteSchedule(schedule.id)}
-                                  className="text-red-600"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Usuń harmonogram
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <div key={schedule.id} className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openDetailsDialog(schedule, day.date!)}
+                                className={cn(
+                                  "text-[10px] p-1 rounded text-white truncate w-full text-left hover:brightness-95 transition",
+                                  typeInfo.color
+                                )}
+                              >
+                                {schedule.startTime} {schedule.name}
+                              </button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 p-0"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <MoreVertical className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem onClick={() => openDetailsDialog(schedule, day.date!)}>
+                                    <BookOpen className="mr-2 h-4 w-4" />
+                                    Szczegóły
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openEditDialog(schedule)}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edytuj harmonogram
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => day.date && openOverrideDialog(schedule, day.date)}>
+                                    <Calendar className="mr-2 h-4 w-4" />
+                                    Zmień na ten dzień
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openExceptionDialog(schedule)}>
+                                    <CalendarOff className="mr-2 h-4 w-4" />
+                                    Dzień wolny
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteSchedule(schedule.id)}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Usuń harmonogram
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           );
                         })}
                         {day.schedules.length > 2 && (
@@ -1539,6 +1616,88 @@ export function ScheduleClient({
         </DialogContent>
       </Dialog>
 
+      {/* Dialog szczegółów harmonogramu */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Szczegóły harmonogramu</DialogTitle>
+            <DialogDescription>
+              {selectedScheduleDate
+                ? `Wystąpienie z dnia ${format(selectedScheduleDate, "d MMMM yyyy", { locale: pl })}`
+                : "Podgląd wpisu harmonogramu"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedScheduleDetails && (
+            <div className="space-y-4 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold">{selectedScheduleDetails.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedScheduleDetails.startTime} - {selectedScheduleDetails.endTime}
+                  </p>
+                </div>
+                <Badge variant="secondary">{getTypeInfo(selectedScheduleDetails.type).label}</Badge>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span>{selectedScheduleDetails.startTime} - {selectedScheduleDetails.endTime}</span>
+                </div>
+                {selectedScheduleDetails.location && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span>{selectedScheduleDetails.location}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <span>{getRecurrenceLabel(selectedScheduleDetails)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback
+                      style={{ backgroundColor: selectedScheduleDetails.user.color }}
+                      className="text-white text-[10px]"
+                    >
+                      {selectedScheduleDetails.user.name?.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span>{selectedScheduleDetails.user.name || "Nieznany użytkownik"}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleOpenExceptionFromDetails}
+              disabled={!selectedScheduleDetails}
+            >
+              <CalendarOff className="mr-2 h-4 w-4" />
+              Dodaj dzień wolny
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteFromDetails}
+              disabled={!selectedScheduleDetails}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Usuń
+            </Button>
+            <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
+              Zamknij
+            </Button>
+            <Button onClick={handleOpenEditFromDetails} disabled={!selectedScheduleDetails}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edytuj
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog edycji harmonogramu */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-hidden">
@@ -1760,6 +1919,28 @@ export function ScheduleClient({
                 }
               />
             </div>
+
+            {/* Ostrzeżenie o kolizjach */}
+            {conflicts.length > 0 && (
+              <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-yellow-700 dark:text-yellow-400">
+                    Wykryto kolizję godzin
+                  </p>
+                  <ul className="mt-1 text-yellow-600 dark:text-yellow-500">
+                    {conflicts.map((conflict, i) => {
+                      const dayName = daysOfWeek.find((d) => d.value === conflict.day)?.label;
+                      return (
+                        <li key={i}>
+                          {dayName}: {conflict.schedule.name} ({conflict.schedule.startTime} - {conflict.schedule.endTime})
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

@@ -52,6 +52,17 @@ export async function GET(req: NextRequest) {
             fiber: true,
           },
         },
+        simpleDish: {
+          select: {
+            id: true,
+            name: true,
+            calories: true,
+            protein: true,
+            carbs: true,
+            fat: true,
+            fiber: true,
+          },
+        },
       },
       orderBy: {
         date: "asc",
@@ -93,12 +104,13 @@ export async function GET(req: NextRequest) {
 
     // Aggregate nutrition
     meals.forEach(meal => {
-      if (meal.recipe) {
-        const calories = meal.recipe.calories || 0;
-        const protein = meal.recipe.protein || 0;
-        const carbs = meal.recipe.carbs || 0;
-        const fat = meal.recipe.fat || 0;
-        const fiber = meal.recipe.fiber || 0;
+      const source = meal.recipe ?? meal.simpleDish;
+      if (source) {
+        const calories = source.calories || 0;
+        const protein = source.protein || 0;
+        const carbs = source.carbs || 0;
+        const fat = source.fat || 0;
+        const fiber = source.fiber || 0;
 
         totalCalories += calories;
         totalProtein += protein;
@@ -165,7 +177,7 @@ export async function GET(req: NextRequest) {
       insights.push("Średnia kaloryjna przekracza zalecenia - rozważ lżejsze opcje lub mniejsze porcje");
     }
     if (mealsWithNutrition === 0) {
-      insights.push("Brak danych odżywczych. Dodaj wartości odżywcze do swoich przepisów!");
+      insights.push("Brak danych odżywczych. Dodaj wartości odżywcze do przepisów lub gotowych dań!");
     }
 
     return NextResponse.json({

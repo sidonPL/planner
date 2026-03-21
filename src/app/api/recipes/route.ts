@@ -6,6 +6,22 @@ import { autoSeedIngredients } from "@/lib/seed-ingredients";
 import { updateQuestProgress } from "@/lib/daily-quests";
 import { handleApiError, unauthorized } from "@/lib/api-error-handler";
 import { sanitizePlainText, sanitizeRichHTML, sanitizeURL, sanitizeArray } from "@/lib/sanitize";
+import { normalizeIngredientName } from "@/lib/name-normalization";
+import { hasQuantityInput, parseIngredientQuantity } from "@/lib/ingredient-quantity";
+
+const ingredientQuantitySchema = z
+  .union([z.number(), z.string(), z.null(), z.undefined()])
+  .transform((value, ctx) => {
+    const parsed = parseIngredientQuantity(value);
+    if (hasQuantityInput(value) && parsed === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Nieprawidłowa ilość składnika",
+      });
+      return z.NEVER;
+    }
+    return parsed;
+  });
 
 const recipeSchema = z.object({
   name: z.string().min(1),
@@ -64,7 +80,7 @@ const recipeSchema = z.object({
   ingredients: z.array(
     z.object({
       name: z.string().min(1),
-      quantity: z.number().nullish(),
+      quantity: ingredientQuantitySchema,
       unit: z.string().nullish(),
       optional: z.boolean().optional(),
     })
@@ -190,17 +206,19 @@ export async function POST(req: Request) {
     const validatedData = recipeSchema.parse(sanitizedBody);
 
     // Automatycznie dodaj/zaktualizuj globalne składniki
-    const globalIngredientMap = new Map<string, string>(); // nazwa -> id
+    const globalIngredientMap = new Map<string, string>(); // normalized nazwa -> id
 
     for (const ing of validatedData.ingredients) {
       const ingredientName = ing.name.trim();
+      const ingredientKey = normalizeIngredientName(ingredientName);
 
       // Sprawdź czy globalny składnik istnieje
-      let globalIngredient = await prisma.globalIngredient.findUnique({
+      let globalIngredient = await prisma.globalIngredient.findFirst({
         where: {
-          householdId_name: {
-            householdId: session.user.householdId,
-            name: ingredientName,
+          householdId: session.user.householdId,
+          name: {
+            equals: ingredientName,
+            mode: "insensitive",
           },
         },
       });
@@ -223,7 +241,7 @@ export async function POST(req: Request) {
         });
       }
 
-      globalIngredientMap.set(ingredientName, globalIngredient.id);
+      globalIngredientMap.set(ingredientKey, globalIngredient.id);
     }
 
     // Najpierw tworzymy przepis ze składnikami i krokami
@@ -276,11 +294,11 @@ export async function POST(req: Request) {
         createdById: session.user.id,
         ingredients: {
           create: validatedData.ingredients.map((ing) => ({
-            name: ing.name,
+            name: ing.name.trim(),
             quantity: ing.quantity,
             unit: ing.unit,
             optional: ing.optional || false,
-            globalIngredientId: globalIngredientMap.get(ing.name.trim()) || null,
+            globalIngredientId: globalIngredientMap.get(normalizeIngredientName(ing.name)) || null,
           })),
         },
         steps: {

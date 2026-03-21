@@ -143,8 +143,8 @@ export default async function CalendarPage() {
     // Zaimportowane wydarzenia z integracji kalendarzowych
     prisma.calendarImportedEvent.findMany({
       where: {
+        householdId: session.user.householdId,
         integration: {
-          userId: session.user.id,
           isActive: true,
         },
       },

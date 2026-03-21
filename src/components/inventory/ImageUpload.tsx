@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -24,10 +24,60 @@ export function ImageUpload({
   disabled = false,
   maxSizeMB = 5,
   aspectRatio,
+  folder = 'misc',
+  placeholder,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPreview(value || null);
+  }, [value]);
+
+  const cropToSquareImage = async (file: File): Promise<File> => {
+    const sourceUrl = URL.createObjectURL(file);
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new window.Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Nie udalo sie odczytac obrazu do cropu'));
+        img.src = sourceUrl;
+      });
+
+      const side = Math.min(image.naturalWidth, image.naturalHeight);
+      const sx = Math.floor((image.naturalWidth - side) / 2);
+      const sy = Math.floor((image.naturalHeight - side) / 2);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = side;
+      canvas.height = side;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Brak kontekstu canvas');
+      }
+
+      ctx.drawImage(image, sx, sy, side, side, 0, 0, side, side);
+
+      const croppedBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('Nie udalo sie wygenerowac obrazu po cropie'));
+            return;
+          }
+          resolve(blob);
+        }, file.type || 'image/jpeg', 0.92);
+      });
+
+      return new File([croppedBlob], file.name, {
+        type: file.type || 'image/jpeg',
+        lastModified: Date.now(),
+      });
+    } finally {
+      URL.revokeObjectURL(sourceUrl);
+    }
+  };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -49,16 +99,19 @@ export function ImageUpload({
     setUploading(true);
 
     try {
+      const uploadFile = aspectRatio === 'square' ? await cropToSquareImage(file) : file;
+
       // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreview(reader.result as string);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(uploadFile);
 
       // Upload to server
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', uploadFile);
+      formData.append('folder', folder);
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -164,7 +217,7 @@ export function ImageUpload({
                 <p>Przesyłanie...</p>
               ) : (
                 <>
-                  <p className="font-medium">Kliknij aby dodać zdjęcie</p>
+                  <p className="font-medium">{placeholder || 'Kliknij aby dodać zdjęcie'}</p>
                   <p className="text-xs mt-1">PNG, JPG, WEBP do {maxSizeMB}MB</p>
                 </>
               )}

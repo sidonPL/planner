@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { autoSeedIngredients } from "@/lib/seed-ingredients";
+import { findIngredientCaseInsensitiveMatch } from "@/lib/ingredient-dedup";
 
 // GET - pobierz globalne składniki dla gospodarstwa
 export async function GET(req: NextRequest) {
@@ -65,21 +66,30 @@ export async function POST(req: Request) {
       );
     }
 
+    const trimmedName = name.trim();
+
     // Sprawdź czy składnik już istnieje
-    const existing = await prisma.globalIngredient.findUnique({
+    const existingCandidates = await prisma.globalIngredient.findMany({
       where: {
-        householdId_name: {
-          householdId: session.user.householdId,
-          name: name.trim(),
+        householdId: session.user.householdId,
+        name: {
+          equals: trimmedName,
+          mode: "insensitive",
         },
       },
+      take: 10,
     });
+
+    const existing = findIngredientCaseInsensitiveMatch(existingCandidates, trimmedName);
 
     if (existing) {
       // Zwiększ licznik użycia
       const updated = await prisma.globalIngredient.update({
         where: { id: existing.id },
-        data: { usageCount: { increment: 1 } },
+        data: {
+          usageCount: { increment: 1 },
+          commonUnit: existing.commonUnit || commonUnit?.trim() || null,
+        },
       });
       return NextResponse.json(updated);
     }
@@ -87,7 +97,7 @@ export async function POST(req: Request) {
     // Stwórz nowy składnik
     const ingredient = await prisma.globalIngredient.create({
       data: {
-        name: name.trim(),
+        name: trimmedName,
         category: category?.trim() || null,
         commonUnit: commonUnit?.trim() || null,
         householdId: session.user.householdId,

@@ -2,17 +2,24 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { AVAILABLE_THEMES, ThemeId } from "@/lib/themes";
+import { AVAILABLE_TITLES, TitleId } from "@/lib/titles";
+import { resolveThemeIdFromRewardData } from "@/lib/theme-reward-utils";
 
 type RewardEffectData = {
   duration?: number;
   themeId?: string;
   titleId?: string;
+  avatarUrl?: string;
+  avatarId?: string;
+  badgeId?: string;
   type?: string;
   multiplier?: number;
 };
 
 type ActivationMetadata = {
   themeId?: string;
+  previousAvatar?: string | null;
 };
 
 type ActivationBody = {
@@ -25,6 +32,24 @@ function parseEffectData(effectData: unknown): RewardEffectData {
   }
 
   return effectData as RewardEffectData;
+}
+
+function resolveThemeId(effectData: RewardEffectData, rewardName?: string | null, metadata?: ActivationMetadata): ThemeId {
+  const metaTheme = metadata?.themeId;
+  if (metaTheme && AVAILABLE_THEMES[metaTheme as ThemeId]) {
+    return metaTheme as ThemeId;
+  }
+
+  const resolved = resolveThemeIdFromRewardData({ effectData, name: rewardName });
+  if (resolved) return resolved;
+
+  return 'default';
+}
+
+function resolveTitleId(effectData: RewardEffectData): TitleId | null {
+  const id = effectData.titleId;
+  if (!id) return null;
+  return AVAILABLE_TITLES[id as TitleId] ? (id as TitleId) : null;
 }
 
 /**
@@ -70,18 +95,12 @@ export async function POST(
     const metadata = body.metadata;
     const effectData = parseEffectData(reward.effectData);
     const now = new Date();
+    let metadataForSave = metadata;
 
     const expiresAt =
       effectData.duration && effectData.duration > 0
         ? new Date(now.getTime() + effectData.duration * 1000)
         : null;
-
-    const nextMetadata =
-      metadata !== undefined
-        ? (metadata as Prisma.InputJsonValue)
-        : claimedReward.metadata === null
-          ? Prisma.JsonNull
-          : (claimedReward.metadata as Prisma.InputJsonValue);
 
     const result = await prisma.$transaction(async (tx) => {
       if (reward.category === "THEME") {
@@ -95,7 +114,7 @@ export async function POST(
           data: { isActive: false },
         });
 
-        const themeId = metadata?.themeId || effectData.themeId || reward.id;
+        const themeId = resolveThemeId(effectData, reward.name, metadata);
         await tx.user.update({
           where: { id: session.user.id },
           data: { activeTheme: themeId },
@@ -113,11 +132,55 @@ export async function POST(
           data: { isActive: false },
         });
 
-        const titleId = effectData.titleId || reward.id;
+        const titleId = resolveTitleId(effectData);
         await tx.user.update({
           where: { id: session.user.id },
           data: { activeTitle: titleId },
         });
+      }
+
+      if (reward.category === "BADGE") {
+        await tx.claimedReward.updateMany({
+          where: {
+            userId: session.user.id,
+            isActive: true,
+            id: { not: claimedReward.id },
+            reward: { category: "BADGE" },
+          },
+          data: { isActive: false },
+        });
+      }
+
+      if (reward.category === "AVATAR") {
+        await tx.claimedReward.updateMany({
+          where: {
+            userId: session.user.id,
+            isActive: true,
+            id: { not: claimedReward.id },
+            reward: { category: "AVATAR" },
+          },
+          data: { isActive: false },
+        });
+
+        const user = await tx.user.findUnique({
+          where: { id: session.user.id },
+          select: { avatar: true },
+        });
+
+        const avatarFromEffect = effectData.avatarUrl || null;
+        if (avatarFromEffect) {
+          await tx.user.update({
+            where: { id: session.user.id },
+            data: { avatar: avatarFromEffect },
+          });
+        }
+
+        if (!metadata?.previousAvatar) {
+          metadataForSave = {
+            ...metadata,
+            previousAvatar: user?.avatar || null,
+          };
+        }
       }
 
       if (reward.category === "PERK" && effectData.type === "xp_boost") {
@@ -131,7 +194,12 @@ export async function POST(
           activatedAt: now,
           expiresAt,
           usedCount: { increment: 1 },
-          metadata: nextMetadata,
+          metadata:
+            metadataForSave !== undefined
+              ? (metadataForSave as Prisma.InputJsonValue)
+              : claimedReward.metadata === null
+                ? Prisma.JsonNull
+                : (claimedReward.metadata as Prisma.InputJsonValue),
         },
         include: { reward: true },
       });
@@ -198,6 +266,20 @@ export async function DELETE(
           where: { id: session.user.id },
           data: { activeTitle: null },
         });
+      }
+
+      if (reward.category === "AVATAR") {
+        const previousAvatar =
+          claimedReward.metadata && typeof claimedReward.metadata === "object" && "previousAvatar" in claimedReward.metadata
+            ? ((claimedReward.metadata as Record<string, unknown>).previousAvatar as string | null)
+            : null;
+
+        if (previousAvatar !== undefined) {
+          await tx.user.update({
+            where: { id: session.user.id },
+            data: { avatar: previousAvatar || null },
+          });
+        }
       }
     });
 

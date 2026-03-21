@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
+const parseNutritionValue = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 // PATCH - zaktualizuj gotowe danie
 export async function PATCH(
   req: Request,
@@ -16,7 +22,7 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await req.json();
-    const { name, category, description, icon } = body;
+    const { name, category, description, icon, calories, protein, carbs, fat, fiber } = body;
 
     // Sprawdź czy danie należy do gospodarstwa
     const existingDish = await prisma.simpleDish.findUnique({
@@ -34,6 +40,11 @@ export async function PATCH(
         category: category || existingDish.category,
         description: description !== undefined ? description : existingDish.description,
         icon: icon || existingDish.icon,
+        calories: calories !== undefined ? parseNutritionValue(calories) : existingDish.calories,
+        protein: protein !== undefined ? parseNutritionValue(protein) : existingDish.protein,
+        carbs: carbs !== undefined ? parseNutritionValue(carbs) : existingDish.carbs,
+        fat: fat !== undefined ? parseNutritionValue(fat) : existingDish.fat,
+        fiber: fiber !== undefined ? parseNutritionValue(fiber) : existingDish.fiber,
       },
     });
 

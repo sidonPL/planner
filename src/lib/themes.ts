@@ -154,14 +154,11 @@ export function applyTheme(themeId: ThemeId | null) {
   const theme = getActiveTheme(themeId);
   const root = document.documentElement;
 
-  // Usuń wszystkie klasy motywów
-  Object.values(AVAILABLE_THEMES).forEach(t => {
-    root.classList.remove(t.cssClass);
-  });
-
-  // Dodaj klasę aktywnego motywu
-  if (theme.cssClass !== 'theme-default') {
-    root.classList.add(theme.cssClass);
+  // Next-themes zarządza klasą `dark/light`; motyw nagrody trzymamy w osobnym atrybucie.
+  if (theme.id === 'default') {
+    root.removeAttribute('data-reward-theme');
+  } else {
+    root.setAttribute('data-reward-theme', theme.id);
   }
 
   // Aplikuj CSS variables jeśli motyw ma custom colors

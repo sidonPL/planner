@@ -5,7 +5,7 @@
 import { useState, useCallback } from "react";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
-import { Heart, Download, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Heart, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -36,11 +36,10 @@ export function PublicGalleryClient({
   token,
 }: PublicGalleryClientProps) {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
-  const [photos, setPhotos] = useState(initialPhotos);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "likes">("newest");
 
-  const filteredPhotos = [...photos]
+  const filteredPhotos = [...initialPhotos]
     .filter((photo) => (photo.caption || "").toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       if (sortBy === "likes") return b.likes - a.likes;
@@ -70,6 +69,18 @@ export function PublicGalleryClient({
   const handleDownloadPhoto = useCallback(async () => {
     if (!selectedPhoto) return;
 
+    const downloadBlob = (blob: Blob, photoId: string) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${tripName}-${photoId}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Zdjęcie zostało pobrane");
+    };
+
     try {
       const response = await fetch(`/api/gallery/${token}/photo/${selectedPhoto.id}`);
       if (!response.ok) {
@@ -95,19 +106,7 @@ export function PublicGalleryClient({
       console.error("Download error:", error);
       toast.error("Nie udało się pobrać zdjęcia");
     }
-  }, [selectedPhoto, token]);
-
-  const downloadBlob = (blob: Blob, photoId: string) => {
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${tripName}-${photoId}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    toast.success("Zdjęcie zostało pobrane");
-  };
+  }, [selectedPhoto, token, tripName]);
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
@@ -137,7 +136,7 @@ export function PublicGalleryClient({
           </select>
         </div>
         <p className="text-sm text-muted-foreground">
-          {photos.length} {photos.length === 1 ? "zdjęcie" : "zdjęć"}
+          {initialPhotos.length} {initialPhotos.length === 1 ? "zdjęcie" : "zdjęć"}
         </p>
       </div>
 
@@ -256,6 +255,11 @@ export function PublicGalleryClient({
     </main>
   );
 }
+
+
+
+
+
 
 
 

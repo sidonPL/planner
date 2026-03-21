@@ -52,6 +52,23 @@ export async function GET(request: Request) {
             name: true,
             avatar: true,
             level: true,
+            activeTitle: true,
+            claimedRewards: {
+              where: {
+                isActive: true,
+                reward: { category: 'BADGE' },
+              },
+              include: {
+                reward: {
+                  select: {
+                    id: true,
+                    name: true,
+                    icon: true,
+                  },
+                },
+              },
+              take: 1,
+            },
           },
         },
       },
@@ -78,6 +95,29 @@ export async function GET(request: Request) {
         where: {
           householdId,
         },
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          level: true,
+          activeTitle: true,
+          claimedRewards: {
+            where: {
+              isActive: true,
+              reward: { category: 'BADGE' },
+            },
+            include: {
+              reward: {
+                select: {
+                  id: true,
+                  name: true,
+                  icon: true,
+                },
+              },
+            },
+            take: 1,
+          },
+        },
         take: 100,
       });
 
@@ -101,6 +141,14 @@ export async function GET(request: Request) {
               name: user.name,
               avatar: user.avatar,
               level: user.level,
+              activeTitle: user.activeTitle,
+              activeBadge: user.claimedRewards[0]
+                ? {
+                    id: user.claimedRewards[0].reward.id,
+                    name: user.claimedRewards[0].reward.name,
+                    icon: user.claimedRewards[0].reward.icon,
+                  }
+                : null,
             },
             rank: 0,
             xpEarned,
@@ -135,6 +183,14 @@ export async function GET(request: Request) {
         name: snapshot.User.name,
         avatar: snapshot.User.avatar,
         level: snapshot.User.level,
+        activeTitle: snapshot.User.activeTitle,
+        activeBadge: snapshot.User.claimedRewards[0]
+          ? {
+              id: snapshot.User.claimedRewards[0].reward.id,
+              name: snapshot.User.claimedRewards[0].reward.name,
+              icon: snapshot.User.claimedRewards[0].reward.icon,
+            }
+          : null,
       },
       rank: snapshot.rank,
       xpEarned: snapshot.xpEarned,

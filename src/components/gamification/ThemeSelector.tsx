@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AVAILABLE_THEMES, ThemeId, applyTheme } from '@/lib/themes';
+import { resolveThemeIdFromRewardData } from '@/lib/theme-reward-utils';
 import { Check, Lock, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -21,10 +22,10 @@ export function ThemeSelector() {
 
   const loadActiveTheme = async () => {
     try {
-      const response = await fetch('/api/gamification/active-rewards');
+      const response = await fetch('/api/gamification/theme');
       if (response.ok) {
         const data = await response.json();
-        const theme = data.userSettings?.activeTheme || 'default';
+        const theme = data.themeId || 'default';
         setActiveTheme(theme as ThemeId);
         applyTheme(theme);
       }
@@ -35,24 +36,38 @@ export function ThemeSelector() {
 
   const loadUnlockedThemes = async () => {
     try {
-      const response = await fetch('/api/gamification/claimed-rewards');
-      if (response.ok) {
-        const rewards = await response.json() as Array<{reward: {category: string; effectData?: {themeId?: string}}}>;
-        // Filtruj po kategorii THEME (nie COSMETIC) i obecności themeId w effectData
-        const themeRewards = rewards.filter(
-          (r) => r.reward.category === 'THEME' && r.reward.effectData?.themeId
-        );
+      const [rewardsResponse, themeResponse] = await Promise.all([
+        fetch('/api/gamification/claimed-rewards'),
+        fetch('/api/gamification/theme'),
+      ]);
 
-        const unlocked = new Set<ThemeId>(['default']);
-        themeRewards.forEach((r) => {
-          const themeId = r.reward.effectData?.themeId;
-          if (themeId && AVAILABLE_THEMES[themeId as ThemeId]) {
-            unlocked.add(themeId as ThemeId);
-          }
-        });
+      const unlocked = new Set<ThemeId>(['default']);
 
-        setUnlockedThemes(unlocked);
+      if (rewardsResponse.ok) {
+        const rewards = await rewardsResponse.json() as Array<{reward: {category: string; effectData?: unknown; name?: string}}>;
+        rewards
+          .filter((r) => r.reward.category === 'THEME')
+          .forEach((r) => {
+            const themeId = resolveThemeIdFromRewardData({
+              effectData: r.reward.effectData,
+              name: r.reward.name,
+            });
+            if (themeId && AVAILABLE_THEMES[themeId]) {
+              unlocked.add(themeId);
+            }
+          });
       }
+
+      // Fallback: aktualnie aktywny motyw zawsze traktuj jako odblokowany.
+      if (themeResponse.ok) {
+        const activeData = await themeResponse.json() as { themeId?: string };
+        const activeThemeId = activeData.themeId;
+        if (activeThemeId && AVAILABLE_THEMES[activeThemeId as ThemeId]) {
+          unlocked.add(activeThemeId as ThemeId);
+        }
+      }
+
+      setUnlockedThemes(unlocked);
     } catch (error) {
       console.error('Error loading unlocked themes:', error);
       // Fallback: domyślnie tylko 'default' jest dostępny
@@ -172,6 +187,11 @@ export function ThemeSelector() {
                 <CardDescription className="line-clamp-2">
                   {theme.description}
                 </CardDescription>
+                {isUnlocked && !theme.free && !isActive && (
+                  <Badge variant="secondary" className="w-fit mt-1">
+                    Kupiony
+                  </Badge>
+                )}
               </CardHeader>
 
               <CardContent>

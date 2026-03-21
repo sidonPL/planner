@@ -198,7 +198,7 @@ function NutritionItem({
     <div className="flex items-center justify-between p-2 rounded-md bg-muted/50">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className={`text-sm font-semibold ${color}`}>
-        {value.toFixed(value >= 10 ? 0 : 1)} {unit}
+        {value.toFixed(value >= 10 ? 0 : 2)} {unit}
       </span>
     </div>
   );

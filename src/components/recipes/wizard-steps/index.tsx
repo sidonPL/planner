@@ -27,6 +27,7 @@ import { IngredientAutocomplete } from "@/components/recipes/IngredientAutocompl
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { RecipeWizardFormData } from "@/components/recipes/RecipeWizardDialog";
+import { INGREDIENT_QUANTITY_HINT } from "@/lib/ingredient-quantity";
 
 // Helper types for array items
 type WizardIngredient = RecipeWizardFormData["ingredients"][number];
@@ -171,7 +172,7 @@ export function RecipeIngredientsStep({ form }: { form: UseFormReturn<RecipeWiza
 
   const addIngredient = () => {
     const current = form.getValues("ingredients");
-    form.setValue("ingredients", [...current, { name: "", quantity: null, unit: "", optional: false }]);
+    form.setValue("ingredients", [...current, { name: "", quantity: "", unit: "", optional: false }]);
   };
 
   const removeIngredient = (index: number) => {
@@ -192,7 +193,7 @@ export function RecipeIngredientsStep({ form }: { form: UseFormReturn<RecipeWiza
       <div className="space-y-3">
         {ingredients.map((ingredient: WizardIngredient, index: number) => (
           <div key={index} className="flex gap-2 items-start p-3 border rounded-lg">
-            <div className="flex-1 grid grid-cols-12 gap-2">
+            <div className="flex-1 grid grid-cols-10 gap-2">
               <div className="col-span-5">
                 <FormField
                   control={form.control}
@@ -219,19 +220,20 @@ export function RecipeIngredientsStep({ form }: { form: UseFormReturn<RecipeWiza
                     <FormItem>
                       <FormControl>
                         <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="Ilość"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="np. 3/4"
                           {...field}
                           value={field.value || ""}
-                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                          onChange={(e) => field.onChange(e.target.value)}
                         />
                       </FormControl>
+                      <FormDescription>{INGREDIENT_QUANTITY_HINT}</FormDescription>
                     </FormItem>
                   )}
                 />
               </div>
-              <div className="col-span-3">
+              <div className="col-span-2">
                 <FormField
                   control={form.control}
                   name={`ingredients.${index}.unit`}
@@ -254,23 +256,6 @@ export function RecipeIngredientsStep({ form }: { form: UseFormReturn<RecipeWiza
                           <SelectItem value="szklanka">szklanka</SelectItem>
                         </SelectContent>
                       </Select>
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="col-span-1 flex items-center">
-                <FormField
-                  control={form.control}
-                  name={`ingredients.${index}.optional`}
-                  render={({ field }) => (
-                    <FormItem className="flex items-center space-x-2">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <Label className="text-xs">Opcj.</Label>
                     </FormItem>
                   )}
                 />

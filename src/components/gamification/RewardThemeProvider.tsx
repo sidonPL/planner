@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { applyRewardTheme } from '@/lib/reward-themes';
+import { applyTheme, ThemeId } from '@/lib/themes';
 
 interface RewardThemeProviderProps {
   activeTheme: string | null;
@@ -14,7 +14,7 @@ interface RewardThemeProviderProps {
  */
 export function RewardThemeProvider({ activeTheme, children }: RewardThemeProviderProps) {
   useEffect(() => {
-    applyRewardTheme(activeTheme);
+    applyTheme((activeTheme as ThemeId | null) ?? 'default');
   }, [activeTheme]);
 
   return <>{children}</>;

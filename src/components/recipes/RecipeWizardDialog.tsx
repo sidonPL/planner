@@ -17,6 +17,11 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { RecipeData } from "@/types/recipe";
 import {
+  hasQuantityInput,
+  INGREDIENT_QUANTITY_HINT,
+  parseIngredientQuantity,
+} from "@/lib/ingredient-quantity";
+import {
   RecipeBasicsStep,
   RecipeIngredientsStep,
   RecipeStepsStep,
@@ -54,7 +59,7 @@ const recipeWizardSchema = z.object({
   ingredients: z.array(
     z.object({
       name: z.string().min(1, "Nazwa składnika jest wymagana"),
-      quantity: z.number().nullable().optional(),
+      quantity: z.string().nullable().optional(),
       unit: z.string().optional().nullable(),
       optional: z.boolean().optional(),
     })
@@ -179,10 +184,10 @@ export function RecipeWizardDialog({
       isPublic: recipe?.isPublic || false,
       ingredients: recipe?.ingredients?.map(ing => ({
         name: ing.name,
-        quantity: ing.quantity || null,
+        quantity: ing.quantity != null ? String(ing.quantity) : "",
         unit: ing.unit || "",
         optional: ing.optional || false,
-      })) || [{ name: "", quantity: null, unit: "", optional: false }],
+      })) || [{ name: "", quantity: "", unit: "", optional: false }],
       steps: recipe?.steps?.map(step => ({
         content: step.content,
         duration: step.duration || null,
@@ -230,10 +235,10 @@ export function RecipeWizardDialog({
         isPublic: recipe.isPublic || false,
         ingredients: recipe.ingredients?.map((ing: ImportedIngredient) => ({
           name: ing.name,
-          quantity: ing.quantity || null,
+          quantity: ing.quantity != null ? String(ing.quantity) : "",
           unit: ing.unit || "",
           optional: ing.optional || false,
-        })) || [{ name: "", quantity: null, unit: "", optional: false }],
+        })) || [{ name: "", quantity: "", unit: "", optional: false }],
         steps: recipe.steps?.map((step: ImportedStep) => ({
           content: step.content,
           duration: step.duration || null,
@@ -282,8 +287,27 @@ export function RecipeWizardDialog({
     setIsSubmitting(true);
 
     try {
+      const parsedIngredients = data.ingredients.map((ingredient) => {
+        const parsedQuantity = parseIngredientQuantity(ingredient.quantity);
+        return {
+          ...ingredient,
+          quantity: parsedQuantity,
+        };
+      });
+
+      const hasInvalidQuantity = data.ingredients.some((ingredient, index) => {
+        const parsedQuantity = parsedIngredients[index].quantity;
+        return hasQuantityInput(ingredient.quantity) && parsedQuantity === null;
+      });
+
+      if (hasInvalidQuantity) {
+        toast.error(`Nieprawidłowa ilość składnika. ${INGREDIENT_QUANTITY_HINT}.`);
+        return;
+      }
+
       const payload = {
         ...data,
+        ingredients: parsedIngredients,
         tags: data.tags ? data.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
         allergens: data.allergens ? data.allergens.split(",").map(a => a.trim()).filter(Boolean) : [],
         totalTime: (data.prepTime || 0) + (data.cookTime || 0) + (data.restTime || 0) || null,

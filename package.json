@@ -9,6 +9,10 @@
     "lint": "eslint",
     "make-admin": "tsx scripts/make-admin.ts",
     "set-household-owners": "tsx scripts/set-household-owners.ts",
+    "test:ingredients:dedup": "tsx scripts/test-global-ingredients-dedup.ts",
+    "db:merge-global-ingredients": "tsx scripts/merge-global-ingredients-case-duplicates.ts",
+    "db:merge-global-ingredients:dry": "tsx scripts/merge-global-ingredients-case-duplicates.ts --dry-run",
+    "db:backfill-theme-rewards": "tsx scripts/backfill-theme-reward-effectdata.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
@@ -123,6 +127,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "tw-animate-css": "^1.4.0",
     "typescript": "^5"
   }

@@ -21,6 +21,11 @@ interface LeaderboardEntry {
     color: string;
     level: number;
     activeTitle?: string | null;
+    activeBadge?: {
+      id: string;
+      name: string;
+      icon: string;
+    } | null;
   };
   xpEarned: number;
   rank: number;
@@ -174,6 +179,12 @@ export function LeaderboardTabs({ }: LeaderboardTabsProps = {}) {
                         {entry.user.activeTitle && (
                           <span className="ml-2 text-xs opacity-75">
                             {entry.user.activeTitle}
+                          </span>
+                        )}
+                        {entry.user.activeBadge && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-xs opacity-90">
+                            <span>{entry.user.activeBadge.icon || '🏅'}</span>
+                            <span>{entry.user.activeBadge.name}</span>
                           </span>
                         )}
                       </p>

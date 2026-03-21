@@ -85,6 +85,7 @@ export function MyRewardsManager() {
 
       if (res.ok) {
         toast.success('Nagroda została aktywowana! 🎉');
+        window.dispatchEvent(new CustomEvent('cosmetics-updated'));
         fetchMyRewards();
       } else {
         const error = await res.json();
@@ -105,6 +106,7 @@ export function MyRewardsManager() {
 
       if (res.ok) {
         toast.success('Nagroda została wyłączona');
+        window.dispatchEvent(new CustomEvent('cosmetics-updated'));
         fetchMyRewards();
       } else {
         toast.error('Nie udało się wyłączyć nagrody');

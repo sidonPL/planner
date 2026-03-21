@@ -27,6 +27,23 @@ export async function GET(): Promise<NextResponse> {
         avatar: true,
         color: true,
         level: true,
+        activeTitle: true,
+        claimedRewards: {
+          where: {
+            isActive: true,
+            reward: { category: "BADGE" },
+          },
+          include: {
+            reward: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+              },
+            },
+          },
+          take: 1,
+        },
         xp: true,
       },
       orderBy: { xp: 'desc' },
@@ -41,6 +58,14 @@ export async function GET(): Promise<NextResponse> {
         avatar: user.avatar,
         color: user.color,
         level: user.level,
+        activeTitle: user.activeTitle,
+        activeBadge: user.claimedRewards[0]
+          ? {
+              id: user.claimedRewards[0].reward.id,
+              name: user.claimedRewards[0].reward.name,
+              icon: user.claimedRewards[0].reward.icon,
+            }
+          : null,
       },
       xpEarned: user.xp, // Total XP
       rank: index + 1,

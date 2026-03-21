@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Plus, Calendar, DollarSign, Repeat, Trash2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -126,31 +126,60 @@ export function PaymentReminders({ open, onOpenChange, categories }: PaymentRemi
     }
   };
 
-  const handleMarkAsPaid = async () => {
-    // TODO: Implement mark as paid endpoint
-    toast.success('Oznaczono jako opłacone');
+  const handleMarkAsPaid = async (id: string) => {
+    try {
+      const response = await fetch(`/api/budget/reminders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPaid: true }),
+      });
+
+      if (response.ok) {
+        toast.success('Oznaczono jako opłacone');
+        loadReminders();
+      } else {
+        toast.error('Nie udało się oznaczyć jako opłacone');
+      }
+    } catch (error) {
+      console.error('Error marking as paid:', error);
+      toast.error('Błąd podczas oznaczania');
+    }
   };
 
-  const handleDelete = async () => {
-    // TODO: Implement delete endpoint
-    toast.success('Usunięto przypomnienie');
+  const handleDelete = async (id: string) => {
+    if (!confirm('Czy na pewno chcesz usunąć to przypomnienie?')) return;
+
+    try {
+      const response = await fetch(`/api/budget/reminders/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast.success('Usunięto przypomnienie');
+        loadReminders();
+      } else {
+        toast.error('Nie udało się usunąć przypomnienia');
+      }
+    } catch (error) {
+      console.error('Error deleting reminder:', error);
+      toast.error('Błąd podczas usuwania');
+    }
   };
 
-  // Load reminders when dialog opens
-  useState(() => {
+  useEffect(() => {
     if (open) {
       loadReminders();
     }
-  });
+  }, [open]);
 
-  const upcomingReminders = reminders.filter(r => !r.isPaid && isFuture(r.dueDate));
-  const overdueReminders = reminders.filter(r => !r.isPaid && isPast(r.dueDate));
-  const paidReminders = reminders.filter(r => r.isPaid);
+  const overdueReminders = reminders.filter((r) => isPast(r.dueDate) && !r.isPaid);
+  const upcomingReminders = reminders.filter((r) => isFuture(r.dueDate) && !r.isPaid);
+  const paidReminders = reminders.filter((r) => r.isPaid);
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5" />
@@ -161,17 +190,18 @@ export function PaymentReminders({ open, onOpenChange, categories }: PaymentRemi
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            {/* Add button */}
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             <Button onClick={() => setIsAddDialogOpen(true)} className="w-full">
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="h-4 w-4 mr-2" />
               Dodaj przypomnienie
             </Button>
 
             {/* Overdue */}
             {overdueReminders.length > 0 && (
               <div className="space-y-2">
-                <h3 className="font-semibold text-sm text-red-600">Zaległe ({overdueReminders.length})</h3>
+                <h3 className="font-semibold text-sm text-red-600">
+                  Zaległy ({overdueReminders.length})
+                </h3>
                 {overdueReminders.map((reminder) => (
                   <ReminderCard
                     key={reminder.id}
@@ -187,7 +217,7 @@ export function PaymentReminders({ open, onOpenChange, categories }: PaymentRemi
             {/* Upcoming */}
             {upcomingReminders.length > 0 && (
               <div className="space-y-2">
-                <h3 className="font-semibold text-sm">Nadchodzące ({upcomingReminders.length})</h3>
+                <h3 className="font-semibold text-sm">Zbliżające się ({upcomingReminders.length})</h3>
                 {upcomingReminders.map((reminder) => (
                   <ReminderCard
                     key={reminder.id}

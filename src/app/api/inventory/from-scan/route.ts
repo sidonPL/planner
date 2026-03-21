@@ -3,6 +3,11 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
+function normalizeImageUrl(url: string | null): string | null {
+  if (!url) return null;
+  return url.replace(/^http:\/\//i, "https://");
+}
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -15,6 +20,7 @@ export async function POST(request: Request) {
     const {
       barcode,
       name, // Edytowalna nazwa produktu
+      brand,
       quantity,
       unit,
       location,
@@ -116,6 +122,8 @@ export async function POST(request: Request) {
         where: { id: existingItem.id },
         data: {
           quantity: existingItem.quantity + quantity,
+          brand: existingItem.brand || brand || scannedProduct.brand,
+          imageUrl: existingItem.imageUrl || normalizeImageUrl(scannedProduct.imageUrl),
           // Zaktualizuj datę ważności jeśli podano nową i jest wcześniejsza
           expiryDate: expiryDate
             ? (existingItem.expiryDate && new Date(expiryDate) > existingItem.expiryDate)
@@ -142,8 +150,8 @@ export async function POST(request: Request) {
           householdId: session.user.householdId,
           barcode: scannedProduct.barcode,
           scannedProductId: scannedProduct.id,
-          brand: scannedProduct.brand,
-          imageUrl: scannedProduct.imageUrl,
+          brand: brand || scannedProduct.brand,
+          imageUrl: normalizeImageUrl(scannedProduct.imageUrl),
           nutritionData: nutritionData as Prisma.InputJsonValue,
         },
         include: {

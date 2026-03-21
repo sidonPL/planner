@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Cloud, Sun, CloudRain, CloudSnow, Wind, Droplets, Thermometer, RefreshCw, MapPin, ChevronDown, ChevronUp } from "lucide-react";
+import { Cloud, Sun, CloudRain, CloudSnow, Wind, Droplets, Thermometer, RefreshCw, MapPin, ChevronDown, ChevronUp, Palette } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,15 @@ interface ForecastDay {
   date: string;
   tempMin: number;
   tempMax: number;
+  description: string;
+  icon: string;
+  humidity: number;
+}
+
+interface HourlyForecast {
+  time: string;
+  dateIso: string;
+  temp: number;
   description: string;
   icon: string;
   humidity: number;
@@ -28,6 +37,31 @@ interface WeatherData {
   city: string;
   isDemo?: boolean;
   forecast?: ForecastDay[];
+  hourly?: HourlyForecast[];
+}
+
+type WidgetDensity = "compact" | "comfortable";
+type WidgetAccent = "default" | "ocean" | "sunset";
+
+function getInitialWidgetPrefs(): { density: WidgetDensity; accent: WidgetAccent } {
+  if (typeof window === "undefined") {
+    return { density: "comfortable", accent: "default" };
+  }
+
+  try {
+    const raw = window.localStorage.getItem("dashboard-weather-widget-prefs");
+    if (!raw) {
+      return { density: "comfortable", accent: "default" };
+    }
+
+    const parsed = JSON.parse(raw) as { density?: WidgetDensity; accent?: WidgetAccent };
+    return {
+      density: parsed.density === "compact" ? "compact" : "comfortable",
+      accent: parsed.accent === "ocean" || parsed.accent === "sunset" ? parsed.accent : "default",
+    };
+  } catch {
+    return { density: "comfortable", accent: "default" };
+  }
 }
 
 const weatherIcons: Record<string, React.ElementType> = {
@@ -52,6 +86,7 @@ const weatherIcons: Record<string, React.ElementType> = {
 };
 
 export function WeatherWidget() {
+  const initialPrefs = getInitialWidgetPrefs();
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +94,11 @@ export function WeatherWidget() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showForecast, setShowForecast] = useState(false);
   const [selectedForecastIndex, setSelectedForecastIndex] = useState(0);
+  const [showHourly, setShowHourly] = useState(false);
+  const [showAllHourly, setShowAllHourly] = useState(false);
+  const [showStyleOptions, setShowStyleOptions] = useState(false);
+  const [density, setDensity] = useState<WidgetDensity>(initialPrefs.density);
+  const [accent, setAccent] = useState<WidgetAccent>(initialPrefs.accent);
 
   // Aktualizuj czas co sekundę
   useEffect(() => {
@@ -100,6 +140,10 @@ export function WeatherWidget() {
     return () => clearInterval(interval);
   }, [fetchWeather]);
 
+  useEffect(() => {
+    window.localStorage.setItem("dashboard-weather-widget-prefs", JSON.stringify({ density, accent }));
+  }, [density, accent]);
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString("pl-PL", {
       hour: "2-digit",
@@ -114,6 +158,34 @@ export function WeatherWidget() {
       day: "numeric",
       month: "long",
       year: "numeric",
+    });
+  };
+
+  const formatHourlyDay = (dateIso: string) => {
+    const targetDate = new Date(`${dateIso}T00:00:00`);
+    if (Number.isNaN(targetDate.getTime())) {
+      return dateIso;
+    }
+
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const toDateKey = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    const targetKey = toDateKey(targetDate);
+    if (targetKey === toDateKey(today)) return "Dzisiaj";
+    if (targetKey === toDateKey(tomorrow)) return "Jutro";
+
+    return targetDate.toLocaleDateString("pl-PL", {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
     });
   };
 
@@ -164,8 +236,25 @@ export function WeatherWidget() {
     );
   }
 
+  const accentClass =
+    accent === "ocean"
+      ? "border-cyan-300/40 bg-cyan-50/40 dark:bg-cyan-950/20"
+      : accent === "sunset"
+        ? "border-orange-300/40 bg-orange-50/40 dark:bg-orange-950/20"
+        : "";
+
+  const hourlyItems = weather?.hourly?.slice(0, showAllHourly ? 16 : 12) ?? [];
+  const hourlyGroups = hourlyItems.reduce<Record<string, HourlyForecast[]>>((acc, item) => {
+    if (!acc[item.dateIso]) {
+      acc[item.dateIso] = [];
+    }
+    acc[item.dateIso].push(item);
+    return acc;
+  }, {});
+  const orderedHourlyDays = Object.keys(hourlyGroups).sort();
+
   return (
-    <Card className="overflow-hidden">
+    <Card className={`overflow-hidden ${accentClass}`}>
       <CardContent className="p-0">
         {/* Czas i data */}
         <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-4">
@@ -179,7 +268,50 @@ export function WeatherWidget() {
 
         {/* Pogoda */}
         {weather && (
-          <div className="p-4">
+          <div className={density === "compact" ? "p-3 space-y-2" : "p-4 space-y-3"}>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setShowStyleOptions((prev) => !prev)}
+                aria-label="Dostosuj wygląd widgetu pogody"
+              >
+                <Palette className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {showStyleOptions && (
+              <div className="rounded-md border bg-muted/40 p-2.5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground min-w-24">Układ</span>
+                  <div className="flex gap-1">
+                    <Button type="button" size="sm" variant={density === "comfortable" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setDensity("comfortable")}>
+                      Wygodny
+                    </Button>
+                    <Button type="button" size="sm" variant={density === "compact" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setDensity("compact")}>
+                      Kompakt
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground min-w-24">Motyw</span>
+                  <div className="flex gap-1">
+                    <Button type="button" size="sm" variant={accent === "default" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setAccent("default")}>
+                      Domyślny
+                    </Button>
+                    <Button type="button" size="sm" variant={accent === "ocean" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setAccent("ocean")}>
+                      Ocean
+                    </Button>
+                    <Button type="button" size="sm" variant={accent === "sunset" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setAccent("sunset")}>
+                      Sunset
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -231,7 +363,7 @@ export function WeatherWidget() {
             </div>
 
             {weather.forecast && weather.forecast.length > 0 && (
-              <div className="mt-3 pt-3 border-t">
+              <div className="pt-3 border-t">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -288,6 +420,56 @@ export function WeatherWidget() {
                           </span>
                         </div>
                       </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {hourlyItems.length > 0 && (
+              <div className="pt-2 border-t space-y-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-full justify-between px-2 text-xs"
+                  onClick={() => setShowHourly((prev) => !prev)}
+                >
+                  <span>Prognoza godzinowa</span>
+                  {showHourly ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </Button>
+
+                {showHourly && (
+                  <div className="space-y-2">
+                    <div className="space-y-2">
+                      {orderedHourlyDays.map((dayKey) => (
+                        <div key={dayKey} className="rounded-md border bg-muted/20 p-2">
+                          <p className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                            {formatHourlyDay(dayKey)}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {hourlyGroups[dayKey].map((hour, index) => (
+                              <div key={`${dayKey}-${hour.time}-${index}`} className="rounded-md bg-muted/40 p-2 text-xs">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-medium">{hour.time}</span>
+                                  <span>{hour.temp}°C</span>
+                                </div>
+                                <p className="text-muted-foreground capitalize truncate">{hour.description}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {(weather?.hourly?.length ?? 0) > 12 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 w-full text-xs"
+                        onClick={() => setShowAllHourly((prev) => !prev)}
+                      >
+                        {showAllHourly ? "Pokaż mniej godzin" : "Pokaż więcej godzin"}
+                      </Button>
                     )}
                   </div>
                 )}

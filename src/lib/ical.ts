@@ -364,16 +364,37 @@ export async function fetchICS(url: string): Promise<string> {
   // Zamień webcal:// na https://
   const httpsUrl = url.replace(/^webcal:\/\//i, 'https://');
 
-  const response = await fetch(httpsUrl, {
-    headers: {
-      'User-Agent': 'PlannerDomowy/1.0',
-    },
-  });
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 sekund timeout
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch .ics: ${response.status} ${response.statusText}`);
+    const response = await fetch(httpsUrl, {
+      headers: {
+        'User-Agent': 'PlannerDomowy/1.0',
+        'Accept': 'text/calendar, application/ics',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch .ics: ${response.status} ${response.statusText}`);
+    }
+
+    const text = await response.text();
+    
+    // Sprawdź czy to faktycznie .ics
+    if (!text.includes('BEGIN:VCALENDAR')) {
+      throw new Error('Response is not a valid iCalendar file');
+    }
+
+    return text;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Calendar sync timeout - took longer than 30 seconds');
+    }
+    throw error;
   }
-
-  return await response.text();
 }
 

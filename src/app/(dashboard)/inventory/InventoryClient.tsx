@@ -212,6 +212,11 @@ export function InventoryClient({ items: initialItems }: InventoryClientProps) {
   // State dla Shopping Assistant
   const [showShoppingAssistant, setShowShoppingAssistant] = useState(false);
 
+  const normalizeImageUrl = (url?: string | null) => {
+    if (!url) return null;
+    return url.replace(/^http:\/\//i, "https://");
+  };
+
   // Gamification hooks
   const { showFlyingXP, FlyingXPComponent } = useFlyingXP();
   const { playSound } = useSoundEffects();
@@ -820,13 +825,14 @@ export function InventoryClient({ items: initialItems }: InventoryClientProps) {
                           )}
                         >
                           {/* Zdjęcie produktu */}
-                          {item.imageUrl && (
+                          {normalizeImageUrl(item.imageUrl) && (
                             <div className="relative w-16 h-16 rounded-lg overflow-hidden border bg-muted flex-shrink-0">
                               <Image
-                                src={item.imageUrl}
+                                src={normalizeImageUrl(item.imageUrl)!}
                                 alt={item.name}
                                 fill
                                 className="object-cover"
+                                unoptimized
                               />
                             </div>
                           )}
@@ -841,6 +847,11 @@ export function InventoryClient({ items: initialItems }: InventoryClientProps) {
                                   </span>
                                 )}
                               </span>
+                              {item.brand && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                  {item.brand}
+                                </Badge>
+                              )}
                               {/* Termin ważności */}
                               {item.expiryDate && (
                                 <Badge variant="outline" className="text-xs">

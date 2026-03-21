@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
-import { InventoryItem } from '@prisma/client';
+import { InventoryItem, Prisma } from '@prisma/client';
+import { normalizeBrandName, normalizeProductName } from '@/lib/name-normalization';
 
 /**
  * Get all inventory items for a household
@@ -37,15 +38,113 @@ export interface NewInventoryItem {
   expiryDate?: Date | null;
   minQuantity?: number | null;
   autoRestock?: boolean;
+  barcode?: string | null;
+  brand?: string | null;
+  imageUrl?: string | null;
+  nutritionData?: Prisma.InputJsonValue | null;
+  scannedProductId?: string | null;
+  price?: number | null;
   householdId: string;
+}
+
+function normalizeNullable(value?: string | null): string | null {
+  if (!value) return null;
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  return normalized.length > 0 ? normalized : null;
+}
+
+function isSameInventoryVariant(item: InventoryItem, data: NewInventoryItem): boolean {
+  const incomingBarcode = normalizeNullable(data.barcode);
+  const itemBarcode = normalizeNullable(item.barcode);
+
+  if (incomingBarcode || itemBarcode) {
+    return incomingBarcode !== null && itemBarcode !== null && incomingBarcode === itemBarcode;
+  }
+
+  const sameName = normalizeProductName(item.name) === normalizeProductName(data.name);
+  const sameBrand = normalizeBrandName(item.brand) === normalizeBrandName(data.brand);
+  const sameUnit = normalizeNullable(item.unit) === normalizeNullable(data.unit);
+  const sameLocation = normalizeNullable(item.location) === normalizeNullable(data.location);
+
+  return sameName && sameBrand && sameUnit && sameLocation;
+}
+
+function pickMergedExpiry(existing: Date | null, incoming: Date | null | undefined): Date | null {
+  if (!incoming) return existing;
+  if (!existing) return incoming;
+  return incoming < existing ? incoming : existing;
 }
 
 /**
  * Create a new inventory item
  */
 export async function createInventoryItem(data: NewInventoryItem): Promise<InventoryItem> {
+  const normalizedName = normalizeNullable(data.name) || data.name.trim();
+  const normalizedBrand = normalizeNullable(data.brand);
+  const normalizedBarcode = normalizeNullable(data.barcode);
+
+  const candidates = await prisma.inventoryItem.findMany({
+    where: {
+      householdId: data.householdId,
+      name: {
+        equals: normalizedName,
+        mode: 'insensitive',
+      },
+    },
+    take: 30,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const existingVariant = candidates.find((item) =>
+    isSameInventoryVariant(item, {
+      ...data,
+      name: normalizedName,
+      brand: normalizedBrand,
+      barcode: normalizedBarcode,
+    })
+  );
+
+  if (existingVariant) {
+    return prisma.inventoryItem.update({
+      where: { id: existingVariant.id },
+      data: {
+        quantity: existingVariant.quantity + data.quantity,
+        expiryDate: pickMergedExpiry(existingVariant.expiryDate, data.expiryDate),
+        minQuantity: data.minQuantity ?? existingVariant.minQuantity,
+        autoRestock: data.autoRestock ?? existingVariant.autoRestock,
+        category: data.category ?? existingVariant.category,
+        location: data.location ?? existingVariant.location,
+        unit: data.unit ?? existingVariant.unit,
+        brand: existingVariant.brand || normalizedBrand,
+        barcode: existingVariant.barcode || normalizedBarcode,
+        imageUrl: existingVariant.imageUrl || normalizeNullable(data.imageUrl),
+      },
+    });
+  }
+
+  const createData: Prisma.InventoryItemUncheckedCreateInput = {
+    name: normalizedName,
+    quantity: data.quantity,
+    unit: normalizeNullable(data.unit),
+    category: normalizeNullable(data.category),
+    location: normalizeNullable(data.location),
+    expiryDate: data.expiryDate ?? null,
+    minQuantity: data.minQuantity ?? null,
+    autoRestock: data.autoRestock ?? false,
+    householdId: data.householdId,
+    barcode: normalizedBarcode,
+    brand: normalizedBrand,
+    imageUrl: normalizeNullable(data.imageUrl),
+    scannedProductId: data.scannedProductId ?? null,
+    price: data.price ?? null,
+  };
+
+  if (data.nutritionData !== undefined) {
+    createData.nutritionData = data.nutritionData === null ? Prisma.JsonNull : data.nutritionData;
+  }
+
   return prisma.inventoryItem.create({
-    data,
+    data: createData,
   });
 }
 

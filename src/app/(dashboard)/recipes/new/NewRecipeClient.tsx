@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -36,6 +37,12 @@ import { toast } from "sonner";
 import { UNITS_SHORT } from "@/lib/units";
 import { IngredientAutocomplete } from "@/components/recipes/IngredientAutocomplete";
 import { NutritionSummary } from "@/components/recipes/NutritionSummary";
+import {
+  hasQuantityInput,
+  parseIngredientQuantity,
+} from "@/lib/ingredient-quantity";
+
+const INGREDIENT_QUANTITY_HINT = "Akceptuje: 0.5, 1/2, 1 1/2";
 
 const recipeFormSchema = z.object({
   name: z.string().min(1, "Nazwa jest wymagana"),
@@ -49,7 +56,7 @@ const recipeFormSchema = z.object({
   ingredients: z.array(
     z.object({
       name: z.string().min(1, "Nazwa składnika jest wymagana"),
-      quantity: z.number().optional().nullable(),
+      quantity: z.string().optional().nullable(),
       unit: z.string().optional(),
       nutrition: z.object({
         calories: z.number().optional(),
@@ -98,7 +105,7 @@ export function NewRecipeClient() {
       servings: 4,
       difficulty: "MEDIUM",
       tags: "",
-      ingredients: [{ name: "", quantity: undefined, unit: "", nutrition: null }],
+      ingredients: [{ name: "", quantity: "", unit: "", nutrition: null }],
       steps: [{ content: "", duration: undefined }],
     },
   });
@@ -124,11 +131,27 @@ export function NewRecipeClient() {
   const onSubmit = async (data: RecipeFormData) => {
     setIsSubmitting(true);
     try {
+      const normalizedIngredients = data.ingredients.map((ingredient) => ({
+        ...ingredient,
+        quantity: parseIngredientQuantity(ingredient.quantity),
+      }));
+
+      const hasInvalidQuantity = data.ingredients.some((ingredient, index) => {
+        const parsedQuantity = normalizedIngredients[index].quantity;
+        return hasQuantityInput(ingredient.quantity) && parsedQuantity === null;
+      });
+
+      if (hasInvalidQuantity) {
+        toast.error(`Nieprawidłowa ilość składnika. ${INGREDIENT_QUANTITY_HINT}.`);
+        return;
+      }
+
       const response = await fetch("/api/recipes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
+          ingredients: normalizedIngredients,
           tags: data.tags ? data.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
         }),
       });
@@ -346,7 +369,10 @@ export function NewRecipeClient() {
             {/* Wartości odżywcze - Sidebar */}
             <div className="space-y-6">
               <NutritionSummary
-                ingredients={form.watch("ingredients")}
+                ingredients={(form.watch("ingredients") || []).map((ingredient) => ({
+                  ...ingredient,
+                  quantity: parseIngredientQuantity(ingredient.quantity),
+                }))}
                 servings={form.watch("servings")}
               />
             </div>
@@ -376,17 +402,18 @@ export function NewRecipeClient() {
                       <FormItem className="w-16">
                         <FormControl>
                           <Input
-                            type="number"
-                            step="0.1"
-                            placeholder="1"
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="np. 3/4"
                             name={field.name}
                             ref={field.ref}
                             onBlur={field.onBlur}
                             disabled={field.disabled}
                             value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                            onChange={(e) => field.onChange(e.target.value)}
                           />
                         </FormControl>
+                        <FormDescription>{INGREDIENT_QUANTITY_HINT}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

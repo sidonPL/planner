@@ -90,13 +90,13 @@ export function calculateRecipeNutrition(
   // Oblicz na porcję
   const perServing: NutritionData = {
     calories: Math.round((total.calories || 0) / servings),
-    protein: roundToDecimal((total.protein || 0) / servings, 1),
-    carbohydrates: roundToDecimal((total.carbohydrates || 0) / servings, 1),
-    fat: roundToDecimal((total.fat || 0) / servings, 1),
-    fiber: roundToDecimal((total.fiber || 0) / servings, 1),
+    protein: roundToDecimal((total.protein || 0) / servings, 2),
+    carbohydrates: roundToDecimal((total.carbohydrates || 0) / servings, 2),
+    fat: roundToDecimal((total.fat || 0) / servings, 2),
+    fiber: roundToDecimal((total.fiber || 0) / servings, 2),
     salt: roundToDecimal((total.salt || 0) / servings, 2),
-    sugar: roundToDecimal((total.sugar || 0) / servings, 1),
-    saturatedFat: roundToDecimal((total.saturatedFat || 0) / servings, 1),
+    sugar: roundToDecimal((total.sugar || 0) / servings, 2),
+    saturatedFat: roundToDecimal((total.saturatedFat || 0) / servings, 2),
   };
 
   // Oblicz kompletność (ile składników ma wartości odżywcze)

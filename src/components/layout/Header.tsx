@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Menu, Search, LogOut, User, Settings, Maximize2, Volume2, VolumeX, Cast, Shield, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +38,8 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [userTitle, setUserTitle] = useState<string | null>(null);
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  const [activeBadge, setActiveBadge] = useState<{ name: string; icon: string | null } | null>(null);
   const { enabled: ttsEnabled, setEnabled: setTtsEnabled, isSupported: ttsSupported } = useTTS();
   const {
     isAvailable: chromecastAvailable,
@@ -56,19 +59,34 @@ export function Header() {
 
   const isAdmin = session?.user?.role === "ADMIN";
 
-  // Załaduj tytuł użytkownika
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetch('/api/user/profile')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.activeTitle) {
-            setUserTitle(data.activeTitle);
-          }
-        })
-        .catch(() => {});
-    }
+  const loadProfileCosmetics = useCallback(() => {
+    if (!session?.user?.id) return;
+    fetch('/api/user/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        setUserTitle(data.activeTitle || null);
+        setProfileAvatar(data.avatar || null);
+        if (data.activeBadge?.name) {
+          setActiveBadge({
+            name: data.activeBadge.name,
+            icon: data.activeBadge.icon || null,
+          });
+        } else {
+          setActiveBadge(null);
+        }
+      })
+      .catch(() => {});
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    loadProfileCosmetics();
+  }, [loadProfileCosmetics]);
+
+  useEffect(() => {
+    const handler = () => loadProfileCosmetics();
+    window.addEventListener('cosmetics-updated', handler);
+    return () => window.removeEventListener('cosmetics-updated', handler);
+  }, [loadProfileCosmetics]);
 
   const handleSearch = useCallback((query?: string) => {
     const trimmedQuery = (query || searchQuery).trim();
@@ -296,7 +314,7 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={session?.user?.image || undefined} alt={session?.user?.name || "User"} />
+                <AvatarImage src={profileAvatar || session?.user?.image || undefined} alt={session?.user?.name || "User"} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
             </Button>
@@ -310,6 +328,12 @@ export function Header() {
                   </p>
                   {userTitle && (
                     <UserTitleBadge title={userTitle} size="sm" />
+                  )}
+                  {activeBadge && (
+                    <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
+                      <span>{activeBadge.icon || '🏅'}</span>
+                      <span>{activeBadge.name}</span>
+                    </Badge>
                   )}
                 </div>
                 <p className="text-xs leading-none text-muted-foreground">

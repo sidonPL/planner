@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { ThemeId } from "@/lib/themes";
+import { AVAILABLE_TITLES, TitleId } from "@/lib/titles";
+import { resolveThemeIdFromRewardData } from "@/lib/theme-reward-utils";
 
 type RewardEffectData = {
   duration?: number;
   uses?: number;
   themeId?: string;
   titleId?: string;
+  avatarUrl?: string;
+  avatarId?: string;
+  badgeId?: string;
 };
 
 type PurchaseBody = {
@@ -19,6 +25,16 @@ function parseEffectData(effectData: unknown): RewardEffectData {
   }
 
   return effectData as RewardEffectData;
+}
+
+function resolveThemeId(effectData: RewardEffectData, rewardName?: string | null): ThemeId | null {
+  return resolveThemeIdFromRewardData({ effectData, name: rewardName });
+}
+
+function resolveTitleId(effectData: RewardEffectData): TitleId | null {
+  const id = effectData.titleId;
+  if (!id) return null;
+  return AVAILABLE_TITLES[id as TitleId] ? (id as TitleId) : null;
 }
 
 function getDurationExpiry(effectData: unknown, now: Date): Date | null {
@@ -168,6 +184,8 @@ export async function POST(request: NextRequest) {
     const autoActivates =
       reward.category === "THEME" ||
       reward.category === "TITLE" ||
+      reward.category === "BADGE" ||
+      reward.category === "AVATAR" ||
       reward.category === "PERK";
     const expiresAt = autoActivates ? getDurationExpiry(reward.effectData, now) : null;
     const maxUses = effectData.uses && effectData.uses > 0 ? effectData.uses : null;
@@ -221,9 +239,10 @@ export async function POST(request: NextRequest) {
           data: { isActive: false },
         });
 
+        const themeId = resolveThemeId(effectData, reward.name);
         await tx.user.update({
           where: { id: session.user.id },
-          data: { activeTheme: effectData.themeId || reward.id },
+          data: { activeTheme: themeId || "default" },
         });
       }
 
@@ -238,10 +257,42 @@ export async function POST(request: NextRequest) {
           data: { isActive: false },
         });
 
+        const titleId = resolveTitleId(effectData);
         await tx.user.update({
           where: { id: session.user.id },
-          data: { activeTitle: effectData.titleId || reward.id },
+          data: { activeTitle: titleId },
         });
+      }
+
+      if (reward.category === "BADGE" && autoActivates) {
+        await tx.claimedReward.updateMany({
+          where: {
+            userId: session.user.id,
+            isActive: true,
+            id: { not: claimedReward.id },
+            reward: { category: "BADGE" },
+          },
+          data: { isActive: false },
+        });
+      }
+
+      if (reward.category === "AVATAR" && autoActivates) {
+        await tx.claimedReward.updateMany({
+          where: {
+            userId: session.user.id,
+            isActive: true,
+            id: { not: claimedReward.id },
+            reward: { category: "AVATAR" },
+          },
+          data: { isActive: false },
+        });
+
+        if (effectData.avatarUrl) {
+          await tx.user.update({
+            where: { id: session.user.id },
+            data: { avatar: effectData.avatarUrl },
+          });
+        }
       }
 
       return claimedReward;

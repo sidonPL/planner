@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Cloud, CloudRain, Sun, CloudSnow, Wind, Droplets, ChevronDown, ChevronUp } from "lucide-react";
+import { Cloud, CloudRain, Sun, CloudSnow, Wind, Droplets, ChevronDown, ChevronUp, Palette } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,26 @@ interface ForecastDay {
   humidity: number;
 }
 
+interface HourlyForecast {
+  time: string;
+  dateIso: string;
+  temp: number;
+  description: string;
+  icon: string;
+  humidity: number;
+}
+
 interface WeatherData {
   temp: number;
+  currentTemp?: number;
+  primaryDateLabel?: string;
   description: string;
   icon: string;
   humidity: number;
   windSpeed: number;
   forecast?: ForecastDay[];
+  dailyAll?: ForecastDay[];
+  hourly?: HourlyForecast[];
 }
 
 interface OneCallDailyItem {
@@ -49,6 +62,10 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showForecast, setShowForecast] = useState(false);
+  const [showHourly, setShowHourly] = useState(false);
+  const [density, setDensity] = useState<"compact" | "comfortable">("comfortable");
+  const [accent, setAccent] = useState<"default" | "ocean" | "sunset">("default");
+  const [showStyleOptions, setShowStyleOptions] = useState(false);
   const tripDurationDays = Math.max(
     1,
     Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
@@ -75,6 +92,37 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
 
     return keys;
   }, [startDate, endDate]);
+
+  const primaryDateKey = useMemo(() => {
+    const todayKey = toLocalDateKey(new Date());
+    if (tripDateKeys.includes(todayKey)) {
+      return todayKey;
+    }
+    return tripDateKeys[0] ?? todayKey;
+  }, [tripDateKeys]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("trip-weather-widget-prefs");
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as {
+        density?: "compact" | "comfortable";
+        accent?: "default" | "ocean" | "sunset";
+      };
+      if (parsed.density === "compact" || parsed.density === "comfortable") {
+        setDensity(parsed.density);
+      }
+      if (parsed.accent === "default" || parsed.accent === "ocean" || parsed.accent === "sunset") {
+        setAccent(parsed.accent);
+      }
+    } catch {
+      // Ignoruj błędy localStorage, widżet działa na wartościach domyślnych.
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("trip-weather-widget-prefs", JSON.stringify({ density, accent }));
+  }, [density, accent]);
 
   useEffect(() => {
     if (!destination) return;
@@ -144,13 +192,30 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
 
           const fallbackForecast = mappedForecast.slice(0, tripDurationDays);
 
+          const mappedDailyAll: ForecastDay[] = Array.isArray(data.dailyAll)
+            ? (data.dailyAll as ForecastDay[])
+            : [];
+          const tripDailyAll = mappedDailyAll.filter((day) =>
+            day.dateIso ? tripDateKeys.includes(day.dateIso) : false
+          );
+          const primaryDay = tripDailyAll.find((day) => day.dateIso === primaryDateKey);
+
+          const mappedHourly: HourlyForecast[] = Array.isArray(data.hourly)
+            ? (data.hourly as HourlyForecast[])
+            : [];
+          const tripHourly = mappedHourly.filter((hour) => hour.dateIso === primaryDateKey);
+
           setWeather({
-            temp: data.temperature,
-            description: data.description,
-            icon: data.icon,
-            humidity: data.humidity,
+            temp: primaryDay ? Math.round((primaryDay.tempMin + primaryDay.tempMax) / 2) : data.temperature,
+            currentTemp: data.temperature,
+            primaryDateLabel: primaryDay?.date,
+            description: primaryDay?.description || data.description,
+            icon: primaryDay?.icon || data.icon,
+            humidity: primaryDay?.humidity ?? data.humidity,
             windSpeed: data.windSpeed,
             forecast: (tripForecast.length > 0 ? tripForecast : fallbackForecast).slice(0, tripDurationDays),
+            dailyAll: tripDailyAll.length > 0 ? tripDailyAll : undefined,
+            hourly: tripHourly.length > 0 ? tripHourly.slice(0, 8) : mappedHourly.slice(0, 8),
           });
         }
 
@@ -163,7 +228,7 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
     };
 
     fetchWeather();
-  }, [destination, tripDurationDays, tripDateKeys]);
+  }, [destination, tripDurationDays, tripDateKeys, primaryDateKey]);
 
   const getWeatherIcon = (iconCode: string) => {
     if (iconCode.startsWith("01")) return <Sun className="h-6 w-6 text-yellow-500" />;
@@ -192,19 +257,72 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
     return null; // Don't show widget if error
   }
 
+  const accentClass =
+    accent === "ocean"
+      ? "border-cyan-300/40 bg-cyan-50/40 dark:bg-cyan-950/20"
+      : accent === "sunset"
+        ? "border-orange-300/40 bg-orange-50/40 dark:bg-orange-950/20"
+        : "";
+
   return (
-    <Card>
+    <Card className={accentClass}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          {getWeatherIcon(weather.icon)}
-          Pogoda w {destination}
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            {getWeatherIcon(weather.icon)}
+            Pogoda w {destination}
+          </CardTitle>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setShowStyleOptions((prev) => !prev)}
+            aria-label="Dostosuj wygląd widgetu pogody"
+          >
+            <Palette className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className={density === "compact" ? "space-y-2" : "space-y-3"}>
+        {showStyleOptions && (
+          <div className="rounded-md border bg-muted/40 p-2.5 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground min-w-24">Układ</span>
+              <div className="flex gap-1">
+                <Button type="button" size="sm" variant={density === "comfortable" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setDensity("comfortable")}>
+                  Wygodny
+                </Button>
+                <Button type="button" size="sm" variant={density === "compact" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setDensity("compact")}>
+                  Kompakt
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground min-w-24">Motyw</span>
+              <div className="flex gap-1">
+                <Button type="button" size="sm" variant={accent === "default" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setAccent("default")}>
+                  Domyślny
+                </Button>
+                <Button type="button" size="sm" variant={accent === "ocean" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setAccent("ocean")}>
+                  Ocean
+                </Button>
+                <Button type="button" size="sm" variant={accent === "sunset" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setAccent("sunset")}>
+                  Sunset
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <span className="text-3xl font-bold">{weather.temp}°C</span>
           <Badge variant="outline">{weather.description}</Badge>
         </div>
+        <p className="text-xs text-muted-foreground">
+          {weather.primaryDateLabel ? `Główna pogoda dla: ${weather.primaryDateLabel}` : "Główna pogoda dla dnia wyjazdu"}
+          {typeof weather.currentTemp === "number" ? ` (teraz: ${weather.currentTemp}°C)` : ""}
+        </p>
         <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Droplets className="h-4 w-4" />
@@ -251,6 +369,33 @@ export function WeatherWidget({ destination, startDate, endDate }: WeatherWidget
                         {day.humidity}%
                       </p>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {weather.hourly && weather.hourly.length > 0 && (
+          <div className="pt-2 border-t space-y-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-between h-auto p-2"
+              onClick={() => setShowHourly((prev) => !prev)}
+            >
+              <span className="text-xs font-medium">Prognoza godzinowa</span>
+              {showHourly ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+            {showHourly && (
+              <div className="grid grid-cols-2 gap-2">
+                {weather.hourly.map((hour, index) => (
+                  <div key={`${hour.time}-${index}`} className="rounded-md bg-muted/40 p-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{hour.time}</span>
+                      <span>{hour.temp}°C</span>
+                    </div>
+                    <p className="text-muted-foreground capitalize truncate">{hour.description}</p>
                   </div>
                 ))}
               </div>

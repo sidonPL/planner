@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -22,25 +22,55 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { data: session } = useSession();
+  const useOnboardingWithOptions = useOnboarding as (options?: {
+    disabled?: boolean;
+    storageKey?: string;
+  }) => {
+    showOnboarding: boolean;
+    setShowOnboarding: (open: boolean) => void;
+  };
+  const OnboardingWizardWithStorage = OnboardingWizard as React.ComponentType<{
+    open: boolean;
+    onComplete: () => void;
+    hasHousehold?: boolean;
+    storageKey?: string;
+  }>;
+  const onboardingStorageKey = session?.user?.id
+    ? `onboarding-completed:${session.user.id}`
+    : 'onboarding-completed';
   const [commandOpen, setCommandOpen] = useState(false);
   const [activeTheme, setActiveTheme] = useState<string | null>(null);
   const { open: shortcutsOpen, setOpen: setShortcutsOpen } = useKeyboardShortcuts();
-  const { showOnboarding, setShowOnboarding } = useOnboarding();
+  const { showOnboarding, setShowOnboarding } = useOnboardingWithOptions({
+    disabled: Boolean(session?.user?.householdId),
+    storageKey: onboardingStorageKey,
+  });
   const { open: voiceOpen, setOpen: setVoiceOpen } = useVoiceCommands();
+
+  const loadProfileCosmetics = useCallback(async () => {
+    if (!session?.user?.id) return;
+    try {
+      const res = await fetch('/api/user/profile');
+      const data = await res.json();
+      setActiveTheme(data.activeTheme || null);
+    } catch {
+      // noop
+    }
+  }, [session?.user?.id]);
 
   // Załaduj aktywny motyw użytkownika
   useEffect(() => {
-    if (session?.user?.id) {
-      fetch('/api/user/profile')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.activeTheme) {
-            setActiveTheme(data.activeTheme);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [session?.user?.id]);
+    loadProfileCosmetics();
+  }, [loadProfileCosmetics]);
+
+  useEffect(() => {
+    const handler = () => {
+      loadProfileCosmetics();
+    };
+
+    window.addEventListener('cosmetics-updated', handler);
+    return () => window.removeEventListener('cosmetics-updated', handler);
+  }, [loadProfileCosmetics]);
 
   return (
     <TTSProvider>
@@ -70,9 +100,11 @@ export function AppLayout({ children }: AppLayoutProps) {
               <VoiceCommands open={voiceOpen} onOpenChange={setVoiceOpen} />
 
               {/* Onboarding Wizard - First time users */}
-              <OnboardingWizard
+              <OnboardingWizardWithStorage
                 open={showOnboarding}
                 onComplete={() => setShowOnboarding(false)}
+                hasHousehold={Boolean(session?.user?.householdId)}
+                storageKey={onboardingStorageKey}
               />
 
               {/* PWA Install Prompt */}
