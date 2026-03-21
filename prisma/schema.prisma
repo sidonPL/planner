@@ -131,6 +131,8 @@ model User {
   transactions             Transaction[]
   carPoolsAsDriver         TripCarPool[]            @relation("TripCarPoolDriver")
   tripMealsAssigned        TripMeal[]               @relation("TripMealAssignee")
+  tripPhotos               TripPhoto[]              @relation("TripPhotoUploadedBy")
+  tripPhotoLikes           TripPhotoLike[]
   tripParticipants         TripParticipant[]
   tripWishlists            TripWishlist[]
   household                Household?               @relation(fields: [householdId], references: [id])
@@ -562,9 +564,54 @@ model Trip {
   expenses        TripExpense[]
   itinerary       TripItineraryDay[]
   meals           TripMeal[]
+  photos          TripPhoto[]
+  galleryShares   TripGalleryShare[]
   participants    TripParticipant[]
   places          TripPlace[]
   transports      TripTransport[]
+}
+
+model TripPhoto {
+  id             String          @id @default(cuid())
+  tripId         String          @map("trip_id")
+  url            String
+  caption        String?
+  uploadedById   String          @map("uploaded_by")
+  likes          Int             @default(0)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  trip           Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  uploadedBy     User            @relation("TripPhotoUploadedBy", fields: [uploadedById], references: [id], onDelete: Cascade)
+  photoLikes     TripPhotoLike[]
+
+  @@index([tripId])
+  @@index([uploadedById])
+  @@map("TripPhoto")
+}
+
+model TripPhotoLike {
+  id        String    @id @default(cuid())
+  photoId   String
+  userId    String
+  createdAt DateTime  @default(now())
+  photo     TripPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, userId])
+  @@index([photoId])
+  @@index([userId])
+}
+
+model TripGalleryShare {
+  id        String   @id @default(cuid())
+  tripId    String
+  token     String   @unique
+  createdBy String
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([token])
 }
 
 model TripWishlist {

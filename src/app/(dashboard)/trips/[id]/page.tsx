@@ -60,6 +60,28 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           createdAt: "desc",
         },
       },
+      photos: {
+        include: {
+          uploadedBy: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          photoLikes: {
+            where: {
+              userId: session.user.id,
+            },
+            select: { id: true },
+          },
+          _count: {
+            select: { photoLikes: true },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
       expenses: {
         orderBy: {
           date: "desc",
@@ -106,9 +128,24 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     },
   });
 
+  const tripWithPhotoPayload = {
+    ...trip,
+    photos: trip.photos.map((photo) => ({
+      id: photo.id,
+      tripId: photo.tripId,
+      url: photo.url,
+      caption: photo.caption,
+      uploadedBy: photo.uploadedById,
+      uploadedByName: photo.uploadedBy.name,
+      createdAt: photo.createdAt,
+      likes: photo._count.photoLikes,
+      likedByMe: photo.photoLikes.length > 0,
+    })),
+  };
+
   return (
     <TripDetailClient
-      trip={trip}
+      trip={tripWithPhotoPayload}
       members={members}
       currentUserId={session.user.id}
     />

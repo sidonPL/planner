@@ -71,6 +71,7 @@ import { WeatherWidget } from "@/components/trips/WeatherWidget";
 import { TripCarPooling } from "@/components/trips/TripCarPooling";
 import { TripMealPlanning } from "@/components/trips/TripMealPlanning";
 import { TripBudgetAlerts } from "@/components/trips/TripBudgetAlerts";
+import { PhotoGallery, type TripPhoto } from "@/components/trips/PhotoGallery";
 import { getSmartSuggestions } from "@/lib/packing-templates";
 
 interface TripPlace {
@@ -136,6 +137,7 @@ type TripWithRelations = Trip & {
   places?: TripPlace[];
   expenses?: TripExpense[];
   documents?: TripDocument[];
+  photos?: TripPhoto[];
   plannedBudget?: number | null;
   foodBudget?: number | null;
 };
@@ -209,6 +211,7 @@ export function TripDetailClient({ trip, members, currentUserId }: TripDetailCli
   const [places, setPlaces] = useState<TripPlace[]>(trip.places || []);
   const [expenses, setExpenses] = useState<TripExpense[]>(trip.expenses || []);
   const [documents, setDocuments] = useState<TripDocument[]>(trip.documents || []);
+  const [photos, setPhotos] = useState<TripPhoto[]>(trip.photos || []);
   const [selectedMemberId, setSelectedMemberId] = useState<string>("");
   const [editForm, setEditForm] = useState({
     name: trip.name,
@@ -587,6 +590,7 @@ export function TripDetailClient({ trip, members, currentUserId }: TripDetailCli
           <TabsTrigger value="checklist">Listy pakowania</TabsTrigger>
           <TabsTrigger value="places">Miejsca</TabsTrigger>
           <TabsTrigger value="documents">Dokumenty</TabsTrigger>
+          <TabsTrigger value="photos">Zdjęcia</TabsTrigger>
           <TabsTrigger value="budget">Budżet</TabsTrigger>
         </TabsList>
 
@@ -829,6 +833,16 @@ export function TripDetailClient({ trip, members, currentUserId }: TripDetailCli
         {/* Documents Tab */}
         <TabsContent value="documents">
           <TripDocuments tripId={trip.id} documents={documents} onDocumentsChange={setDocuments} />
+        </TabsContent>
+
+        {/* Photos Tab */}
+        <TabsContent value="photos">
+          <PhotoGallery
+            tripId={trip.id}
+            photos={photos}
+            currentUserId={currentUserId}
+            onPhotosChange={setPhotos}
+          />
         </TabsContent>
 
         {/* Budget Tab */}

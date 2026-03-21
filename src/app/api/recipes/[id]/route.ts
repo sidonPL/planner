@@ -97,6 +97,13 @@ export async function GET(
       include: {
         ingredients: true,
         steps: {
+          include: {
+            stepIngredients: {
+              include: {
+                ingredient: true,
+              },
+            },
+          },
           orderBy: { order: "asc" },
         },
         createdBy: {

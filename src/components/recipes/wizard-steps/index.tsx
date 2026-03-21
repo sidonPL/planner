@@ -451,6 +451,46 @@ export function RecipeStepsStep({ form }: { form: UseFormReturn<RecipeWizardForm
                   </FormItem>
                 )}
               />
+
+              {/* Sekcja przypisania składników do kroku */}
+              <div className="border-t pt-3 mt-3">
+                <FormLabel className="mb-2 block">Składniki w tym kroku</FormLabel>
+                <FormDescription className="mb-2 text-xs">
+                  Wybierz które składniki są używane w tym kroku. W trybie gotowania będzie można je odkliknąć.
+                </FormDescription>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md bg-muted/30">
+                  {form.getValues("ingredients")?.map((ingredient: WizardIngredient, ingIndex: number) => {
+                    const currentIngredientIds = form.getValues(`steps.${index}.ingredientIds`) || [];
+                    const isSelected = currentIngredientIds.includes(ingIndex);
+
+                    return (
+                      <div key={ingIndex} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`step-${index}-ingredient-${ingIndex}`}
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            const updatedIds = checked
+                              ? [...currentIngredientIds, ingIndex]
+                              : currentIngredientIds.filter((id: number) => id !== ingIndex);
+                            form.setValue(`steps.${index}.ingredientIds`, updatedIds);
+                          }}
+                        />
+                        <label
+                          htmlFor={`step-${index}-ingredient-${ingIndex}`}
+                          className="text-sm cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {ingredient.name}
+                          {ingredient.quantity && (
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ({ingredient.quantity} {ingredient.unit || ""})
+                            </span>
+                          )}
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           ))}
         </div>
