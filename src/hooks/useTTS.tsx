@@ -28,9 +28,7 @@ interface TTSOptions {
 const TTSContext = createContext<TTSContextType | null>(null);
 
 export function TTSProvider({ children }: { children: ReactNode }) {
-  const [isSupported] = useState(() =>
-    typeof window !== "undefined" && "speechSynthesis" in window
-  );
+  const [isSupported, setIsSupported] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
@@ -51,7 +49,10 @@ export function TTSProvider({ children }: { children: ReactNode }) {
 
   // Sprawdź czy TTS jest wspierany i załaduj głosy
   useEffect(() => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    const supported = typeof window !== "undefined" && "speechSynthesis" in window;
+    setIsSupported(supported);
+
+    if (!supported) {
       return;
     }
 

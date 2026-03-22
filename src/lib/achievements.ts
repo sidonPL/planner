@@ -7,8 +7,12 @@ import { addXP } from "./xp";
  */
 export async function checkAchievements(userId: string) {
   try {
+    const recordedCompletions = await prisma.taskCompletion.count({
+      where: { userId },
+    });
+
     // Pobierz statystyki użytkownika
-    const stats = await prisma.user.findUnique({
+    let stats = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         totalTaskCompletions: true,
@@ -17,6 +21,17 @@ export async function checkAchievements(userId: string) {
     });
 
     if (!stats) return [];
+
+    if ((stats.totalTaskCompletions || 0) !== recordedCompletions) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { totalTaskCompletions: recordedCompletions },
+      });
+      stats = {
+        ...stats,
+        totalTaskCompletions: recordedCompletions,
+      };
+    }
 
     const tasksCompleted = stats.totalTaskCompletions || 0;
     const currentStreak = stats.currentStreak || 0;
@@ -44,16 +59,25 @@ export async function checkAchievements(userId: string) {
       });
 
       if (!existing) {
-        // Przyznaj osiągnięcie
-        const awarded = await prisma.userAchievement.create({
-          data: {
-            userId,
-            achievementId: achievement.id,
-          },
-          include: {
-            achievement: true,
-          },
-        });
+        let awarded;
+        try {
+          // Przyznaj osiągnięcie
+          awarded = await prisma.userAchievement.create({
+            data: {
+              userId,
+              achievementId: achievement.id,
+            },
+            include: {
+              achievement: true,
+            },
+          });
+        } catch (error) {
+          // Równoległe requesty mogą spróbować przyznać to samo osiągnięcie jednocześnie.
+          if ((error as { code?: string })?.code === 'P2002') {
+            continue;
+          }
+          throw error;
+        }
 
         // Dodaj XP
         await addXP(
@@ -87,15 +111,23 @@ export async function checkAchievements(userId: string) {
       });
 
       if (!existing) {
-        const awarded = await prisma.userAchievement.create({
-          data: {
-            userId,
-            achievementId: achievement.id,
-          },
-          include: {
-            achievement: true,
-          },
-        });
+        let awarded;
+        try {
+          awarded = await prisma.userAchievement.create({
+            data: {
+              userId,
+              achievementId: achievement.id,
+            },
+            include: {
+              achievement: true,
+            },
+          });
+        } catch (error) {
+          if ((error as { code?: string })?.code === 'P2002') {
+            continue;
+          }
+          throw error;
+        }
 
         await addXP(
           userId,

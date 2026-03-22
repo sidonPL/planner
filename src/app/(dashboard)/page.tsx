@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { DashboardClient } from "./DashboardClient";
-import { startOfDay, endOfDay, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -18,13 +18,12 @@ export default async function DashboardPage() {
   const now = new Date();
   const todayStart = startOfDay(now);
   const todayEnd = endOfDay(now);
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
 
   const [
     todayTasks,
-    ,
+    todayRoutines,
     todayEvents,
     shoppingItems,
     monthTransactions,
@@ -52,16 +51,18 @@ export default async function DashboardPage() {
       orderBy: { dueDate: "asc" },
       take: 5,
     }),
-    // Nadchodzące zadania (najbliższe 7 dni, bez rutyn)
+    // Rutyny na dziś (osobny widżet)
     prisma.task.findMany({
       where: {
         householdId: session.user.householdId,
-        dueDate: { gte: todayEnd, lte: weekEnd },
-        status: { not: "COMPLETED" },
-        isRecurring: false, // Wyklucz rutyny ze statystyk
+        dueDate: { gte: todayStart, lte: todayEnd },
+        isRecurring: true,
       },
-      orderBy: { dueDate: "asc" },
-      take: 5,
+      include: {
+        assignee: { select: { id: true, name: true, color: true } },
+      },
+      orderBy: [{ dueTime: "asc" }, { dueDate: "asc" }],
+      take: 100,
     }),
     // Wydarzenia na dziś
     prisma.event.findMany({
@@ -249,6 +250,7 @@ export default async function DashboardPage() {
       user={session.user}
       stats={stats}
       todayTasks={todayTasks}
+      todayRoutines={todayRoutines}
       todayEvents={todayEvents}
       shoppingItems={shoppingItems}
       members={members}

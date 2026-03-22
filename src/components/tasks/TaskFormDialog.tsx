@@ -41,6 +41,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
 import type { Task, Category } from "@prisma/client";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const taskFormSchema = z.object({
   title: z.string().min(1, "Tytuł jest wymagany"),
@@ -139,7 +140,7 @@ export function TaskFormDialog({
         dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
         dueTime: task.dueTime || undefined,
         isRecurring: task.isRecurring || false,
-        recurrenceType: task.recurrenceType as "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM" | undefined,
+        recurrenceType: (task.recurrenceType ?? undefined) as "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM" | undefined,
         recurrenceInterval: task.recurrenceInterval || 1,
         recurrenceTimes: (task as Task & { recurrenceTimes?: string[] }).recurrenceTimes || [],
         updateFuture: false,
@@ -201,53 +202,65 @@ export function TaskFormDialog({
         }),
       });
 
-      if (response.ok) {
-        const savedTask = await response.json();
-
-        // Jeśli są podzadania, utwórz je przez API
-        if (!isEditing && subtasks.length > 0) {
-          const subtaskPromises = subtasks.map((subtask) =>
-            fetch(`/api/tasks/${savedTask.id}/subtasks`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                title: subtask.title,
-                assigneeId: subtask.assigneeId || null,
-              }),
-            })
-          );
-
-          await Promise.all(subtaskPromises);
-        }
-
-        // Zamknij dialog
-        onOpenChange(false);
-
-        // Wywołaj callbacki
-        if (isEditing) {
-          onTaskUpdated(savedTask);
-        } else {
-          onTaskCreated(savedTask);
-        }
-
-        // Reset formularza
-        form.reset();
-        setSubtasks([]);
-        setNewSubtaskTitle("");
-
-        // Odśwież stronę aby załadować zaktualizowaną listę
-        window.location.reload();
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        const apiMessage = errorBody?.error || errorBody?.message;
+        throw new Error(apiMessage || `Nie udało się zapisać zadania (${response.status})`);
       }
+
+      const savedTask = await response.json();
+
+      // Jeśli są podzadania, utwórz je przez API
+      if (!isEditing && subtasks.length > 0) {
+        const subtaskPromises = subtasks.map((subtask) =>
+          fetch(`/api/tasks/${savedTask.id}/subtasks`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: subtask.title,
+              assigneeId: subtask.assigneeId || null,
+            }),
+          })
+        );
+
+        await Promise.all(subtaskPromises);
+      }
+
+      // Zamknij dialog
+      onOpenChange(false);
+
+      // Wywołaj callbacki
+      if (isEditing) {
+        onTaskUpdated(savedTask);
+      } else {
+        onTaskCreated(savedTask);
+      }
+
+      // Reset formularza
+      form.reset();
+      setSubtasks([]);
+      setNewSubtaskTitle("");
+
+      toast.success(isEditing ? "Zapisano zmiany zadania" : "Dodano zadanie");
     } catch (error) {
       console.error("Error saving task:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Nie udało się zapisać zadania"
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const onInvalid = () => {
+    toast.error("Nie można zapisać formularza. Sprawdź wymagane pola.");
+  };
+
+  const handleSaveClick = form.handleSubmit(onSubmit, onInvalid);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col min-h-0">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Edytuj zadanie" : "Nowe zadanie"}
@@ -255,7 +268,14 @@ export function TaskFormDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto flex-1 pr-2">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSaveClick();
+            }}
+            className="flex flex-col flex-1 min-h-0"
+          >
+            <div className="space-y-4 overflow-y-auto flex-1 pr-2 min-h-0">
             {/* Title */}
             <FormField
               control={form.control}
@@ -723,8 +743,10 @@ export function TaskFormDialog({
               </div>
             )}
 
+            </div>
+
             {/* Submit */}
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="relative z-20 flex justify-end gap-2 pt-4 border-t bg-background pointer-events-auto">
               <Button
                 type="button"
                 variant="outline"
@@ -733,7 +755,7 @@ export function TaskFormDialog({
               >
                 Anuluj
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="button" onClick={() => void handleSaveClick()} disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

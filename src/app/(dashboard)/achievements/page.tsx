@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Trophy, Lock, Star, TrendingUp, Zap } from 'lucide-react';
+import { Trophy, Lock, Star, TrendingUp, Zap, Pin, PinOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -11,6 +11,7 @@ import { getAchievementIcon } from '@/lib/achievement-icons';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface Achievement {
   id: string;
@@ -26,6 +27,7 @@ interface Achievement {
   unlockedAt?: Date;
   progress?: number;
   currentValue?: number;
+  isPinned?: boolean;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -36,12 +38,18 @@ const categoryLabels: Record<string, string> = {
   MEALS: 'Posiłki',
   BUDGET: 'Budżet',
   FAMILY: 'Rodzina',
+  STREAK: 'Serie',
+  SOCIAL: 'Społeczność',
+  MASTER: 'Mistrzowskie',
+  COOKING: 'Gotowanie',
+  INVENTORY: 'Inwentarz',
 };
 
 export default function AchievementShowcasePage() {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [pinLoadingId, setPinLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAchievements();
@@ -49,15 +57,79 @@ export default function AchievementShowcasePage() {
 
   const loadAchievements = async () => {
     try {
-      const response = await fetch('/api/gamification/achievements');
-      if (response.ok) {
-        const data = await response.json();
-        setAchievements(data);
+      const [achievementsResponse, pinnedResponse] = await Promise.all([
+        fetch('/api/gamification/achievements'),
+        fetch('/api/gamification/achievements/pinned'),
+      ]);
+
+      if (achievementsResponse.ok) {
+        const data = await achievementsResponse.json();
+        const pinned = pinnedResponse.ok ? await pinnedResponse.json() : [];
+        const pinnedIds = new Set((Array.isArray(pinned) ? pinned : []).map((a: { id: string }) => a.id));
+
+        const normalized = (Array.isArray(data) ? data : []).map((item) => {
+          const requirementValue = Number(item.requirementValue || 0);
+          const rawProgressValue = Number(item.currentValue ?? item.progress ?? 0);
+          const percentage = Number(
+            item.percentage ??
+            (requirementValue > 0 ? (rawProgressValue / requirementValue) * 100 : 0)
+          );
+
+          return {
+            ...item,
+            unlocked: Boolean(item.unlocked ?? item.isUnlocked),
+            unlockedAt: item.unlockedAt ? new Date(item.unlockedAt) : undefined,
+            currentValue: rawProgressValue,
+            progress: Math.max(0, Math.min(100, percentage)),
+            isPinned: pinnedIds.has(item.id),
+          } as Achievement;
+        });
+
+        setAchievements(normalized);
       }
     } catch (error) {
       console.error('Error loading achievements:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTogglePin = async (achievement: Achievement) => {
+    if (!achievement.unlocked) {
+      toast.error('Najpierw odblokuj osiągnięcie');
+      return;
+    }
+
+    const currentlyPinned = Boolean(achievement.isPinned);
+    const pinnedCount = achievements.filter((a) => a.isPinned).length;
+
+    if (!currentlyPinned && pinnedCount >= 3) {
+      toast.error('Możesz przypiąć maksymalnie 3 osiągnięcia');
+      return;
+    }
+
+    setPinLoadingId(achievement.id);
+    try {
+      const response = await fetch(`/api/gamification/achievements/${achievement.id}/pin`, {
+        method: currentlyPinned ? 'DELETE' : 'POST',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Nie udało się zaktualizować przypięcia');
+      }
+
+      setAchievements((prev) => prev.map((item) =>
+        item.id === achievement.id
+          ? { ...item, isPinned: !currentlyPinned }
+          : item
+      ));
+
+      toast.success(currentlyPinned ? 'Osiągnięcie odpięte' : 'Osiągnięcie przypięte');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Błąd przypinania osiągnięcia');
+    } finally {
+      setPinLoadingId(null);
     }
   };
 
@@ -253,6 +325,23 @@ export default function AchievementShowcasePage() {
                 >
                   <CardContent className="pt-6">
                     <div className="space-y-4">
+                      <div className="flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={isLocked || pinLoadingId === achievement.id}
+                          onClick={() => handleTogglePin(achievement)}
+                          title={achievement.isPinned ? 'Odepnij osiągnięcie' : 'Przypnij osiągnięcie'}
+                        >
+                          {achievement.isPinned ? (
+                            <PinOff className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Pin className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+
                       {/* Icon */}
                       <div className="flex justify-center">
                         <div
@@ -296,9 +385,17 @@ export default function AchievementShowcasePage() {
                         <Badge variant="outline">
                           {categoryLabels[achievement.category]}
                         </Badge>
-                        <Badge variant={isLocked ? 'secondary' : 'default'}>
-                          +{achievement.xpReward} XP
-                        </Badge>
+                        <div className="flex items-center gap-1">
+                          {achievement.isPinned && (
+                            <Badge variant="secondary">
+                              <Pin className="h-3 w-3 mr-1" />
+                              Przypięte
+                            </Badge>
+                          )}
+                          <Badge variant={isLocked ? 'secondary' : 'default'}>
+                            +{achievement.xpReward} XP
+                          </Badge>
+                        </div>
                       </div>
 
                       {achievement.unlocked && achievement.unlockedAt && (

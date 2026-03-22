@@ -5,6 +5,7 @@ import { generateNextTaskOccurrence } from "@/lib/recurrence";
 import { updateQuestProgress } from "@/lib/daily-quests";
 import { updateStreak } from "@/lib/gamification";
 import { checkAchievements } from "@/lib/achievements";
+import { addXP } from "@/lib/xp";
 
 // PATCH - oznacz zadanie jako ukończone/nieukończone
 export async function PATCH(
@@ -20,7 +21,7 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { completed } = body;
+    const completed = Boolean(body?.completed);
 
     // Sprawdź czy zadanie istnieje i należy do tego gospodarstwa
     const existingTask = await prisma.task.findFirst({
@@ -30,6 +31,7 @@ export async function PATCH(
       },
       select: {
         id: true,
+        status: true,
         title: true,
         description: true,
         priority: true,
@@ -86,15 +88,28 @@ export async function PATCH(
 
     // Jeśli zadanie zostało ukończone, dodaj wpis do completions i sprawdź odznaki
     if (completed) {
-      await prisma.taskCompletion.create({
-        data: {
-          taskId: id,
-          userId: session.user.id,
-        },
-      });
+      const wasAlreadyCompleted = existingTask.status === "COMPLETED";
+
+      if (!wasAlreadyCompleted) {
+        await prisma.taskCompletion.create({
+          data: {
+            taskId: id,
+            userId: session.user.id,
+          },
+        });
+
+        await prisma.user.update({
+          where: { id: session.user.id },
+          data: {
+            totalTaskCompletions: {
+              increment: 1,
+            },
+          },
+        });
+      }
 
       // Aktualizuj streak dla zadań cyklicznych
-      if (existingTask.isRecurring) {
+      if (existingTask.isRecurring && !wasAlreadyCompleted) {
         const now = new Date();
         
         // Pobierz istniejący streak
@@ -164,7 +179,7 @@ export async function PATCH(
 
       // Generuj kolejne wystąpienie dla zadań cyklicznych
       let nextOccurrence = null;
-      if (existingTask.isRecurring && existingTask.recurrenceType) {
+      if (existingTask.isRecurring && existingTask.recurrenceType && !wasAlreadyCompleted) {
         nextOccurrence = await generateNextTaskOccurrence({
           id: existingTask.id,
           title: existingTask.title,
@@ -186,8 +201,29 @@ export async function PATCH(
         });
       }
 
-      // Update daily quest progress
-      await updateQuestProgress(session.user.id, 'TASKS', 1);
+      let xpResult: Awaited<ReturnType<typeof addXP>> | null = null;
+
+      // Nalicz XP tylko przy faktycznej zmianie statusu na COMPLETED.
+      if (!wasAlreadyCompleted) {
+        const xpReward =
+          existingTask.priority === "URGENT"
+            ? 20
+            : existingTask.priority === "HIGH"
+              ? 15
+              : existingTask.priority === "MEDIUM"
+                ? 10
+                : 5;
+
+        xpResult = await addXP(
+          session.user.id,
+          xpReward,
+          `Ukończono zadanie: ${existingTask.title}`,
+          "EARNED"
+        );
+
+        // Update daily quest progress
+        await updateQuestProgress(session.user.id, 'TASKS', 1);
+      }
 
       // Update user streak
       await updateStreak(session.user.id);
@@ -198,8 +234,48 @@ export async function PATCH(
       return NextResponse.json({
         ...task,
         nextOccurrence,
+        xpAward: xpResult,
         newAchievements: newAchievements.length > 0 ? newAchievements : undefined
       });
+    }
+
+    if (existingTask.status === "COMPLETED") {
+      const latestCompletion = await prisma.taskCompletion.findFirst({
+        where: {
+          taskId: id,
+          userId: session.user.id,
+        },
+        orderBy: {
+          completedAt: "desc",
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (latestCompletion) {
+        await prisma.taskCompletion.delete({
+          where: {
+            id: latestCompletion.id,
+          },
+        });
+
+        const userStats = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { totalTaskCompletions: true },
+        });
+
+        if ((userStats?.totalTaskCompletions || 0) > 0) {
+          await prisma.user.update({
+            where: { id: session.user.id },
+            data: {
+              totalTaskCompletions: {
+                decrement: 1,
+              },
+            },
+          });
+        }
+      }
     }
 
     return NextResponse.json(task);

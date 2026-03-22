@@ -123,6 +123,7 @@ interface DashboardClientProps {
     unreadNotifications: number;
   };
   todayTasks: TaskWithAssignee[];
+  todayRoutines: TaskWithAssignee[];
   todayEvents: Event[];
   shoppingItems: ShoppingItem[];
   members: MemberWithPresence[];
@@ -196,6 +197,7 @@ export function DashboardClient({
   user,
   stats,
   todayTasks,
+  todayRoutines,
   todayEvents,
   shoppingItems,
   members,
@@ -210,6 +212,9 @@ export function DashboardClient({
   financialAccounts,
   boardNotes,
 }: DashboardClientProps) {
+  const [dashboardTasks, setDashboardTasks] = useState(todayTasks);
+  const [dashboardRoutines, setDashboardRoutines] = useState(todayRoutines);
+
   // Stan widoku - domyślnie z ustawień użytkownika
   const [viewMode, setViewMode] = useState<"family" | "personal">(
     (userSettings?.defaultViewMode as "family" | "personal") || "family"
@@ -266,10 +271,60 @@ export function DashboardClient({
   const filteredTasks = useMemo(
     () =>
       viewMode === "personal"
-        ? todayTasks.filter((task) => task.assigneeId === activeUserId)
-        : todayTasks,
-    [viewMode, todayTasks, activeUserId]
+        ? dashboardTasks.filter((task) => task.assigneeId === activeUserId)
+        : dashboardTasks,
+    [viewMode, dashboardTasks, activeUserId]
   );
+
+  const filteredRoutines = useMemo(
+    () =>
+      viewMode === "personal"
+        ? dashboardRoutines.filter((routine) => routine.assigneeId === activeUserId)
+        : dashboardRoutines,
+    [viewMode, dashboardRoutines, activeUserId]
+  );
+
+  const toggleDashboardTask = useCallback(async (taskId: string, completed: boolean) => {
+    const newStatus = completed ? TaskStatus.COMPLETED : TaskStatus.TODO;
+
+    setDashboardTasks((prev) => prev.map((task) => (
+      task.id === taskId ? { ...task, status: newStatus } : task
+    )));
+    setDashboardRoutines((prev) => prev.map((task) => (
+      task.id === taskId ? { ...task, status: newStatus } : task
+    )));
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/complete`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Nie udało się zaktualizować zadania");
+      }
+
+      const updatedTask = await response.json();
+
+      setDashboardTasks((prev) => prev.map((task) => (
+        task.id === taskId ? { ...task, status: updatedTask.status } : task
+      )));
+      setDashboardRoutines((prev) => prev.map((task) => (
+        task.id === taskId ? { ...task, status: updatedTask.status } : task
+      )));
+    } catch (error) {
+      console.error("Error toggling dashboard task:", error);
+      const rollbackStatus = completed ? TaskStatus.TODO : TaskStatus.COMPLETED;
+      setDashboardTasks((prev) => prev.map((task) => (
+        task.id === taskId ? { ...task, status: rollbackStatus } : task
+      )));
+      setDashboardRoutines((prev) => prev.map((task) => (
+        task.id === taskId ? { ...task, status: rollbackStatus } : task
+      )));
+      toast.error("Nie udało się zaktualizować zadania");
+    }
+  }, []);
 
   const filteredEvents = useMemo(
     () =>
@@ -600,7 +655,12 @@ export function DashboardClient({
                         key={task.id}
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50"
                       >
-                        <Checkbox checked={task.status === TaskStatus.COMPLETED} />
+                        <Checkbox
+                          checked={task.status === TaskStatus.COMPLETED}
+                          onCheckedChange={(checked) => {
+                            void toggleDashboardTask(task.id, !!checked);
+                          }}
+                        />
                         <div className="flex-1 min-w-0">
                           <p className={cn(
                             "text-sm font-medium truncate",
@@ -610,7 +670,7 @@ export function DashboardClient({
                           </p>
                           {task.dueDate && (
                             <p className="text-xs text-muted-foreground">
-                              {format(new Date(task.dueDate), "HH:mm")}
+                              {task.dueTime || "Cały dzień"}
                             </p>
                           )}
                         </div>
@@ -634,7 +694,7 @@ export function DashboardClient({
 
         case "main-routines":
           // Funkcja sprawdzająca czy rutyna powinna być dzisiaj
-          const isRoutineForToday = (task: typeof filteredTasks[0]) => {
+          const isRoutineForToday = (task: TaskWithAssignee) => {
             if (!task.isRecurring) return false;
 
             // Jeśli rutyna ma dueDate, sprawdź czy to dzisiaj
@@ -672,11 +732,30 @@ export function DashboardClient({
             return true;
           };
 
-          const filteredRoutines = filteredTasks.filter(t => t.isRecurring && isRoutineForToday(t));
-          const routinesCompleted = filteredRoutines.filter(r => r.status === TaskStatus.COMPLETED).length;
+          const routinesForTodayRaw = filteredRoutines.filter((routine) => isRoutineForToday(routine));
+          const routinesByParent = new Map<string, TaskWithAssignee>();
+
+          for (const routine of routinesForTodayRaw) {
+            const key = routine.parentTaskId || routine.id;
+            const existing = routinesByParent.get(key);
+
+            if (!existing) {
+              routinesByParent.set(key, routine);
+              continue;
+            }
+
+            const existingIsInstance = Boolean(existing.parentTaskId);
+            const currentIsInstance = Boolean(routine.parentTaskId);
+            if (!existingIsInstance && currentIsInstance) {
+              routinesByParent.set(key, routine);
+            }
+          }
+
+          const routinesForToday = Array.from(routinesByParent.values());
+          const routinesCompleted = routinesForToday.filter((r) => r.status === TaskStatus.COMPLETED).length;
 
           // Funkcja do sprawdzania czy rutyna jest spóźniona (>3h od zaplanowanej godziny)
-          const isRoutineOverdue = (routine: typeof filteredRoutines[0]) => {
+          const isRoutineOverdue = (routine: TaskWithAssignee) => {
             if (!routine.dueTime || routine.status === TaskStatus.COMPLETED) return false;
 
             const now = new Date();
@@ -690,20 +769,7 @@ export function DashboardClient({
 
           // Funkcja do obsługi kliknięcia checkbox
           const handleToggleRoutine = async (routineId: string, completed: boolean) => {
-            try {
-              const response = await fetch(`/api/tasks/${routineId}/complete`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ completed }),
-              });
-
-              if (response.ok) {
-                // Odśwież stronę aby zaktualizować dane
-                window.location.reload();
-              }
-            } catch (error) {
-              console.error("Error toggling routine:", error);
-            }
+            await toggleDashboardTask(routineId, completed);
           };
 
           // Grupowanie rutyn według pory dnia
@@ -717,11 +783,11 @@ export function DashboardClient({
           };
 
           const routinesByTime = {
-            morning: filteredRoutines.filter(r => getTimeOfDay(r.dueTime) === "morning"),
-            afternoon: filteredRoutines.filter(r => getTimeOfDay(r.dueTime) === "afternoon"),
-            evening: filteredRoutines.filter(r => getTimeOfDay(r.dueTime) === "evening"),
-            night: filteredRoutines.filter(r => getTimeOfDay(r.dueTime) === "night"),
-            notime: filteredRoutines.filter(r => getTimeOfDay(r.dueTime) === "notime"),
+            morning: routinesForToday.filter(r => getTimeOfDay(r.dueTime) === "morning"),
+            afternoon: routinesForToday.filter(r => getTimeOfDay(r.dueTime) === "afternoon"),
+            evening: routinesForToday.filter(r => getTimeOfDay(r.dueTime) === "evening"),
+            night: routinesForToday.filter(r => getTimeOfDay(r.dueTime) === "night"),
+            notime: routinesForToday.filter(r => getTimeOfDay(r.dueTime) === "notime"),
           };
 
           const timeGroups = [
@@ -741,7 +807,7 @@ export function DashboardClient({
                     {viewMode === "personal" ? "Moje rutyny na dziś" : "Rutyny na dziś"}
                   </CardTitle>
                   <CardDescription>
-                    {routinesCompleted}/{filteredRoutines.length} ukończonych
+                    {routinesCompleted}/{routinesForToday.length} ukończonych
                   </CardDescription>
                 </div>
                 <Button variant="ghost" size="sm" asChild>
@@ -752,7 +818,7 @@ export function DashboardClient({
                 </Button>
               </CardHeader>
               <CardContent>
-                {filteredRoutines.length === 0 ? (
+                {routinesForToday.length === 0 ? (
                   <div className="text-center py-6 text-muted-foreground">
                     <Repeat className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p>{viewMode === "personal" ? "Brak Twoich rutyn na dziś" : "Brak rutyn na dziś"}</p>
@@ -1183,6 +1249,7 @@ export function DashboardClient({
     [
       displayStats,
       filteredTasks,
+      filteredRoutines,
       filteredEvents,
       filteredMeals,
       viewMode,

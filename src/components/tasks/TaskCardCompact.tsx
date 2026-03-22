@@ -159,12 +159,22 @@ export function TaskCardCompact({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {onViewDetails && (
-          <DropdownMenuItem onClick={onViewDetails}>
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault();
+              onViewDetails();
+            }}
+          >
             <Eye className="mr-2 h-4 w-4" />
             Szczegóły
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={onEdit}>
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault();
+            onEdit();
+          }}
+        >
           <Pencil className="mr-2 h-4 w-4" />
           Edytuj
         </DropdownMenuItem>
@@ -172,12 +182,20 @@ export function TaskCardCompact({
         {isRecurring && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleRoutineAction("edit")}>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                handleRoutineAction("edit");
+              }}
+            >
               <CalendarRange className="mr-2 h-4 w-4" />
               Edytuj całą rutynę
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => handleRoutineAction("delete")}
+              onSelect={(event) => {
+                event.preventDefault();
+                handleRoutineAction("delete");
+              }}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" />
@@ -188,7 +206,10 @@ export function TaskCardCompact({
         )}
 
         <DropdownMenuItem
-          onClick={() => setShowDeleteDialog(true)}
+          onSelect={(event) => {
+            event.preventDefault();
+            setShowDeleteDialog(true);
+          }}
           className="text-red-600 focus:text-red-600"
         >
           <Trash2 className="mr-2 h-4 w-4" />
