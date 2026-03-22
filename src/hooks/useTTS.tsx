@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useSyncExternalStore, ReactNode } from "react";
 
 interface TTSContextType {
   speak: (text: string, options?: TTSOptions) => void;
@@ -28,7 +28,11 @@ interface TTSOptions {
 const TTSContext = createContext<TTSContextType | null>(null);
 
 export function TTSProvider({ children }: { children: ReactNode }) {
-  const [isSupported, setIsSupported] = useState(false);
+  const isSupported = useSyncExternalStore(
+    () => () => {},
+    () => typeof window !== "undefined" && "speechSynthesis" in window,
+    () => false
+  );
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
@@ -49,10 +53,7 @@ export function TTSProvider({ children }: { children: ReactNode }) {
 
   // Sprawdź czy TTS jest wspierany i załaduj głosy
   useEffect(() => {
-    const supported = typeof window !== "undefined" && "speechSynthesis" in window;
-    setIsSupported(supported);
-
-    if (!supported) {
+    if (!isSupported) {
       return;
     }
 
@@ -76,7 +77,7 @@ export function TTSProvider({ children }: { children: ReactNode }) {
     return () => {
       window.speechSynthesis.onvoiceschanged = null;
     };
-  }, []);
+  }, [isSupported]);
 
   // Zapisuj ustawienia
   useEffect(() => {

@@ -180,6 +180,17 @@ export function RoutineTemplatesManager({
       });
 
       if (response.ok) {
+        const savedTemplate = await response.json();
+
+        setTemplates((prev) => {
+          if (editingTemplate) {
+            return prev.map((template) =>
+              template.id === editingTemplate.id ? savedTemplate : template
+            );
+          }
+          return [savedTemplate, ...prev];
+        });
+
         toast({
           title: "✅ Sukces",
           description: editingTemplate
