@@ -1,7 +1,23 @@
-import { prisma } from "@/lib/prisma";
 import { buildInAppNotificationEmail, sendEmail } from "@/lib/email";
-import { NotificationType } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import webpush from "web-push";
+
+type NotificationType = 
+  | "TASK_ASSIGNED" 
+  | "TASK_REMINDER"
+  | "TASK_COMPLETED"
+  | "BUDGET_ALERT" 
+  | "TRIP_REMINDER" 
+  | "MEAL_REMINDER" 
+  | "PRESENCE_UPDATE" 
+  | "SYSTEM"
+  | "BOARD_MESSAGE"
+  | "PAYMENT_REMINDER"
+  | "SHOPPING_REMINDER"
+  | "SHOPPING_ASSIGNED"
+  | "ACHIEVEMENT"
+  | "EVENT_REMINDER"
+  | "SCHEDULE_REMINDER";
 
 interface CreateNotificationParams {
   userId: string;

@@ -145,7 +145,7 @@ export function StatsDashboard() {
                 <YAxis />
                 <Tooltip
                   labelFormatter={(date) => new Date(date as string).toLocaleDateString("pl-PL")}
-                  formatter={(value: number | undefined) => [`${value || 0} XP`, "Zdobyte XP"]}
+                  formatter={(value) => [`${value || 0} XP`, "Zdobyte XP"]}
                 />
                 <Legend />
                 <Line
@@ -197,7 +197,7 @@ export function StatsDashboard() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number | undefined, _name: string | undefined, props?: { payload?: { category: string } }) => [value || 0, categoryLabels[props?.payload?.category || ""] || props?.payload?.category || ""]} />
+                <Tooltip formatter={(value, _name, props) => [value || 0, categoryLabels[props?.payload?.category || ""] || props?.payload?.category || ""]} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -248,7 +248,7 @@ export function StatsDashboard() {
                 <YAxis />
                 <Tooltip
                   labelFormatter={(date) => new Date(date).toLocaleDateString("pl-PL")}
-                  formatter={(value: number | undefined) => [`${value || 0} aktywności`, "Liczba"]}
+                  formatter={(value) => [`${value || 0} aktywności`, "Liczba"]}
                 />
                 <Bar dataKey="count" fill="#10b981" />
               </BarChart>

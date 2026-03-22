@@ -1,12 +1,9 @@
 import nodemailer from "nodemailer";
 
 const smtpPort = Number(process.env.SMTP_PORT || "587");
-const smtpSecure = process.env.SMTP_SECURE
-  ? process.env.SMTP_SECURE === "true"
-  : smtpPort === 465;
+const smtpSecure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : smtpPort === 465;
 const smtpPass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
 
-// Konfiguracja transportera email
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: smtpPort,
