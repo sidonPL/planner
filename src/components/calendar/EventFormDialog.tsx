@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { Bell, CalendarIcon, Loader2, Plus, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -52,9 +52,10 @@ const eventFormSchema = z.object({
   color: z.string().optional(),
   type: z.enum(["GENERAL", "TASK", "MEAL", "TRIP", "WORK", "SCHOOL", "REMINDER"]),
   location: z.string().optional(),
+  reminderMinutes: z.array(z.number().int().nonnegative()),
 });
 
-type EventFormData = z.infer<typeof eventFormSchema>;
+type EventFormData = z.input<typeof eventFormSchema>;
 
 type Member = {
   id: string;
@@ -77,6 +78,7 @@ interface EventFormDialogProps {
     color?: string | null;
     type: string;
     location?: string | null;
+    reminderMinutes?: number[];
   };
 }
 
@@ -99,6 +101,54 @@ const eventTypes = [
   { label: "Przypomnienie", value: "REMINDER" },
 ];
 
+const reminderPresets = [
+  { label: "10 min wcześniej", value: 10 },
+  { label: "30 min wcześniej", value: 30 },
+  { label: "1 godz. wcześniej", value: 60 },
+  { label: "2 godz. wcześniej", value: 120 },
+  { label: "1 dzień wcześniej", value: 1440 },
+  { label: "7 dni wcześniej", value: 10080 },
+];
+
+const customReminderUnits = [
+  { label: "min", value: "minutes", multiplier: 1 },
+  { label: "godz", value: "hours", multiplier: 60 },
+  { label: "dni", value: "days", multiplier: 1440 },
+] as const;
+
+type CustomReminderUnit = (typeof customReminderUnits)[number]["value"];
+
+function formatReminderLabel(minutes: number): string {
+  if (minutes < 60) {
+    return `${minutes} min wcześniej`;
+  }
+  if (minutes % 1440 === 0) {
+    const days = minutes / 1440;
+    return `${days} ${days === 1 ? "dzień" : "dni"} wcześniej`;
+  }
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return `${hours} ${hours === 1 ? "godz." : "godz."} wcześniej`;
+  }
+  return `${minutes} min wcześniej`;
+}
+
+function BadgeRemovable({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <div className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-1 text-xs">
+      <span>{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-background"
+        aria-label={`Usuń przypomnienie ${label}`}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 export function EventFormDialog({
   open,
   onOpenChange,
@@ -108,6 +158,8 @@ export function EventFormDialog({
 }: EventFormDialogProps) {
   void _members;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customReminderValue, setCustomReminderValue] = useState("");
+  const [customReminderUnit, setCustomReminderUnit] = useState<CustomReminderUnit>("minutes");
 
   const buildDefaultValues = useCallback((): EventFormData => {
     const eventStartDate = event?.startDate ? new Date(event.startDate) : undefined;
@@ -129,6 +181,7 @@ export function EventFormDialog({
       color: event?.color || "#3B82F6",
       type: normalizedType,
       location: event?.location || "",
+      reminderMinutes: Array.isArray(event?.reminderMinutes) ? event.reminderMinutes : [],
     };
   }, [event, defaultDate]);
 
@@ -144,6 +197,60 @@ export function EventFormDialog({
   }, [open, form, buildDefaultValues]);
 
   const isAllDay = form.watch("allDay");
+  const selectedReminders = form.watch("reminderMinutes");
+
+  const toggleReminder = (minutes: number) => {
+    const current = form.getValues("reminderMinutes") || [];
+    const next = current.includes(minutes)
+      ? current.filter((m) => m !== minutes)
+      : [...current, minutes].sort((a, b) => a - b);
+    form.setValue("reminderMinutes", next, { shouldDirty: true });
+  };
+
+  const removeReminder = (minutes: number) => {
+    const current = form.getValues("reminderMinutes") || [];
+    form.setValue(
+      "reminderMinutes",
+      current.filter((m) => m !== minutes),
+      { shouldDirty: true }
+    );
+  };
+
+  const addCustomReminder = () => {
+    const rawValue = Number(customReminderValue);
+
+    if (!Number.isFinite(rawValue) || rawValue <= 0) {
+      toast.error("Podaj poprawną wartość przypomnienia");
+      return;
+    }
+
+    const unit = customReminderUnits.find((item) => item.value === customReminderUnit);
+    if (!unit) return;
+
+    const minutes = Math.round(rawValue * unit.multiplier);
+    if (minutes > 60 * 24 * 30) {
+      toast.error("Maksymalne przypomnienie to 30 dni wcześniej");
+      return;
+    }
+
+    const current = form.getValues("reminderMinutes") || [];
+    if (current.includes(minutes)) {
+      toast.info("To przypomnienie już jest dodane");
+      return;
+    }
+
+    form.setValue("reminderMinutes", [...current, minutes].sort((a, b) => a - b), {
+      shouldDirty: true,
+    });
+    setCustomReminderValue("");
+  };
+
+  const handleCustomReminderKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addCustomReminder();
+    }
+  };
 
   const onSubmit = async (data: EventFormData) => {
     setIsSubmitting(true);
@@ -172,6 +279,7 @@ export function EventFormDialog({
         ...data,
         startDate: startDateTime.toISOString(),
         ...(endDateTime ? { endDate: endDateTime.toISOString() } : {}),
+        reminderMinutes: data.reminderMinutes,
       };
 
       const response = await fetch(isEditMode ? `/api/events/${event!.id}` : "/api/events", {
@@ -460,6 +568,86 @@ export function EventFormDialog({
                   <FormControl>
                     <Input placeholder="Np. Warszawa, ul. Przykładowa 1" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Przypomnienia */}
+            <FormField
+              control={form.control}
+              name="reminderMinutes"
+              render={() => (
+                <FormItem className="space-y-3 rounded-lg border p-3">
+                  <div className="space-y-1">
+                    <FormLabel className="flex items-center gap-2">
+                      <Bell className="h-4 w-4" />
+                      Przypomnienia
+                    </FormLabel>
+                    <p className="text-xs text-muted-foreground">
+                      Wybierz, kiedy aplikacja ma wysłać przypomnienie.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {reminderPresets.map((preset) => {
+                      const active = selectedReminders?.includes(preset.value);
+                      return (
+                        <Button
+                          key={preset.value}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => toggleReminder(preset.value)}
+                        >
+                          {preset.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={customReminderValue}
+                      onChange={(e) => setCustomReminderValue(e.target.value)}
+                      onKeyDown={handleCustomReminderKeyDown}
+                      placeholder="Własna wartość"
+                    />
+                    <Select
+                      value={customReminderUnit}
+                      onValueChange={(value) => setCustomReminderUnit(value as CustomReminderUnit)}
+                    >
+                      <SelectTrigger className="w-[90px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customReminderUnits.map((unit) => (
+                          <SelectItem key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" size="icon" onClick={addCustomReminder}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {(selectedReminders?.length || 0) > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedReminders
+                        .slice()
+                        .sort((a, b) => a - b)
+                        .map((value) => (
+                          <BadgeRemovable
+                            key={value}
+                            label={formatReminderLabel(value)}
+                            onRemove={() => removeReminder(value)}
+                          />
+                        ))}
+                    </div>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}

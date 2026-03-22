@@ -20,6 +20,7 @@ import {
 } from "date-fns";
 import { pl } from "date-fns/locale";
 import {
+  Bell,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -30,6 +31,7 @@ import {
   Download,
   Pencil,
   Trash2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +49,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Event, Task, Meal, Schedule, Category, Trip } from "@prisma/client";
 import { EventFormDialog } from "@/components/calendar/EventFormDialog";
@@ -160,6 +181,155 @@ interface CalendarClientProps {
 }
 
 type ViewType = "month" | "week" | "day";
+type CalendarEventType = CalendarEvent["type"];
+
+const calendarFilterOptions: { type: CalendarEventType; label: string; color: string }[] = [
+  { type: "event", label: "Wydarzenia", color: "#3B82F6" },
+  { type: "task", label: "Zadania", color: "#6B7280" },
+  { type: "meal", label: "Posiłki", color: "#10B981" },
+  { type: "schedule", label: "Harmonogramy", color: "#6366F1" },
+  { type: "trip", label: "Wyjazdy", color: "#EC4899" },
+  { type: "birthday", label: "Urodziny", color: "#F97316" },
+  { type: "holiday", label: "Święta", color: "#EF4444" },
+  { type: "anniversary", label: "Rocznice", color: "#FF1493" },
+  { type: "nameday", label: "Imieniny", color: "#9333EA" },
+  { type: "imported", label: "Importowane", color: "#6366F1" },
+];
+
+const defaultVisibleCalendarTypes: Record<CalendarEventType, boolean> = {
+  event: true,
+  task: true,
+  meal: true,
+  schedule: true,
+  trip: true,
+  birthday: true,
+  holiday: true,
+  anniversary: true,
+  nameday: true,
+  imported: true,
+};
+
+const calendarFilterPresets: { label: string; visibleTypes: Record<CalendarEventType, boolean>; onlyMine?: boolean }[] = [
+  {
+    label: "Wszystko",
+    visibleTypes: { ...defaultVisibleCalendarTypes },
+  },
+  {
+    label: "Tylko moje",
+    visibleTypes: {
+      ...defaultVisibleCalendarTypes,
+      birthday: false,
+      holiday: false,
+      anniversary: false,
+      nameday: false,
+      imported: false,
+    },
+    onlyMine: true,
+  },
+  {
+    label: "Plan dnia",
+    visibleTypes: {
+      ...defaultVisibleCalendarTypes,
+      birthday: false,
+      holiday: false,
+      anniversary: false,
+      nameday: false,
+    },
+  },
+  {
+    label: "Okazje rodzinne",
+    visibleTypes: {
+      ...defaultVisibleCalendarTypes,
+      event: false,
+      task: false,
+      meal: false,
+      schedule: false,
+      trip: false,
+      imported: false,
+    },
+  },
+];
+
+function formatReminderLabel(minutesBefore: number): string {
+  if (minutesBefore < 60) {
+    return `${minutesBefore} min przed`;
+  }
+  if (minutesBefore < 24 * 60) {
+    const hours = Math.floor(minutesBefore / 60);
+    return `${hours} godz. przed`;
+  }
+  const days = Math.floor(minutesBefore / (24 * 60));
+  return `${days} dni przed`;
+}
+
+function hasEventReminder(event: CalendarEvent): boolean {
+  if (event.type !== "event") {
+    return false;
+  }
+  const eventData = event.data as EventWithUser | undefined;
+  return Array.isArray(eventData?.reminderMinutes) && eventData.reminderMinutes.length > 0;
+}
+
+function getEventReminderMinutes(event: CalendarEvent): number[] {
+  if (event.type !== "event") {
+    return [];
+  }
+  const eventData = event.data as EventWithUser | undefined;
+  if (!Array.isArray(eventData?.reminderMinutes)) {
+    return [];
+  }
+  return eventData.reminderMinutes.slice().sort((a, b) => a - b);
+}
+
+function ReminderIndicator({ event, className = "h-3 w-3" }: { event: CalendarEvent; className?: string }) {
+  const [isTouchDevice] = useState(
+    () => typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0)
+  );
+
+  if (!hasEventReminder(event)) {
+    return null;
+  }
+
+  const labels = getEventReminderMinutes(event)
+    .map((value) => formatReminderLabel(value))
+    .join(", ");
+
+  if (isTouchDevice) {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            aria-label="Pokaż przypomnienia"
+          >
+            <Bell className={className} />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-auto max-w-[240px] text-xs">
+          <p>Przypomnienia: {labels}</p>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">
+            <Bell className={className} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Przypomnienia: {labels}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 const mealTypeLabels: Record<string, string> = {
   BREAKFAST: "Śniadanie",
@@ -278,7 +448,10 @@ function ResizableEvent({
       onClick={handleClick}
     >
       <div className="font-medium text-sm truncate" style={{ color: event.color }}>
-        {event.title}
+        <span className="inline-flex items-center gap-1">
+          <span>{event.title}</span>
+          <ReminderIndicator event={event} />
+        </span>
       </div>
       {!event.allDay && (
         <div className="text-xs text-muted-foreground">
@@ -350,7 +523,10 @@ function DraggableEvent({
         className="truncate flex-1"
         style={{ backgroundColor: event.color + "20", color: event.color, padding: "2px 4px", borderRadius: "2px" }}
       >
-        {event.title}
+        <span className="inline-flex items-center gap-1">
+          <span className="truncate">{event.title}</span>
+          <ReminderIndicator event={event} />
+        </span>
       </span>
     </div>
   );
@@ -394,9 +570,8 @@ export function CalendarClient({
   externalBirthdays,
   anniversaries,
   importedEvents,
-  currentUserId: _currentUserId,
+  currentUserId,
 }: CalendarClientProps) {
-  void _currentUserId;
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<ViewType>("month");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -406,6 +581,101 @@ export function CalendarClient({
   const [editingEvent, setEditingEvent] = useState<EventWithUser | null>(null);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
+  const [visibleTypes, setVisibleTypes] = useState<Record<CalendarEventType, boolean>>(defaultVisibleCalendarTypes);
+  const [onlyMine, setOnlyMine] = useState(false);
+
+  useEffect(() => {
+    const loadCalendarPreferences = async () => {
+      try {
+        const response = await fetch("/api/user/calendar-preferences");
+        if (!response.ok) return;
+        const preferences = await response.json();
+        if (preferences?.visibleTypes && typeof preferences.visibleTypes === "object") {
+          setVisibleTypes({
+            ...defaultVisibleCalendarTypes,
+            ...preferences.visibleTypes,
+          });
+        }
+        if (typeof preferences?.onlyMine === "boolean") {
+          setOnlyMine(preferences.onlyMine);
+        }
+      } catch {
+        // noop - fallback do domyślnych filtrów
+      }
+    };
+
+    loadCalendarPreferences();
+  }, []);
+
+  const persistCalendarPreferences = useCallback(async (
+    nextVisibleTypes: Record<CalendarEventType, boolean>,
+    nextOnlyMine: boolean
+  ) => {
+    try {
+      await fetch("/api/user/calendar-preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visibleTypes: nextVisibleTypes, onlyMine: nextOnlyMine }),
+      });
+    } catch {
+      // noop - zapis preferencji jest opcjonalny
+    }
+  }, []);
+
+  const toggleVisibleType = useCallback((type: CalendarEventType, checked: boolean) => {
+    setVisibleTypes((prev) => {
+      const next = {
+        ...prev,
+        [type]: checked,
+      };
+      persistCalendarPreferences(next, onlyMine);
+      return next;
+    });
+  }, [persistCalendarPreferences, onlyMine]);
+
+  const toggleOnlyMine = useCallback((checked: boolean) => {
+    setOnlyMine(checked);
+    persistCalendarPreferences(visibleTypes, checked);
+  }, [persistCalendarPreferences, visibleTypes]);
+
+  const isOwnedByCurrentUser = useCallback((event: CalendarEvent) => {
+    if (event.type === "event") {
+      const data = event.data as EventWithUser | undefined;
+      return data?.userId === currentUserId;
+    }
+    if (event.type === "task") {
+      const data = event.data as TaskWithRelations | undefined;
+      return data?.assigneeId === currentUserId || data?.creatorId === currentUserId;
+    }
+    if (event.type === "meal") {
+      const data = event.data as MealWithRecipe | undefined;
+      return data?.assigneeId === currentUserId;
+    }
+    if (event.type === "schedule") {
+      const data = event.data as ScheduleWithUser | undefined;
+      return data?.user?.id === currentUserId;
+    }
+    if (event.type === "trip") {
+      const data = event.data as TripWithParticipants | undefined;
+      return Boolean(data?.participants?.some((participant) => participant.user.id === currentUserId));
+    }
+    return false;
+  }, [currentUserId]);
+
+  const applyFilterPreset = useCallback((preset: Record<CalendarEventType, boolean>, presetOnlyMine = false) => {
+    const next = {
+      ...defaultVisibleCalendarTypes,
+      ...preset,
+    };
+    setVisibleTypes(next);
+    setOnlyMine(presetOnlyMine);
+    persistCalendarPreferences(next, presetOnlyMine);
+  }, [persistCalendarPreferences]);
+
+  const activeFiltersCount = useMemo(
+    () => Object.values(visibleTypes).filter((value) => !value).length + (onlyMine ? 1 : 0),
+    [visibleTypes, onlyMine]
+  );
 
   // Sensory dla drag & drop
   const sensors = useSensors(
@@ -802,6 +1072,11 @@ export function CalendarClient({
     return allEvents;
   }, [events, tasks, meals, trips, schedules, members, externalBirthdays, anniversaries, importedEvents, currentDate]);
 
+  const filteredCalendarEvents = useMemo(
+    () => calendarEvents.filter((event) => visibleTypes[event.type] && (!onlyMine || isOwnedByCurrentUser(event))),
+    [calendarEvents, visibleTypes, onlyMine, isOwnedByCurrentUser]
+  );
+
   // Funkcje nawigacji
   const goToToday = () => setCurrentDate(new Date());
 
@@ -819,7 +1094,7 @@ export function CalendarClient({
 
   // Pobierz wydarzenia dla konkretnego dnia
   const getEventsForDay = (date: Date) => {
-    return calendarEvents.filter((event) => {
+    return filteredCalendarEvents.filter((event) => {
       // Dla wydarzeń bez daty końcowej - sprawdź tylko datę rozpoczęcia
       if (!event.end) {
         return isSameDay(event.start, date);
@@ -1053,6 +1328,64 @@ export function CalendarClient({
           </div>
 
           <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <SlidersHorizontal className="mr-2 h-4 w-4" />
+                  Filtry widoku
+                  {activeFiltersCount > 0 && (
+                    <Badge variant="secondary" className="ml-2 h-5 min-w-5 px-1 text-[10px]">
+                      {activeFiltersCount}
+                    </Badge>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>Szybkie presety</DropdownMenuLabel>
+                {calendarFilterPresets.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    variant="ghost"
+                    size="sm"
+                    className="mx-2 mb-1 h-8 w-[calc(100%-1rem)] justify-start"
+                    onClick={() => applyFilterPreset(preset.visibleTypes, Boolean(preset.onlyMine))}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mx-2 mb-1 h-8 w-[calc(100%-1rem)] justify-start"
+                  onClick={() => applyFilterPreset(defaultVisibleCalendarTypes, false)}
+                >
+                  Reset filtrów
+                </Button>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Co wyświetlać w kalendarzu</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={onlyMine}
+                  onCheckedChange={(checked) => toggleOnlyMine(Boolean(checked))}
+                >
+                  Tylko moje
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                {calendarFilterOptions.map((option) => (
+                  <DropdownMenuCheckboxItem
+                    key={option.type}
+                    checked={visibleTypes[option.type]}
+                    onCheckedChange={(checked) => toggleVisibleType(option.type, Boolean(checked))}
+                  >
+                    <span
+                      className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: option.color }}
+                    />
+                    {option.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Select value={view} onValueChange={(v) => setView(v as ViewType)}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
@@ -1138,7 +1471,10 @@ export function CalendarClient({
                   }}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">{event.title}</span>
+                    <span className="inline-flex items-center gap-1 font-medium">
+                      <span>{event.title}</span>
+                      <ReminderIndicator event={event} />
+                    </span>
                     <Badge variant="outline" className="text-xs">
                       {event.type === "task" && "Zadanie"}
                       {event.type === "event" && "Wydarzenie"}
@@ -1224,6 +1560,25 @@ export function CalendarClient({
               {selectedEvent.type === "meal" && (
                 <div className="text-sm">
                   <strong>Typ posiłku:</strong> {mealTypeLabels[(selectedEvent.data as MealWithRecipe).mealType]}
+                </div>
+              )}
+              {selectedEvent.type === "event" && (
+                <div className="text-sm space-y-1">
+                  <div className="inline-flex items-center gap-2">
+                    <strong>Przypomnienia:</strong>
+                    <ReminderIndicator event={selectedEvent} className="h-4 w-4" />
+                  </div>
+                  <p className="text-muted-foreground">
+                    {(() => {
+                      const reminderMinutes = getEventReminderMinutes(selectedEvent);
+                      if (reminderMinutes.length === 0) {
+                        return "Brak przypomnień";
+                      }
+                      return reminderMinutes
+                        .map((value) => formatReminderLabel(value))
+                        .join(", ");
+                    })()}
+                  </p>
                 </div>
               )}
               {selectedEvent.type === "event" && (

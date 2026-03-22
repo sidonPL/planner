@@ -12,6 +12,7 @@ const eventSchema = z.object({
   color: z.string().optional(),
   type: z.enum(["GENERAL", "TASK", "MEAL", "TRIP", "WORK", "SCHOOL", "REMINDER"]),
   location: z.string().optional(),
+  reminderMinutes: z.array(z.number().int().nonnegative()).optional(),
 });
 
 // GET - pobierz wydarzenia
@@ -70,6 +71,7 @@ export async function POST(req: Request) {
         color: validatedData.color,
         type: validatedData.type,
         location: validatedData.location,
+        reminderMinutes: validatedData.reminderMinutes ?? [],
         householdId: session.user.householdId,
         userId: session.user.id,
       },

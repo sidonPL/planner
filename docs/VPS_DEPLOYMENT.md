@@ -1,3 +1,8 @@
+npm run seed
+
+# Build aplikacji
+npm run build
+# Instalacja zależności
 # Deployment Guide - VPS
 
 ## Wymagania
@@ -30,11 +35,6 @@ sudo npm install -g pm2
 
 ### Instalacja Nginx (opcjonalnie)
 ```bash
-sudo apt install nginx
-sudo systemctl start nginx
-sudo systemctl enable nginx
-```
-
 ### Setup SWAP (ważne dla małych VPS!)
 Na małych serwerach (<2GB RAM) jest to konieczne dla build'u:
 ```bash
@@ -55,7 +55,11 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 free -h
 ```
 
-## Krok 2: Konfiguracja PostgreSQL
+sudo apt install nginx
+sudo systemctl start nginx
+sudo systemctl enable nginx
+```
+
 
 ```bash
 sudo -u postgres psql
@@ -111,32 +115,32 @@ CRON_SECRET="<generate-another-secret>"
 BUILD_STANDALONE=true
 NODE_ENV=production
 ```
-
+# Instalacja zależności (ze świeżych node_modules)
 ## Krok 5: Instalacja i Build
 
 ```bash
-# Instalacja zależności (ze świeżych node_modules)
+# Instalacja zależności
 npm ci
 
 # Generowanie Prisma Client
 npx prisma generate
-
-# Migracje bazy danych
-npx prisma migrate deploy
-
 # Build aplikacji (z zwiększonym heapem dla Node)
 export NODE_OPTIONS="--max-old-space-size=4096"
 npm run build
 
-# Seed początkowych danych (opcjonalnie)
+
 # Uwaga: seedy budują się oddzielnie przez tsx, nie przez next build
 npm run db:seed
-```
+npm run seed
 
 **⚠️ Ważne:** Jeśli build pada z `SIGKILL` lub `Ineffective mark-compacts`:
 - Upewnij się że swap jest zainstalowany (patrz Krok 1)
 - Zwiększ `--max-old-space-size` (np. do 8192 na większych VPS)
 - Poczekaj na wolne zasoby: `free -h` i `pm2 monit`
+
+# Build aplikacji
+npm run build
+```
 
 ## Krok 6: Uruchomienie z PM2
 

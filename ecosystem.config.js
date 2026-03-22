@@ -2,19 +2,18 @@ module.exports = {
   apps: [
     {
       name: 'planner-app',
-      script: 'node',
-      args: '.next/standalone/server.js',
+      script: 'node_modules/next/dist/bin/next',
+      args: 'start',
       cwd: './',
-      instances: 1,
-      exec_mode: 'fork',
+      instances: 1, // Dla VPS z ograniczonymi zasobami - 1 instancja. Można zwiększyć do 'max' lub liczby rdzeni CPU
+      exec_mode: 'fork', // 'cluster' dla wielu instancji
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
       min_uptime: '10s',
       max_restarts: 10,
       restart_delay: 4000,
-      env_file: '.env',
-      env_production: {
+      env: {
         NODE_ENV: 'production',
         PORT: 3000,
       },
@@ -22,7 +21,9 @@ module.exports = {
       out_file: './logs/app-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
+      // Rotacja logów
       log_type: 'json',
+      // Graceful shutdown
       kill_timeout: 5000,
       wait_ready: true,
       listen_timeout: 10000,

@@ -342,7 +342,14 @@ install_app_dependencies_and_build() {
     run_as_app_user "cd '$APP_DIR' && npm run db:seed"
   fi
 
-  run_as_app_user "cd '$APP_DIR' && npm run build"
+  # Szacuj dostępną pamięć i ustaw NODE_OPTIONS dla budowania
+  local available_memory_mb
+  available_memory_mb=$(free -m | awk 'NR==2{print int($7 * 0.8)}')  # 80% dostępnej RAM
+  local node_heap_size=$([[ "$available_memory_mb" -ge 4096 ]] && echo 4096 || echo "$available_memory_mb")
+  node_heap_size=$(([[ "$node_heap_size" -lt 512 ]] && echo 512 || echo "$node_heap_size"))
+
+  log "Dostępna pamięć: ${available_memory_mb}MB, ustawianie Node.js heap na ${node_heap_size}MB"
+  run_as_app_user "cd '$APP_DIR' && NODE_OPTIONS='--max-old-space-size=${node_heap_size}' npm run build"
 }
 
 configure_nginx() {

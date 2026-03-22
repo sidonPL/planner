@@ -12,6 +12,7 @@ const updateEventSchema = z.object({
   color: z.string().optional(),
   type: z.enum(["GENERAL", "TASK", "MEAL", "TRIP", "WORK", "SCHOOL", "REMINDER"]).optional(),
   location: z.string().optional().nullable(),
+  reminderMinutes: z.array(z.number().int().nonnegative()).optional(),
 });
 
 // GET - pobierz pojedyncze wydarzenie
@@ -95,6 +96,7 @@ export async function PUT(
         ...(validatedData.color && { color: validatedData.color }),
         ...(validatedData.type && { type: validatedData.type }),
         ...(validatedData.location !== undefined && { location: validatedData.location }),
+        ...(validatedData.reminderMinutes !== undefined && { reminderMinutes: validatedData.reminderMinutes }),
       },
       include: {
         user: {

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Menu, Search, LogOut, User, Settings, Maximize2, Volume2, VolumeX, Cast, Shield, X } from "lucide-react";
+import { Menu, Search, LogOut, User, Settings, Maximize2, Volume2, VolumeX, Cast, Shield, X, MoreHorizontal, Sun, Moon, Monitor, Trophy, Gift } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,8 +36,10 @@ import { toast } from "sonner";
 export function Header() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { setTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const headerRef = useRef<HTMLElement | null>(null);
   const [userTitle, setUserTitle] = useState<string | null>(null);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [activeBadge, setActiveBadge] = useState<{ name: string; icon: string | null } | null>(null);
@@ -136,9 +139,31 @@ export function Header() {
     }
   }, [chromecastError]);
 
+  useEffect(() => {
+    const updateHeaderOffset = () => {
+      if (!headerRef.current) return;
+      const headerHeight = Math.ceil(headerRef.current.getBoundingClientRect().height);
+      document.documentElement.style.setProperty("--app-header-offset", `${headerHeight}px`);
+    };
+
+    updateHeaderOffset();
+    window.addEventListener("resize", updateHeaderOffset);
+
+    let observer: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined" && headerRef.current) {
+      observer = new ResizeObserver(updateHeaderOffset);
+      observer.observe(headerRef.current);
+    }
+
+    return () => {
+      window.removeEventListener("resize", updateHeaderOffset);
+      observer?.disconnect();
+    };
+  }, [searchOpen]);
+
   return (
     <>
-      <header className="h-16 border-b bg-card flex items-center justify-between px-4 gap-4">
+      <header ref={headerRef} className="app-header sticky top-0 z-40 flex flex-wrap items-center gap-2 border-b bg-card px-2 py-2 sm:flex-nowrap sm:gap-3 sm:px-3 md:gap-4 md:px-4">
       {/* Mobile menu button */}
       <Sheet>
         <SheetTrigger asChild>
@@ -147,7 +172,10 @@ export function Header() {
             <span className="sr-only">Menu</span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="p-0 w-64">
+        <SheetContent
+          side="left"
+          className="mobile-nav-sheet !top-[var(--app-header-offset)] !bottom-auto !h-[calc(100dvh-var(--app-header-offset))] w-72 max-w-[88vw] p-0 sm:!top-0 sm:!bottom-0 sm:!h-full sm:max-w-sm"
+        >
           <SheetHeader className="sr-only">
             <SheetTitle>Menu nawigacji</SheetTitle>
           </SheetHeader>
@@ -156,7 +184,7 @@ export function Header() {
       </Sheet>
 
       {/* Search */}
-      <div className="flex-1 max-w-2xl">
+      <div className={`order-3 w-full ${searchOpen ? "block" : "hidden"} sm:order-2 sm:block sm:flex-1 sm:max-w-md md:max-w-2xl`}>
         {searchOpen ? (
           <div className="w-full relative">
             <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="relative">
@@ -226,15 +254,21 @@ export function Header() {
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-2">
+      <div
+        className={`order-2 ml-auto flex max-w-[62vw] items-center gap-1 overflow-x-auto py-1 pl-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:order-3 sm:max-w-none sm:overflow-visible ${searchOpen ? "hidden sm:flex" : ""}`}
+      >
         {/* XP Boost Indicator */}
-        <XPBoostIndicator />
+        <div className="hidden sm:block">
+          <XPBoostIndicator />
+        </div>
 
         {/* Streak Shield Indicator */}
-        <StreakShieldIndicator />
+        <div className="hidden sm:block">
+          <StreakShieldIndicator />
+        </div>
 
         {/* Update indicator */}
-        <UpdateIndicator className="mr-2" />
+        <UpdateIndicator className="mr-0 hidden sm:flex sm:mr-1 md:mr-2" />
 
         {/* Search button for mobile */}
         <Button
@@ -253,6 +287,7 @@ export function Header() {
             size="icon"
             onClick={() => setTtsEnabled(!ttsEnabled)}
             title={ttsEnabled ? "Wyłącz głos" : "Włącz głos"}
+            className="hidden sm:inline-flex"
           >
             {ttsEnabled ? (
               <Volume2 className="h-5 w-5" />
@@ -274,7 +309,7 @@ export function Header() {
                 ? `Połączono z ${chromecastDevice}`
                 : "Połącz z Chromecast"
             }
-            className={chromecastConnected ? "text-primary" : ""}
+            className={`hidden sm:inline-flex ${chromecastConnected ? "text-primary" : ""}`}
           >
             <Cast className="h-5 w-5" />
           </Button>
@@ -286,22 +321,103 @@ export function Header() {
           size="icon"
           onClick={toggleFullscreen}
           title="Tryb kiosk (pełny ekran)"
+          className="hidden sm:inline-flex"
         >
           <Maximize2 className="h-5 w-5" />
         </Button>
 
         {/* Theme toggle */}
-        <ThemeToggle />
+        <div className="hidden sm:block">
+          <ThemeToggle />
+        </div>
 
         {/* Daily Login Rewards */}
-        {session?.user && <DailyLoginRewards />}
+        {session?.user && (
+          <div className="hidden sm:block">
+            <DailyLoginRewards />
+          </div>
+        )}
 
         {/* Gamification Widget */}
         {session?.user && (
-          <div data-tour="gamification-widget">
+          <div data-tour="gamification-widget" className="hidden sm:block">
             <GamificationWidget />
           </div>
         )}
+
+        {/* Mobile more actions */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="sm:hidden" title="Więcej opcji">
+              <MoreHorizontal className="h-5 w-5" />
+              <span className="sr-only">Więcej opcji</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 sm:hidden">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Urządzenie
+              <span className="block text-[10px] font-normal text-muted-foreground/80">Dźwięk i ekran</span>
+            </DropdownMenuLabel>
+            {ttsSupported && (
+              <DropdownMenuItem onClick={() => setTtsEnabled(!ttsEnabled)}>
+                {ttsEnabled ? <VolumeX className="mr-2 h-4 w-4" /> : <Volume2 className="mr-2 h-4 w-4" />}
+                {ttsEnabled ? "Wyłącz głos" : "Włącz głos"}
+              </DropdownMenuItem>
+            )}
+
+            {chromecastAvailable && (
+              <DropdownMenuItem onClick={handleChromecast} disabled={chromecastConnecting}>
+                <Cast className="mr-2 h-4 w-4" />
+                {chromecastConnected ? "Rozłącz Chromecast" : "Połącz Chromecast"}
+              </DropdownMenuItem>
+            )}
+
+            <DropdownMenuItem onClick={toggleFullscreen}>
+              <Maximize2 className="mr-2 h-4 w-4" />
+              Tryb pełnoekranowy
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Wygląd
+              <span className="block text-[10px] font-normal text-muted-foreground/80">Motyw aplikacji</span>
+            </DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => setTheme("light")}>
+              <Sun className="mr-2 h-4 w-4" />
+              Motyw: jasny
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme("dark")}>
+              <Moon className="mr-2 h-4 w-4" />
+              Motyw: ciemny
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme("system")}>
+              <Monitor className="mr-2 h-4 w-4" />
+              Motyw: systemowy
+            </DropdownMenuItem>
+
+            {session?.user && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  Moduły
+                  <span className="block text-[10px] font-normal text-muted-foreground/80">Szybkie przejścia</span>
+                </DropdownMenuLabel>
+                <DropdownMenuItem asChild>
+                  <Link href="/gamification" className="cursor-pointer">
+                    <Trophy className="mr-2 h-4 w-4" />
+                    Gamifikacja
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/rewards" className="cursor-pointer">
+                    <Gift className="mr-2 h-4 w-4" />
+                    Nagrody
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Notifications */}
         <NotificationDropdown />
