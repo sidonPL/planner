@@ -15,6 +15,12 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { householdId: true },
+    });
+    const householdId = user?.householdId ?? null;
+
     const { id } = await params;
 
     const integration = await prisma.calendarIntegration.findFirst({
@@ -83,6 +89,7 @@ export async function POST(
           create: {
             integrationId: integration.id,
             externalId: event.uid,
+            householdId,
             title: event.summary,
             description: event.description,
             startDate: event.start,
@@ -103,6 +110,7 @@ export async function POST(
             color: eventColor,
             attachments: attachmentsJson,
             rawIcal: event.raw,
+            householdId,
           },
         });
       }

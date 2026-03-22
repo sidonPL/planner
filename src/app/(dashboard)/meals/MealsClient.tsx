@@ -689,7 +689,7 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
     try {
       const weekStart = viewMode === "week" ? currentWeekStart : startOfWeek(currentMonth, { locale: pl });
 
-      const response = await fetch('/api/meals/templates/apply', {
+      const response = await fetch('/api/meals/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -718,8 +718,8 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
         setIsTemplatesDialogOpen(false);
         toast.success(data.message || `Dodano ${data.mealsCreated} posiłków`);
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Nie udało się zastosować szablonu');
+        const error = await response.json().catch(() => ({}));
+        toast.error(error.error || `Nie udało się zastosować szablonu (${response.status})`);
       }
     } catch (error) {
       console.error('Error applying template:', error);

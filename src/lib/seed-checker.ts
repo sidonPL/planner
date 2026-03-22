@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { initializeAchievements } from "./achievements";
 import { seedEnhancedAchievements, seedRewards } from "./seed-enhanced-gamification";
 import { autoSeedIngredients } from "./seed-ingredients";
+import { ensureDefaultTaskTemplates } from "./task-template-defaults";
 
 /**
  * Sprawdza czy baza danych ma podstawowe dane (seedy)
@@ -78,6 +79,27 @@ export async function checkAndSeedDatabase() {
         console.log(`  ✓ Added ingredients for household "${household.name}"`);
       } else {
         console.log(`✓ Ingredients for "${household.name}": ${ingredientsCount} found`);
+      }
+
+      // Szablony zadań - dosiew brakujące defaulty
+      const firstUser = await prisma.user.findFirst({
+        where: { householdId: household.id },
+        select: { id: true },
+      });
+
+      if (!firstUser) {
+        console.log(`⚠️  No users found for household "${household.name}" - skipping task templates`);
+      } else {
+        const addedTemplates = await ensureDefaultTaskTemplates({
+          householdId: household.id,
+          createdBy: firstUser.id,
+        });
+
+        if (addedTemplates > 0) {
+          console.log(`🧩 Added ${addedTemplates} default task templates for household "${household.name}"`);
+        } else {
+          console.log(`✓ Default task templates already present for "${household.name}"`);
+        }
       }
     }
 

@@ -11,16 +11,14 @@ export async function checkAchievements(userId: string) {
     const stats = await prisma.user.findUnique({
       where: { id: userId },
       select: {
-        completedTasks: {
-          select: { id: true },
-        },
+        totalTaskCompletions: true,
         currentStreak: true,
       },
     });
 
     if (!stats) return [];
 
-    const tasksCompleted = stats.completedTasks.length;
+    const tasksCompleted = stats.totalTaskCompletions || 0;
     const currentStreak = stats.currentStreak || 0;
 
     const newAchievements = [];
@@ -127,11 +125,11 @@ export async function calculateAchievementProgress(
   try {
     switch (requirementType) {
       case 'TASKS_COMPLETED': {
-        return await prisma.taskCompletion.count({
-          where: {
-            userId,
-          },
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { totalTaskCompletions: true },
         });
+        return user?.totalTaskCompletions || 0;
       }
       case 'STREAK_DAYS': {
         const user = await prisma.user.findUnique({

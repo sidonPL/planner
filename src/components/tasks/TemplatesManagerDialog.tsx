@@ -44,7 +44,10 @@ interface TemplatesManagerDialogProps {
   onOpenChange: (open: boolean) => void;
   categories: Category[];
   members: Member[];
-  onTemplateUsed?: (taskId?: string) => void | Promise<void>;
+  onTemplateUsed?: (payload?: {
+    parentTaskId?: string;
+    tasks?: Array<{ id: string }>;
+  }) => void | Promise<void>;
 }
 
 export function TemplatesManagerDialog({
@@ -57,6 +60,7 @@ export function TemplatesManagerDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isUsing, setIsUsing] = useState(false);
+  const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
   // Create form
@@ -80,13 +84,24 @@ export function TemplatesManagerDialog({
   const loadTemplates = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/templates");
-      if (response.ok) {
-        const data = await response.json();
-        setTemplates(data);
+      const response = await fetch("/api/templates", { cache: "no-store" });
+      if (!response.ok) {
+        console.error(`Failed to load templates (${response.status})`);
+        toast.error("Nie udało się załadować szablonów zadań");
+        return;
       }
+
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        console.error("Invalid templates payload");
+        toast.error("Nieprawidłowa odpowiedź serwera dla szablonów");
+        return;
+      }
+
+      setTemplates(data);
     } catch (error) {
       console.error("Error loading templates:", error);
+      toast.error("Nie udało się załadować szablonów zadań");
     } finally {
       setIsLoading(false);
     }
@@ -135,7 +150,13 @@ export function TemplatesManagerDialog({
   };
 
   const handleUseTemplate = async () => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate || isApplyingTemplate) return;
+
+    setIsApplyingTemplate(true);
+    const clientRequestId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     try {
       const response = await fetch(`/api/templates/${selectedTemplate.id}`, {
@@ -144,6 +165,7 @@ export function TemplatesManagerDialog({
         body: JSON.stringify({
           parentTaskTitle: parentTaskTitle.trim() || null,
           assigneeId: assigneeId && assigneeId !== "none" ? assigneeId : null,
+          clientRequestId,
         }),
       });
 
@@ -154,14 +176,18 @@ export function TemplatesManagerDialog({
         setSelectedTemplate(null);
         setParentTaskTitle("");
         setAssigneeId("");
-        // Przekaż ID głównego zadania jeśli zostało utworzone
-        onTemplateUsed?.(result.parentTaskId);
+        onTemplateUsed?.({
+          parentTaskId: result.parentTaskId,
+          tasks: Array.isArray(result.tasks) ? result.tasks : [],
+        });
       } else {
         toast.error("Nie udało się użyć szablonu");
       }
     } catch (error) {
       console.error("Error using template:", error);
       toast.error("Wystąpił błąd");
+    } finally {
+      setIsApplyingTemplate(false);
     }
   };
 
@@ -324,13 +350,17 @@ export function TemplatesManagerDialog({
             <Button
               variant="outline"
               onClick={() => {
+                if (isApplyingTemplate) return;
                 setIsUsing(false);
                 setSelectedTemplate(null);
               }}
+              disabled={isApplyingTemplate}
             >
               Anuluj
             </Button>
-            <Button onClick={handleUseTemplate}>Utwórz zadania</Button>
+            <Button onClick={handleUseTemplate} disabled={isApplyingTemplate}>
+              {isApplyingTemplate ? "Tworzenie..." : "Utwórz zadania"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -383,7 +413,9 @@ export function TemplatesManagerDialog({
                       <Button
                         variant="outline"
                         size="sm"
+                        disabled={isApplyingTemplate}
                         onClick={() => {
+                          if (isApplyingTemplate) return;
                           setSelectedTemplate(template);
                           setIsUsing(true);
                         }}

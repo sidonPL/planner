@@ -108,10 +108,12 @@ export function TaskCardCompact({
   const [showRoutineEditDialog, setShowRoutineEditDialog] = useState(false);
 
   const isCompleted = task.status === "COMPLETED";
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !isCompleted;
+  const isOverdueByDate = Boolean(task.dueDate && new Date(task.dueDate) < new Date() && !isCompleted);
+  const isOverdue = typeof isRoutineOverdue === "boolean" ? isRoutineOverdue : isOverdueByDate;
   const isPinned = task.isPinned;
   const priority = priorityConfig[task.priority];
   const isRecurring = task.isRecurring && showRoutineActions;
+  const isRoutineCard = Boolean(task.isRecurring && showRoutineActions);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -148,6 +150,161 @@ export function TaskCardCompact({
   const totalSubtasks = task.subtasks?.length || 0;
   const attachmentsCount = task.attachments?.length || 0;
 
+  const actionsMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
+          <MoreVertical className="h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {onViewDetails && (
+          <DropdownMenuItem onClick={onViewDetails}>
+            <Eye className="mr-2 h-4 w-4" />
+            Szczegóły
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={onEdit}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Edytuj
+        </DropdownMenuItem>
+
+        {isRecurring && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleRoutineAction("edit")}>
+              <CalendarRange className="mr-2 h-4 w-4" />
+              Edytuj całą rutynę
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleRoutineAction("delete")}
+              className="text-red-600 focus:text-red-600"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Usuń rutynę
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+
+        <DropdownMenuItem
+          onClick={() => setShowDeleteDialog(true)}
+          className="text-red-600 focus:text-red-600"
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          {isRecurring ? "Usuń tę instancję" : "Usuń"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  if (isRoutineCard) {
+    return (
+      <>
+        <Card className={cn(
+          "transition-all hover:shadow-sm border-l-4",
+          isCompleted && "opacity-60",
+          isOverdue && "border-l-red-500 bg-red-50/30",
+          !isOverdue && "border-l-purple-500"
+        )}>
+          <div className="px-3 py-2">
+            <div className="flex items-start gap-2">
+              <Checkbox
+                checked={isCompleted}
+                onCheckedChange={(checked) => onToggleComplete(!!checked)}
+                className="mt-0.5 flex-shrink-0"
+              />
+
+              <div className="min-w-0 flex-1 space-y-1">
+                <button
+                  type="button"
+                  className={cn(
+                    "w-full text-left text-sm font-medium leading-snug break-words hover:text-primary",
+                    isCompleted && "line-through text-muted-foreground"
+                  )}
+                  onClick={onViewDetails}
+                >
+                  {task.title}
+                </button>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {task.dueTime && (
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {task.dueTime}
+                    </span>
+                  )}
+
+                  {(task.priority === "HIGH" || task.priority === "URGENT") && (
+                    <Badge variant="outline" className={cn("h-5 px-1.5", priority.color)}>
+                      {priority.label}
+                    </Badge>
+                  )}
+
+                  {isRoutineOverdue && !isCompleted && (
+                    <Badge variant="destructive" className="h-5 text-[10px] px-1.5">
+                      Spóźniona
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {actionsMenu}
+            </div>
+          </div>
+        </Card>
+
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Czy na pewno usunąć to zadanie?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Ta operacja jest nieodwracalna. Zadanie zostanie trwale usunięte.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Anuluj</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isDeleting ? "Usuwanie..." : "Usuń"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {isRecurring && (
+          <>
+            <RoutineActionDialog
+              open={showRoutineDialog}
+              onOpenChange={setShowRoutineDialog}
+              routineId={task.id}
+              routineTitle={task.title}
+              actionType={routineActionType}
+              onSuccess={handleRoutineSuccess}
+            />
+
+            <RoutineEditDialog
+              open={showRoutineEditDialog}
+              onOpenChange={setShowRoutineEditDialog}
+              routineId={task.id}
+              initialData={{
+                title: task.title,
+                description: task.description,
+                priority: task.priority,
+                dueTime: task.dueTime,
+                categoryId: task.categoryId,
+              }}
+              onSuccess={handleRoutineSuccess}
+            />
+          </>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <Card className={cn(
@@ -161,7 +318,7 @@ export function TaskCardCompact({
         isPinned && !isCompleted && "bg-yellow-50/30"
       )}>
         <div className="px-3 py-2">
-          <div className="flex items-center gap-2">
+          <div className={cn("flex gap-2", isRoutineCard ? "items-start" : "items-center")}>
             {/* Checkbox */}
             <Checkbox
               checked={isCompleted}
@@ -172,7 +329,8 @@ export function TaskCardCompact({
             {/* Title */}
             <span
               className={cn(
-                "flex-1 text-sm font-medium truncate cursor-pointer hover:text-primary",
+                "flex-1 text-sm font-medium cursor-pointer hover:text-primary",
+                isRoutineCard ? "leading-snug break-words line-clamp-2" : "truncate",
                 isCompleted && "line-through text-muted-foreground"
               )}
               onClick={onViewDetails}
@@ -190,7 +348,7 @@ export function TaskCardCompact({
             )}
 
             {/* Category */}
-            {task.category && (
+            {task.category && !isRoutineCard && (
               <Badge
                 variant="outline"
                 className="text-xs px-1.5 py-0 h-5 hidden md:flex"
@@ -201,7 +359,7 @@ export function TaskCardCompact({
             )}
 
             {/* Labels - max 2 visible */}
-            {task.labels && task.labels.length > 0 && (
+            {task.labels && task.labels.length > 0 && !isRoutineCard && (
               <div className="hidden lg:flex items-center gap-1">
                 {task.labels.slice(0, 2).map((label) => (
                   <Badge
@@ -225,8 +383,15 @@ export function TaskCardCompact({
               </div>
             )}
 
-            {/* Due Date */}
-            {task.dueDate && (
+            {/* Due Date / Time */}
+            {task.isRecurring ? (
+              task.dueTime ? (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
+                  <Clock className="h-3 w-3" />
+                  <span>{task.dueTime}</span>
+                </div>
+              ) : null
+            ) : task.dueDate ? (
               <div className={cn(
                 "flex items-center gap-1 text-xs flex-shrink-0",
                 isOverdue ? "text-red-600 font-medium" : "text-muted-foreground"
@@ -242,7 +407,7 @@ export function TaskCardCompact({
                   </>
                 )}
               </div>
-            )}
+            ) : null}
 
             {/* Overdue badge for routines */}
             {isRoutineOverdue && !isCompleted && (
@@ -252,7 +417,7 @@ export function TaskCardCompact({
             )}
 
             {/* Subtasks indicator */}
-            {totalSubtasks > 0 && (
+            {totalSubtasks > 0 && !isRoutineCard && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
                 <CheckSquare className="h-3 w-3" />
                 <span>{completedSubtasks}/{totalSubtasks}</span>
@@ -260,7 +425,7 @@ export function TaskCardCompact({
             )}
 
             {/* Attachments indicator */}
-            {attachmentsCount > 0 && (
+            {attachmentsCount > 0 && !isRoutineCard && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
                 <Paperclip className="h-3 w-3" />
                 <span className="hidden sm:inline">{attachmentsCount}</span>
@@ -268,7 +433,7 @@ export function TaskCardCompact({
             )}
 
             {/* Recurring indicator & Streak */}
-            {task.isRecurring && (
+            {task.isRecurring && !isRoutineCard && (
               <>
                 <span className="text-xs flex-shrink-0 hidden md:inline" title="Zadanie cykliczne">
                   🔄
@@ -278,7 +443,7 @@ export function TaskCardCompact({
             )}
 
             {/* Assignee */}
-            {task.assignee && (
+            {task.assignee && !isRoutineCard && (
               <Avatar className="h-6 w-6 flex-shrink-0">
                 <AvatarImage src={task.assignee.avatar || undefined} />
                 <AvatarFallback
@@ -291,7 +456,7 @@ export function TaskCardCompact({
             )}
 
             {/* Pin button */}
-            {onTogglePin && (
+            {onTogglePin && !isRoutineCard && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -308,53 +473,7 @@ export function TaskCardCompact({
               </Button>
             )}
 
-            {/* Actions menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
-                  <MoreVertical className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {onViewDetails && (
-                  <DropdownMenuItem onClick={onViewDetails}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    Szczegóły
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={onEdit}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edytuj
-                </DropdownMenuItem>
-
-                {/* Opcje rutyny */}
-                {isRecurring && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => handleRoutineAction("edit")}>
-                      <CalendarRange className="mr-2 h-4 w-4" />
-                      Edytuj całą rutynę
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleRoutineAction("delete")}
-                      className="text-red-600 focus:text-red-600"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Usuń rutynę
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-
-                <DropdownMenuItem
-                  onClick={() => setShowDeleteDialog(true)}
-                  className="text-red-600 focus:text-red-600"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  {isRecurring ? "Usuń tę instancję" : "Usuń"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {actionsMenu}
           </div>
         </div>
       </Card>

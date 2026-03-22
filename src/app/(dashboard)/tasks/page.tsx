@@ -18,7 +18,6 @@ export default async function TasksPage() {
     prisma.task.findMany({
       where: {
         householdId: session.user.householdId,
-        isRecurring: false, // Wyklucz rutyny - są w osobnej zakładce
       },
       include: {
         category: true,

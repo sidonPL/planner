@@ -1,8 +1,8 @@
 import { toast as sonnerToast } from "sonner";
+import { useCallback, useMemo } from "react";
 
 export function useToast() {
-  return {
-    toast: ({
+  const toast = useCallback(({
       title,
       description,
       variant = "default",
@@ -20,7 +20,8 @@ export function useToast() {
           description,
         });
       }
-    },
-  };
+    }, []);
+
+  return useMemo(() => ({ toast }), [toast]);
 }
 

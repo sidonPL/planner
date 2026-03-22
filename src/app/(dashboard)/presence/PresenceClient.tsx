@@ -24,6 +24,7 @@ import {
   BarChart3,
   Flame,
   AlertCircle,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,8 +39,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import type { Presence } from "@prisma/client";
 import { cn } from "@/lib/utils";
-import { useGeofence } from "@/hooks/useGeofence";
 import { getCurrentPosition, formatCoordinates } from "@/lib/geolocation";
+import { useGeofenceTracking } from "@/hooks/useGeofenceTracking";
 
 // Dynamiczny import mapy (Leaflet wymaga window)
 const GeofenceMap = dynamic(() => import("@/components/GeofenceMap").then(mod => ({ default: mod.GeofenceMap })), {
@@ -95,6 +96,21 @@ interface GeofenceEvent {
   };
 }
 
+type ZoneType = "HOME" | "WORK" | "SCHOOL" | "OTHER";
+
+interface ZoneFormState {
+  name: string;
+  latitude: number;
+  longitude: number;
+  radius: number;
+  radiusInput: string;
+  type: ZoneType;
+}
+
+interface EditZoneFormState extends ZoneFormState {
+  isActive: boolean;
+}
+
 interface PresenceClientProps {
   members: MemberWithPresence[];
   presenceHistory: PresenceWithUser[];
@@ -111,6 +127,8 @@ const zoneTypeConfig = {
   OTHER: { icon: MapPin, label: "Inne", color: "#6B7280" },
 };
 
+const radiusPresets = [50, 100, 200, 500] as const;
+
 export function PresenceClient({
   members: initialMembers,
   presenceHistory: initialHistory,
@@ -123,6 +141,8 @@ export function PresenceClient({
   const [zones, setZones] = useState(initialZones);
   const [geofenceEvents] = useState(initialGeofenceEvents);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
@@ -132,18 +152,65 @@ export function PresenceClient({
   const [searchAddress, setSearchAddress] = useState("");
   const [isGeocoding, setIsGeocoding] = useState(false);
 
-  const [newZone, setNewZone] = useState({
+  const [newZone, setNewZone] = useState<ZoneFormState>({
     name: "",
     latitude: 0,
     longitude: 0,
     radius: 100,
-    type: "HOME" as const,
+    radiusInput: "100",
+    type: "HOME",
   });
 
-  // Geofencing hook
-  const { isTracking, currentLocation, startTracking, stopTracking, checkNow } = useGeofence({
-    enabled: false,
+  const [editZone, setEditZone] = useState<EditZoneFormState>({
+    name: "",
+    latitude: 0,
+    longitude: 0,
+    radius: 100,
+    radiusInput: "100",
+    type: "HOME",
+    isActive: true,
   });
+
+  const parseRadius = (value: string): number | null => {
+    if (!value.trim()) return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return null;
+    const normalized = Math.round(parsed);
+    if (normalized < 10 || normalized > 10000) return null;
+    return normalized;
+  };
+
+  const { enabled: geofenceEnabled, isTracking, currentLocation, error: geofenceError, startTracking, stopTracking, checkNow } = useGeofenceTracking();
+
+  const getGeofenceErrorInfo = (message: string) => {
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes("odmówił") || normalized.includes("odmowil") || normalized.includes("permission")) {
+      return {
+        title: "Brak dostępu do lokalizacji",
+        hint: "Włącz uprawnienie lokalizacji dla tej strony w ustawieniach przeglądarki i spróbuj ponownie.",
+      };
+    }
+
+    if (normalized.includes("czas") || normalized.includes("timeout")) {
+      return {
+        title: "Limit czasu pobierania lokalizacji",
+        hint: "Sprawdź sygnał GPS/internet i spróbuj ponownie za chwilę.",
+      };
+    }
+
+    if (normalized.includes("nie jest dostępna") || normalized.includes("niedostępna") || normalized.includes("unavailable")) {
+      return {
+        title: "Lokalizacja chwilowo niedostępna",
+        hint: "Upewnij się, że urządzenie ma aktywne usługi lokalizacji.",
+      };
+    }
+
+    return {
+      title: "Problem z geolokalizacją",
+      hint: "Sprawdź ustawienia lokalizacji i spróbuj ponownie.",
+    };
+  };
 
   const handleTogglePresence = async (userId: string) => {
     const member = members.find((m) => m.id === userId);
@@ -214,16 +281,31 @@ export function PresenceClient({
 
   // Dodaj strefę
   const handleAddZone = async () => {
+    const parsedRadius = parseRadius(newZone.radiusInput);
+
     if (!newZone.name || newZone.latitude === 0) {
       toast.error("Wypełnij wszystkie pola");
       return;
     }
 
+    if (parsedRadius === null) {
+      toast.error("Promień musi być liczbą od 10 do 10000 metrów");
+      return;
+    }
+
     try {
+      const payload = {
+        name: newZone.name,
+        latitude: newZone.latitude,
+        longitude: newZone.longitude,
+        radius: parsedRadius,
+        type: newZone.type,
+      };
+
       const response = await fetch("/api/geofence/zones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newZone),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -235,12 +317,68 @@ export function PresenceClient({
         };
         setZones([zoneWithCount, ...zones]);
         setIsAddDialogOpen(false);
-        setNewZone({ name: "", latitude: 0, longitude: 0, radius: 100, type: "HOME" });
+        setNewZone({ name: "", latitude: 0, longitude: 0, radius: 100, radiusInput: "100", type: "HOME" });
         setSearchAddress(""); // Wyczyść adres
         setAddressTab("coords"); // Przywróć domyślną zakładkę
         toast.success("Strefa dodana");
       } else {
         toast.error("Nie udało się dodać strefy");
+      }
+    } catch (error) {
+      toast.error("Wystąpił błąd");
+      console.error(error);
+    }
+  };
+
+  const handleOpenEditZone = (zone: Zone) => {
+    setEditingZoneId(zone.id);
+    setEditZone({
+      name: zone.name,
+      latitude: zone.latitude,
+      longitude: zone.longitude,
+      radius: zone.radius,
+      radiusInput: String(zone.radius),
+      type: zone.type as ZoneType,
+      isActive: zone.isActive,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateZone = async () => {
+    if (!editingZoneId) return;
+
+    const parsedRadius = parseRadius(editZone.radiusInput);
+    if (!editZone.name || editZone.latitude === 0) {
+      toast.error("Wypełnij wszystkie pola");
+      return;
+    }
+    if (parsedRadius === null) {
+      toast.error("Promień musi być liczbą od 10 do 10000 metrów");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/geofence/zones/${editingZoneId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editZone.name,
+          latitude: editZone.latitude,
+          longitude: editZone.longitude,
+          radius: parsedRadius,
+          type: editZone.type,
+          isActive: editZone.isActive,
+        }),
+      });
+
+      if (response.ok) {
+        const updatedZone = await response.json();
+        setZones((prev) => prev.map((z) => (z.id === editingZoneId ? { ...z, ...updatedZone } : z)));
+        setIsEditDialogOpen(false);
+        setEditingZoneId(null);
+        toast.success("Strefa zaktualizowana");
+      } else {
+        toast.error("Nie udało się zaktualizować strefy");
       }
     } catch (error) {
       toast.error("Wystąpił błąd");
@@ -517,7 +655,17 @@ export function PresenceClient({
   const renderGeofencingTab = () => (
     <>
       {/* Alert o braku uprawnień do lokalizacji */}
-      {!isTracking && currentLocation === null && (
+      {geofenceError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>{getGeofenceErrorInfo(geofenceError.message).title}</AlertTitle>
+          <AlertDescription>
+            {geofenceError.message}. {getGeofenceErrorInfo(geofenceError.message).hint}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!isTracking && currentLocation === null && !geofenceError && (
         <Alert className="border-yellow-500/50 bg-yellow-500/10">
           <AlertCircle className="h-4 w-4 text-yellow-600" />
           <AlertTitle className="text-yellow-700 dark:text-yellow-400">
@@ -541,9 +689,7 @@ export function PresenceClient({
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">
-                {isTracking ? "Monitorowanie aktywne" : "Monitorowanie wyłączone"}
-              </p>
+              <p className="font-medium">{geofenceEnabled ? "Monitorowanie aktywne" : "Monitorowanie wyłączone"}</p>
               {currentLocation && (
                 <p className="text-sm text-muted-foreground">
                   Ostatnia lokalizacja: {formatCoordinates(currentLocation)}
@@ -551,7 +697,7 @@ export function PresenceClient({
               )}
             </div>
             <div className="flex gap-2">
-              {isTracking ? (
+              {geofenceEnabled ? (
                 <Button variant="destructive" onClick={stopTracking}>
                   <PowerOff className="h-4 w-4 mr-2" />
                   Wyłącz
@@ -562,7 +708,7 @@ export function PresenceClient({
                   Włącz
                 </Button>
               )}
-              <Button variant="outline" onClick={checkNow} disabled={!isTracking}>
+              <Button variant="outline" onClick={checkNow} disabled={!geofenceEnabled}>
                 <Navigation className="h-4 w-4 mr-2" />
                 Sprawdź teraz
               </Button>
@@ -674,6 +820,16 @@ export function PresenceClient({
                       📍 {zone.latitude.toFixed(6)}, {zone.longitude.toFixed(6)}
                     </div>
                     <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEditZone(zone);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -868,12 +1024,31 @@ export function PresenceClient({
 
           <div className="space-y-2">
             <Label>Promień (metry)</Label>
+            <div className="flex flex-wrap gap-2">
+              {radiusPresets.map((preset) => (
+                <Button
+                  key={`new-radius-${preset}`}
+                  type="button"
+                  variant={parseRadius(newZone.radiusInput) === preset ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setNewZone({ ...newZone, radius: preset, radiusInput: String(preset) })}
+                >
+                  {preset} m
+                </Button>
+              ))}
+            </div>
             <Input
               type="number"
               min="10"
               max="10000"
-              value={newZone.radius}
-              onChange={(e) => setNewZone({ ...newZone, radius: parseInt(e.target.value) || 100 })}
+              value={newZone.radiusInput}
+              onChange={(e) => setNewZone({ ...newZone, radiusInput: e.target.value })}
+              onBlur={() => {
+                const parsedRadius = parseRadius(newZone.radiusInput);
+                if (parsedRadius !== null) {
+                  setNewZone({ ...newZone, radius: parsedRadius, radiusInput: String(parsedRadius) });
+                }
+              }}
             />
             <p className="text-xs text-muted-foreground">
               10m - 10km (zalecane: 100-200m dla domu, 50-100m dla miejsca pracy/szkoły)
@@ -885,11 +1060,133 @@ export function PresenceClient({
             setIsAddDialogOpen(false);
             setSearchAddress("");
             setAddressTab("coords");
+            setNewZone({ name: "", latitude: 0, longitude: 0, radius: 100, radiusInput: "100", type: "HOME" });
           }}>
             Anuluj
           </Button>
           <Button onClick={handleAddZone} disabled={!newZone.name || newZone.latitude === 0}>
             Dodaj strefę
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const renderEditZoneDialog = () => (
+    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edytuj strefę geofencing</DialogTitle>
+          <DialogDescription>
+            Zmień dane strefy, promień lub aktywność monitorowania dla tej lokalizacji.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nazwa</Label>
+            <Input
+              value={editZone.name}
+              onChange={(e) => setEditZone({ ...editZone, name: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Typ</Label>
+            <Select
+              value={editZone.type}
+              onValueChange={(v) => setEditZone({ ...editZone, type: v as typeof editZone.type })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HOME">🏠 Dom</SelectItem>
+                <SelectItem value="WORK">💼 Praca</SelectItem>
+                <SelectItem value="SCHOOL">🎓 Szkoła</SelectItem>
+                <SelectItem value="OTHER">📍 Inne</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Szerokość (Latitude)</Label>
+              <Input
+                type="number"
+                step="0.000001"
+                value={editZone.latitude}
+                onChange={(e) => setEditZone({ ...editZone, latitude: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Długość (Longitude)</Label>
+              <Input
+                type="number"
+                step="0.000001"
+                value={editZone.longitude}
+                onChange={(e) => setEditZone({ ...editZone, longitude: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Promień (metry)</Label>
+            <div className="flex flex-wrap gap-2">
+              {radiusPresets.map((preset) => (
+                <Button
+                  key={`edit-radius-${preset}`}
+                  type="button"
+                  variant={parseRadius(editZone.radiusInput) === preset ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setEditZone({ ...editZone, radius: preset, radiusInput: String(preset) })}
+                >
+                  {preset} m
+                </Button>
+              ))}
+            </div>
+            <Input
+              type="number"
+              min="10"
+              max="10000"
+              value={editZone.radiusInput}
+              onChange={(e) => setEditZone({ ...editZone, radiusInput: e.target.value })}
+              onBlur={() => {
+                const parsedRadius = parseRadius(editZone.radiusInput);
+                if (parsedRadius !== null) {
+                  setEditZone({ ...editZone, radius: parsedRadius, radiusInput: String(parsedRadius) });
+                }
+              }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div>
+              <p className="font-medium">Aktywna strefa</p>
+              <p className="text-xs text-muted-foreground">Wyłączenie strefy zatrzyma wykrywanie wejść/wyjść dla tej lokalizacji.</p>
+            </div>
+            <Button
+              type="button"
+              variant={editZone.isActive ? "default" : "outline"}
+              onClick={() => setEditZone((prev) => ({ ...prev, isActive: !prev.isActive }))}
+            >
+              {editZone.isActive ? "Włączona" : "Wyłączona"}
+            </Button>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsEditDialogOpen(false);
+              setEditingZoneId(null);
+            }}
+          >
+            Anuluj
+          </Button>
+          <Button onClick={handleUpdateZone} disabled={!editZone.name || editZone.latitude === 0}>
+            Zapisz zmiany
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -930,6 +1227,7 @@ export function PresenceClient({
 
       {/* Dialogs */}
       {renderAddZoneDialog()}
+      {renderEditZoneDialog()}
     </div>
   );
 }

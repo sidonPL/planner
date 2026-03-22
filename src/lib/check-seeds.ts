@@ -455,7 +455,12 @@ async function seedRoutineTemplates() {
       icon: '🌅',
       category: 'morning',
       isPublic: true,
-      estimatedDuration: 60,
+      tasks: [
+        { title: 'Wziąć prysznic', time: '07:00', priority: 'MEDIUM' },
+        { title: 'Zrobić kawę', time: '07:15', priority: 'MEDIUM' },
+        { title: 'Zjeść śniadanie', time: '07:30', priority: 'HIGH' },
+        { title: 'Umyć zęby', time: '07:45', priority: 'HIGH' },
+      ],
     },
     {
       name: 'Wieczorna rutyna',
@@ -463,7 +468,12 @@ async function seedRoutineTemplates() {
       icon: '🌙',
       category: 'evening',
       isPublic: true,
-      estimatedDuration: 45,
+      tasks: [
+        { title: 'Kolacja', time: '19:00', priority: 'MEDIUM' },
+        { title: 'Posprzątać kuchnię', time: '19:30', priority: 'LOW' },
+        { title: 'Higiena wieczorna', time: '21:00', priority: 'HIGH' },
+        { title: 'Przygotować plan na jutro', time: '21:30', priority: 'MEDIUM' },
+      ],
     },
     {
       name: 'Sprzątanie cotygodniowe',
@@ -471,7 +481,11 @@ async function seedRoutineTemplates() {
       icon: '🧹',
       category: 'weekly',
       isPublic: true,
-      estimatedDuration: 120,
+      tasks: [
+        { title: 'Odkurzyć wszystkie pokoje', time: '10:00', priority: 'HIGH' },
+        { title: 'Umyć podłogi', time: '10:30', priority: 'HIGH' },
+        { title: 'Wyczyścić łazienkę', time: '11:00', priority: 'HIGH' },
+      ],
     },
     {
       name: 'Przegląd finansów',
@@ -479,7 +493,11 @@ async function seedRoutineTemplates() {
       icon: '💰',
       category: 'monthly',
       isPublic: true,
-      estimatedDuration: 30,
+      tasks: [
+        { title: 'Sprawdzić saldo konta', time: '09:00', priority: 'HIGH' },
+        { title: 'Przejrzeć wydatki', time: '09:20', priority: 'HIGH' },
+        { title: 'Zaplanować budżet na kolejny miesiąc', time: '09:40', priority: 'HIGH' },
+      ],
     },
     {
       name: 'Rutyna zdrowotna',
@@ -487,7 +505,11 @@ async function seedRoutineTemplates() {
       icon: '💊',
       category: 'morning',
       isPublic: true,
-      estimatedDuration: 20,
+      tasks: [
+        { title: 'Wypić szklankę wody', time: '08:00', priority: 'MEDIUM' },
+        { title: 'Zażyć witaminy', time: '08:05', priority: 'HIGH' },
+        { title: 'Krótka rozgrzewka', time: '08:15', priority: 'MEDIUM' },
+      ],
     },
   ];
 
@@ -524,7 +546,17 @@ async function seedRoutineTemplates() {
           ...template,
           householdId: firstHousehold.id,
           createdBy: firstUser.id,
-          tasks: [], // Empty tasks array - można uzupełnić później
+        },
+      });
+      continue;
+    }
+
+    const existingTasks = Array.isArray(existing.tasks) ? existing.tasks : [];
+    if (existingTasks.length === 0) {
+      await prisma.routineTemplate.update({
+        where: { id: existing.id },
+        data: {
+          tasks: template.tasks,
         },
       });
     }

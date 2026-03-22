@@ -90,7 +90,23 @@ export async function PATCH(
       return NextResponse.json({ error: "Zone not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true });
+    const updatedZone = await prisma.geofenceZone.findFirst({
+      where: {
+        id,
+        householdId: session.user.householdId,
+      },
+      include: {
+        _count: {
+          select: { events: true },
+        },
+      },
+    });
+
+    if (!updatedZone) {
+      return NextResponse.json({ error: "Zone not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(updatedZone);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });

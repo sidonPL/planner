@@ -28,7 +28,7 @@ module.exports = {
       wait_ready: true,
       listen_timeout: 10000,
     },
-    // Cron: Task reminders - co 15 minut
+    // Cron: Task reminders - co 5 minut (ZMIENIONE z 15: dokładniejsze okna czasowe)
     {
       name: 'cron-task-reminders',
       script: 'curl',
@@ -37,7 +37,7 @@ module.exports = {
         '-H', `Authorization: Bearer ${process.env.CRON_SECRET}`,
         'http://localhost:3000/api/cron/task-reminders'
       ],
-      cron_restart: '*/15 * * * *',
+      cron_restart: '*/5 * * * *',
       autorestart: false,
       watch: false,
     },
@@ -54,7 +54,7 @@ module.exports = {
       autorestart: false,
       watch: false,
     },
-    // Cron: Meal reminders - co 10 minut
+    // Cron: Meal reminders - co 5 minut (ZMIENIONE z 10: lepsze pokrycie okna czasowego dla posiłków)
     {
       name: 'cron-meal-reminders',
       script: 'curl',
@@ -63,7 +63,7 @@ module.exports = {
         '-H', `Authorization: Bearer ${process.env.CRON_SECRET}`,
         'http://localhost:3000/api/cron/meal-reminders'
       ],
-      cron_restart: '*/10 * * * *',
+      cron_restart: '*/5 * * * *',
       autorestart: false,
       watch: false,
     },
@@ -80,7 +80,7 @@ module.exports = {
       autorestart: false,
       watch: false,
     },
-    // Cron: Event reminders - codziennie o 7:00
+    // Cron: Event reminders - co 10 minut
     {
       name: 'cron-event-reminders',
       script: 'curl',
@@ -89,7 +89,7 @@ module.exports = {
         '-H', `Authorization: Bearer ${process.env.CRON_SECRET}`,
         'http://localhost:3000/api/cron/event-reminders'
       ],
-      cron_restart: '0 7 * * *',
+      cron_restart: '*/10 * * * *',
       autorestart: false,
       watch: false,
     },
@@ -132,7 +132,7 @@ module.exports = {
       autorestart: false,
       watch: false,
     },
-    // Cron: Trip reminders - codziennie o 8:00
+    // Cron: Trip reminders - o 8:00, 14:00 i 20:00 (ZMIENIONE z raz dziennie: większa widoczność)
     {
       name: 'cron-trip-reminders',
       script: 'curl',
@@ -141,11 +141,11 @@ module.exports = {
         '-H', `Authorization: Bearer ${process.env.CRON_SECRET}`,
         'http://localhost:3000/api/cron/trip-reminders'
       ],
-      cron_restart: '0 8 * * *',
+      cron_restart: '0 8,14,20 * * *',
       autorestart: false,
       watch: false,
     },
-    // Cron: Routine reminders - co godzinę
+    // Cron: Routine reminders - co 5 minut (ZMIENIONE z co godzinę: KRYTYCZNA NAPRAWA - poprzednio nigdy nie wysyłały!)
     {
       name: 'cron-routine-reminders',
       script: 'curl',
@@ -154,7 +154,7 @@ module.exports = {
         '-H', `Authorization: Bearer ${process.env.CRON_SECRET}`,
         'http://localhost:3000/api/cron/routine-reminders'
       ],
-      cron_restart: '0 * * * *',
+      cron_restart: '*/5 * * * *',
       autorestart: false,
       watch: false,
     },
@@ -233,6 +233,19 @@ module.exports = {
         'http://localhost:3000/api/cron/task-escalation'
       ],
       cron_restart: '0 12 * * *',
+      autorestart: false,
+      watch: false,
+    },
+    // Cron: Task cleanup - codziennie o 03:30 (archiwalne ukończone zadania)
+    {
+      name: 'cron-task-cleanup',
+      script: 'curl',
+      args: [
+        '-X', 'GET',
+        '-H', `Authorization: Bearer ${process.env.CRON_SECRET}`,
+        'http://localhost:3000/api/cron/task-cleanup'
+      ],
+      cron_restart: '30 3 * * *',
       autorestart: false,
       watch: false,
     },

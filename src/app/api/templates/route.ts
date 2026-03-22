@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultTaskTemplates } from "@/lib/task-template-defaults";
 
 type TemplateTaskInput = {
   title: string;
@@ -16,6 +17,13 @@ export async function GET() {
     const session = await auth();
     if (!session?.user?.householdId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (session.user.id) {
+      await ensureDefaultTaskTemplates({
+        householdId: session.user.householdId,
+        createdBy: session.user.id,
+      });
     }
 
     const templates = await prisma.taskTemplate.findMany({

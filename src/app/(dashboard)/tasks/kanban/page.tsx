@@ -23,7 +23,6 @@ export default async function KanbanPage() {
     prisma.task.findMany({
       where: {
         householdId: session.user.householdId,
-        isRecurring: false, // Wyklucz rutyny - są w osobnej zakładce
       },
       include: {
         category: true,

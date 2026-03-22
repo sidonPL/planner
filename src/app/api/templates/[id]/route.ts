@@ -51,7 +51,33 @@ export async function POST(
 
     const { id } = await params;
     const body = await req.json();
-    const { parentTaskTitle, assigneeId } = body;
+        const { parentTaskTitle, assigneeId, clientRequestId } = body as {
+      parentTaskTitle?: string | null;
+      assigneeId?: string | null;
+      clientRequestId?: string;
+    };
+
+    if (clientRequestId) {
+      const duplicateApply = await prisma.auditLog.findFirst({
+        where: {
+          userId: session.user.id,
+          householdId: session.user.householdId,
+          action: "CREATE",
+          entityType: "TaskTemplateApply",
+          entityId: `${id}:${clientRequestId}`,
+        },
+        select: { id: true },
+      });
+
+      if (duplicateApply) {
+        return NextResponse.json({
+          success: true,
+          duplicate: true,
+          tasksCreated: 0,
+          tasks: [],
+        });
+      }
+    }
 
     // Pobierz szablon
     const template = await prisma.taskTemplate.findFirst({
@@ -126,6 +152,23 @@ export async function POST(
         })
       )
     );
+
+    if (clientRequestId) {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          householdId: session.user.householdId,
+          action: "CREATE",
+          entityType: "TaskTemplateApply",
+          entityId: `${id}:${clientRequestId}`,
+          entityName: template.name,
+          metadata: {
+            tasksCreated: tasks.length,
+            parentTaskId,
+          },
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

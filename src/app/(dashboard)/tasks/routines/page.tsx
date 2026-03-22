@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { RoutinesClient } from "./RoutinesClient";
+import { addDays, endOfDay, startOfDay, subDays } from "date-fns";
 
 export default async function RoutinesPage() {
   const session = await auth();
@@ -14,26 +15,22 @@ export default async function RoutinesPage() {
     redirect("/onboarding");
   }
 
-  // Pobierz instancje rutyn z datami (OGRANICZONY ZAKRES - szybkie zapytanie)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const pastDate = new Date(today);
-  pastDate.setDate(pastDate.getDate() - 3); // Tylko 3 dni wstecz
-  const futureDate = new Date(today);
-  futureDate.setDate(futureDate.getDate() + 7); // Tylko 7 dni w przód
+  // Pobierz instancje rutyn z szerszego zakresu i poprawnymi granicami dnia.
+  const today = startOfDay(new Date());
+  const pastDate = startOfDay(subDays(today, 30));
+  const futureDate = endOfDay(addDays(today, 45));
 
   const [routines, categories, members] = await Promise.all([
     prisma.task.findMany({
       where: {
         householdId: session.user.householdId,
         isRecurring: true,
-        parentTaskId: { not: null }, // Tylko instancje
         dueDate: {
           gte: pastDate,
           lte: futureDate,
         },
       },
-      take: 100, // LIMIT - maksymalnie 100 instancji
+      take: 1000,
       include: {
         category: true,
         assignee: {
@@ -76,6 +73,7 @@ export default async function RoutinesPage() {
         },
       },
       orderBy: [
+        { dueDate: "asc" },
         { dueTime: "asc" },
         { priority: "desc" },
       ],

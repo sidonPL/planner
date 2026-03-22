@@ -99,40 +99,42 @@ export function TaskQuickFilters({
   counts 
 }: TaskQuickFiltersProps) {
   return (
-    <div className="flex flex-wrap gap-2 mb-4">
-      {filters.map((filter) => {
-        const count = counts[filter.id];
-        const isActive = activeFilter === filter.id;
+    <div className="mb-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex w-max min-w-full gap-2 pr-1 whitespace-nowrap">
+        {filters.map((filter) => {
+          const count = counts[filter.id];
+          const isActive = activeFilter === filter.id;
 
-        return (
-          <Button
-            key={filter.id}
-            variant={isActive ? "default" : "outline"}
-            size="sm"
-            className={cn(
-              "h-9 transition-all",
-              !isActive && filter.color,
-              isActive && "shadow-md"
-            )}
-            onClick={() => onFilterChange(filter.id)}
-          >
-            <span className="mr-2">{filter.icon}</span>
-            <span>{filter.label}</span>
-            {count > 0 && (
-              <Badge 
-                variant={isActive ? "secondary" : "outline"} 
-                className={cn(
-                  "ml-2 px-1.5 min-w-[20px] justify-center",
-                  isActive && "bg-primary-foreground/20",
-                  !isActive && "border-current"
-                )}
-              >
-                {count}
-              </Badge>
-            )}
-          </Button>
-        );
-      })}
+          return (
+            <Button
+              key={filter.id}
+              variant={isActive ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "h-8 shrink-0 transition-all",
+                !isActive && filter.color,
+                isActive && "shadow-sm"
+              )}
+              onClick={() => onFilterChange(filter.id)}
+            >
+              <span className="mr-2">{filter.icon}</span>
+              <span>{filter.label}</span>
+              {count > 0 && (
+                <Badge 
+                  variant={isActive ? "secondary" : "outline"} 
+                  className={cn(
+                    "ml-2 px-1.5 min-w-[20px] justify-center",
+                    isActive && "bg-primary-foreground/20",
+                    !isActive && "border-current"
+                  )}
+                >
+                  {count}
+                </Badge>
+              )}
+            </Button>
+          );
+        })}
+      </div>
     </div>
   );
 }

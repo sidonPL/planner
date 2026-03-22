@@ -30,6 +30,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Integration not found" }, { status: 404 });
     }
 
+    const integrationUser = await prisma.user.findUnique({
+      where: { id: integration.userId },
+      select: { householdId: true },
+    });
+    const householdId = integrationUser?.householdId ?? null;
+
     // Użyj URL z webhook lub z integracji
     const icalUrl = calendarUrl || integration.icalUrl;
 
@@ -87,6 +93,7 @@ export async function POST(request: NextRequest) {
           create: {
             integrationId: integration.id,
             externalId: event.uid,
+            householdId,
             title: event.summary,
             description: event.description,
             startDate: event.start,
@@ -107,6 +114,7 @@ export async function POST(request: NextRequest) {
             color: eventColor,
             attachments: attachmentsJson,
             rawIcal: event.raw,
+            householdId,
           },
         });
       }

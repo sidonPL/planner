@@ -83,10 +83,12 @@ export function RoutineTemplatesManager({
   const refreshTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/routine-templates");
+      const response = await fetch("/api/routine-templates", { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         setTemplates(data.filter((t: RoutineTemplate) => !t.isPublic));
+      } else {
+        throw new Error(`Failed to load templates (${response.status})`);
       }
     } catch (error) {
       console.error("Error loading templates:", error);
@@ -142,7 +144,13 @@ export function RoutineTemplatesManager({
       return;
     }
 
-    const validTasks = formData.tasks.filter((t) => t.title.trim());
+    const validTasks = formData.tasks
+      .map((task) => ({
+        title: task.title.trim(),
+        time: task.time,
+        priority: task.priority,
+      }))
+      .filter((t) => t.title);
     if (validTasks.length === 0) {
       toast({
         title: "Błąd",
@@ -182,13 +190,15 @@ export function RoutineTemplatesManager({
         void refreshTemplates();
         onTemplateChanged?.();
       } else {
-        throw new Error("Failed to save template");
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || `Failed to save template (${response.status})`);
       }
     } catch (error) {
       console.error("Error saving template:", error);
       toast({
         title: "Błąd",
-        description: "Nie udało się zapisać szablonu",
+        description:
+          error instanceof Error ? error.message : "Nie udało się zapisać szablonu",
         variant: "destructive",
       });
     }
@@ -265,7 +275,7 @@ export function RoutineTemplatesManager({
         if (!open) resetForm();
         onOpenChange(open);
       }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col min-h-0">
           <DialogHeader>
             <DialogTitle>
               {editingTemplate ? "Edytuj szablon rutyny" : "Nowy szablon rutyny"}
@@ -277,7 +287,7 @@ export function RoutineTemplatesManager({
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 pr-4">
+          <ScrollArea className="flex-1 min-h-0 pr-4">
             <div className="space-y-4">
               {/* Basic info */}
               <div className="grid grid-cols-[auto_1fr] gap-4">
@@ -422,7 +432,7 @@ export function RoutineTemplatesManager({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col min-h-0">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
@@ -433,7 +443,7 @@ export function RoutineTemplatesManager({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           <div className="mb-4">
             <Button onClick={() => setIsCreating(true)} className="w-full">
               <Plus className="mr-2 h-4 w-4" />
@@ -458,7 +468,7 @@ export function RoutineTemplatesManager({
               </Button>
             </div>
           ) : (
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="grid gap-4 md:grid-cols-2 pr-4">
                 {templates.map((template) => (
                   <Card key={template.id}>

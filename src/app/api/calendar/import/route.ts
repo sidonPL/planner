@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
             data: {
               integrationId: integration.id,
               externalId: event.uid,
+              householdId: session.user.householdId,
               title: event.summary,
               description: event.description,
               startDate: event.start,

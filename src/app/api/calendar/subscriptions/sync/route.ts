@@ -11,6 +11,12 @@ export async function POST(): Promise<NextResponse> {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { householdId: true },
+    });
+    const householdId = user?.householdId ?? null;
+
     const integrations = await prisma.calendarIntegration.findMany({
       where: {
         userId: session.user.id,
@@ -20,7 +26,7 @@ export async function POST(): Promise<NextResponse> {
     });
 
     const results = await Promise.allSettled(
-      integrations.map((integration) => syncIntegration(integration.id))
+      integrations.map((integration) => syncIntegration(integration.id, householdId))
     );
 
     const summary = {
@@ -36,7 +42,7 @@ export async function POST(): Promise<NextResponse> {
   }
 }
 
-async function syncIntegration(integrationId: string) {
+async function syncIntegration(integrationId: string, householdId: string | null) {
   const integration = await prisma.calendarIntegration.findUnique({
     where: { id: integrationId },
   });
@@ -64,6 +70,7 @@ async function syncIntegration(integrationId: string) {
         create: {
           integrationId: integration.id,
           externalId: event.uid,
+          householdId,
           title: event.summary,
           description: event.description,
           startDate: event.start,
@@ -80,6 +87,7 @@ async function syncIntegration(integrationId: string) {
           location: event.location,
           isAllDay: event.isAllDay,
           rawIcal: event.raw,
+          householdId,
         },
       });
     }

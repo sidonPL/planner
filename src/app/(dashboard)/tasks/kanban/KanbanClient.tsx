@@ -477,9 +477,8 @@ export function KanbanClient({ initialTasks, categories, members }: KanbanClient
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {columns.map((column) => {
-            // Filtruj zadania: wyklucz rutyny (pokazują się w osobnej sekcji)
             const columnTasks = filteredTasks
-              .filter((t) => t.status === column.id && !t.isRecurring && !t.subtaskParentId)
+              .filter((t) => t.status === column.id && !t.subtaskParentId)
               .sort((a, b) => {
                 // Przypięte na górze
                 if (a.isPinned && !b.isPinned) return -1;
@@ -706,6 +705,7 @@ export function KanbanClient({ initialTasks, categories, members }: KanbanClient
                                   onToggleComplete={(completed) => handleToggleComplete(routine.id, completed)}
                                   onTogglePin={(pinned) => handleTogglePin(routine.id, pinned)}
                                   isOverdue={isOverdue}
+                                  showRoutineActions
                                 />
                               </div>
                             );

@@ -15,6 +15,7 @@ import { OnboardingWizard, useOnboarding } from "@/components/OnboardingWizard";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { VoiceCommands, useVoiceCommands } from "@/components/VoiceCommands";
 import { RewardThemeProvider } from "@/components/gamification/RewardThemeProvider";
+import { GeofenceTrackingProvider } from "@/hooks/useGeofenceTracking";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -75,7 +76,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <TTSProvider>
       <SSEProvider>
-        <RewardThemeProvider activeTheme={activeTheme}>
+        <GeofenceTrackingProvider>
+          <RewardThemeProvider activeTheme={activeTheme}>
           <KioskMode>
             <div className="h-screen flex overflow-hidden bg-background">
               {/* Sidebar - desktop only */}
@@ -114,7 +116,8 @@ export function AppLayout({ children }: AppLayoutProps) {
               <CookieConsent />
             </div>
           </KioskMode>
-        </RewardThemeProvider>
+          </RewardThemeProvider>
+        </GeofenceTrackingProvider>
       </SSEProvider>
     </TTSProvider>
   );

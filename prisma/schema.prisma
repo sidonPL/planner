@@ -74,6 +74,7 @@ model User {
   allergens                String[]                 @default([])
   calendarSyncToken        String?                  @unique
   currentStreak            Int                      @default(0)
+  totalTaskCompletions     Int                      @default(0)
   lastActivityDate         DateTime?
   level                    Int                      @default(1)
   longestStreak            Int                      @default(0)

@@ -2,27 +2,47 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
+async function getValidatedUserId(): Promise<{ userId: string } | { response: NextResponse }> {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true },
+  });
+
+  if (!existingUser) {
+    return {
+      response: NextResponse.json(
+        { error: "Sesja jest nieaktualna. Zaloguj się ponownie." },
+        { status: 401 }
+      ),
+    };
+  }
+
+  return { userId: existingUser.id };
+}
+
 // GET - pobierz ustawienia użytkownika
 export async function GET() {
   try {
-    const session = await auth();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const validated = await getValidatedUserId();
+    if ("response" in validated) {
+      return validated.response;
     }
 
-    let settings = await prisma.userSettings.findUnique({
-      where: { userId: session.user.id },
+    const settings = await prisma.userSettings.upsert({
+      where: { userId: validated.userId },
+      update: {},
+      create: {
+        userId: validated.userId,
+      },
     });
-
-    // Jeśli nie ma ustawień, utwórz domyślne
-    if (!settings) {
-      settings = await prisma.userSettings.create({
-        data: {
-          userId: session.user.id,
-        },
-      });
-    }
 
     return NextResponse.json(settings);
   } catch (error) {
@@ -34,30 +54,29 @@ export async function GET() {
 // PUT - aktualizuj ustawienia użytkownika (pełna aktualizacja)
 export async function PUT(req: Request) {
   try {
-    const session = await auth();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const validated = await getValidatedUserId();
+    if ("response" in validated) {
+      return validated.response;
     }
 
     const body = await req.json();
 
     // Sprawdź czy użytkownik ma już ustawienia
     const existingSettings = await prisma.userSettings.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: validated.userId },
     });
 
     let settings;
 
     if (existingSettings) {
       settings = await prisma.userSettings.update({
-        where: { userId: session.user.id },
+        where: { userId: validated.userId },
         data: body,
       });
     } else {
       settings = await prisma.userSettings.create({
         data: {
-          userId: session.user.id,
+          userId: validated.userId,
           ...body,
         },
       });
@@ -73,20 +92,19 @@ export async function PUT(req: Request) {
 // PATCH - częściowa aktualizacja ustawień
 export async function PATCH(req: Request) {
   try {
-    const session = await auth();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const validated = await getValidatedUserId();
+    if ("response" in validated) {
+      return validated.response;
     }
 
     const body = await req.json();
 
     // Upsert - aktualizuj lub utwórz
     const settings = await prisma.userSettings.upsert({
-      where: { userId: session.user.id },
+      where: { userId: validated.userId },
       update: body,
       create: {
-        userId: session.user.id,
+        userId: validated.userId,
         ...body,
       },
     });

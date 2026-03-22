@@ -34,7 +34,6 @@ export async function GET() {
     const tasks = await prisma.task.findMany({
       where: {
         householdId: session.user.householdId,
-        isRecurring: false, // Wyklucz rutyny - są w osobnym API
       },
       include: {
         category: true,

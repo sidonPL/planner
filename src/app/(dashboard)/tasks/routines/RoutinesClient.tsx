@@ -112,7 +112,27 @@ export function RoutinesClient({
 
   // Filtruj rutyny (instancje) dla wybranego dnia
   const getRoutinesForDay = useCallback((date: Date) => {
-    return routines.filter(r => isRoutineForDay(r, date));
+    const dayRoutines = routines.filter((routine) => isRoutineForDay(routine, date));
+    const byParent = new Map<string, TaskWithRelations>();
+
+    for (const routine of dayRoutines) {
+      const key = routine.parentTaskId || routine.id;
+      const existing = byParent.get(key);
+
+      if (!existing) {
+        byParent.set(key, routine);
+        continue;
+      }
+
+      // Gdy istnieje para parent+instancja dla tego samego dnia, preferuj instancję.
+      const existingIsInstance = Boolean(existing.parentTaskId);
+      const currentIsInstance = Boolean(routine.parentTaskId);
+      if (!existingIsInstance && currentIsInstance) {
+        byParent.set(key, routine);
+      }
+    }
+
+    return Array.from(byParent.values());
   }, [routines, isRoutineForDay]);
 
   // Handle view mode change

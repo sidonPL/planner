@@ -35,6 +35,7 @@ export function useGeofence(options: UseGeofenceOptions = {}) {
 
   const watchIdRef = useRef<number>(-1);
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
+  const isTrackingRef = useRef(false);
 
   // Sprawdź lokalizację i wyślij do API
   const checkLocation = useCallback(async (coords: Coordinates) => {
@@ -113,7 +114,6 @@ export function useGeofence(options: UseGeofenceOptions = {}) {
       setState((prev) => ({
         ...prev,
         error,
-        isTracking: false,
       }));
       onError?.(error);
     },
@@ -122,17 +122,30 @@ export function useGeofence(options: UseGeofenceOptions = {}) {
 
   // Rozpocznij tracking
   const startTracking = useCallback(async () => {
+    if (isTrackingRef.current) {
+      return;
+    }
+
     try {
+      // Wyczyść potencjalne osierocone handlery przed nowym startem.
+      if (watchIdRef.current !== -1) {
+        clearWatch(watchIdRef.current);
+        watchIdRef.current = -1;
+      }
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = null;
+      }
+
       // Pobierz początkową lokalizację
       const initialPosition = await getCurrentPosition();
       handleLocationUpdate(initialPosition);
 
       // Rozpocznij ciągły monitoring
-      const watchId = watchPosition(handleLocationUpdate, handleError);
-      watchIdRef.current = watchId;
+      watchIdRef.current = watchPosition(handleLocationUpdate, handleError);
 
       // Periodyczne sprawdzanie (na wypadek gdyby watch przestał działać)
-      const intervalId = setInterval(async () => {
+      intervalIdRef.current = setInterval(async () => {
         try {
           const position = await getCurrentPosition();
           handleLocationUpdate(position);
@@ -141,15 +154,19 @@ export function useGeofence(options: UseGeofenceOptions = {}) {
         }
       }, interval);
 
-      intervalIdRef.current = intervalId;
-
       setState((prev) => ({
         ...prev,
         isTracking: true,
       }));
+      isTrackingRef.current = true;
 
       toast.success("Monitorowanie lokalizacji włączone");
     } catch (error) {
+      isTrackingRef.current = false;
+      setState((prev) => ({
+        ...prev,
+        isTracking: false,
+      }));
       handleError(error as Error);
       toast.error("Nie udało się włączyć monitorowania lokalizacji");
     }
@@ -171,6 +188,7 @@ export function useGeofence(options: UseGeofenceOptions = {}) {
       ...prev,
       isTracking: false,
     }));
+    isTrackingRef.current = false;
 
     toast.info("Monitorowanie lokalizacji wyłączone");
   }, []);
@@ -189,25 +207,24 @@ export function useGeofence(options: UseGeofenceOptions = {}) {
 
   // Auto-start/stop w zależności od opcji
   useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-
-    if (enabled) {
-      timer = setTimeout(() => {
+    const timer = setTimeout(() => {
+      if (enabled) {
         void startTracking();
-      }, 0);
-    } else {
-      timer = setTimeout(() => {
+      } else {
         stopTracking();
-      }, 0);
-    }
+      }
+    }, 0);
 
     return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      stopTracking();
+      clearTimeout(timer);
     };
   }, [enabled, startTracking, stopTracking]);
+
+  useEffect(() => {
+    return () => {
+      stopTracking();
+    };
+  }, [stopTracking]);
 
   return {
     ...state,

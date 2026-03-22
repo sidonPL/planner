@@ -79,6 +79,7 @@ async function syncIntegration(integration: { id: string; icalUrl: string | null
           create: {
             integrationId: integration.id,
             externalId: event.uid,
+            householdId: householdId,
             title: event.summary,
             description: event.description,
             startDate: event.start,

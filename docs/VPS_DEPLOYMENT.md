@@ -124,6 +124,10 @@ npm ci
 
 # Generowanie Prisma Client
 npx prisma generate
+
+# Migracje bazy (obowiązkowo przed buildem)
+npx prisma migrate deploy
+
 # Build aplikacji (z zwiększonym heapem dla Node)
 export NODE_OPTIONS="--max-old-space-size=4096"
 npm run build

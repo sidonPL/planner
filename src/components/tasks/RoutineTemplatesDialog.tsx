@@ -48,20 +48,40 @@ export function RoutineTemplatesDialog({
 
   const loadTemplates = useCallback(async () => {
     setLoading(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+
     try {
-      const response = await fetch("/api/routine-templates");
-      if (response.ok) {
-        const data = await response.json();
-        setTemplates(data);
+      const response = await fetch("/api/routine-templates", {
+        signal: controller.signal,
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load templates (${response.status})`);
       }
+
+      const data = await response.json();
+      const normalizedData = Array.isArray(data)
+        ? data.map((template) => ({
+            ...template,
+            tasks: Array.isArray(template.tasks) ? template.tasks : [],
+          }))
+        : [];
+
+      setTemplates(normalizedData);
     } catch (error) {
       console.error("Error loading templates:", error);
+      const isAbortError = error instanceof DOMException && error.name === "AbortError";
       toast({
         title: "Błąd",
-        description: "Nie udało się załadować szablonów",
+        description: isAbortError
+          ? "Ładowanie szablonów trwało zbyt długo"
+          : "Nie udało się załadować szablonów",
         variant: "destructive",
       });
     } finally {
+      window.clearTimeout(timeoutId);
       setLoading(false);
     }
   }, [toast]);

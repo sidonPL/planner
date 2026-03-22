@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Search, User, Users, BarChart3, Tags, FileText, Filter, X, Repeat, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Search, User, Users, BarChart3, Tags, FileText, Filter, X, Repeat, ChevronLeft, ChevronRight, Calendar as CalendarIcon, MoreHorizontal, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,8 +17,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { TaskCardCompact } from "@/components/tasks/TaskCardCompact";
 import { TaskQuickFilters, QuickFilterType } from "@/components/tasks/TaskQuickFilters";
@@ -28,8 +35,10 @@ import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { LabelsManagerDialog } from "@/components/tasks/LabelsManagerDialog";
 import { TemplatesManagerDialog } from "@/components/tasks/TemplatesManagerDialog";
 import type { Task, Category, RecurrenceType } from "@prisma/client";
-import { startOfDay, startOfTomorrow, endOfWeek, isSameDay, isWithinInterval } from "date-fns";
+import { startOfDay, startOfTomorrow, endOfWeek, isSameDay, isWithinInterval, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
+
+const COMPLETED_HIDE_AFTER_DAYS = 14;
 
 type TaskWithRelations = Task & {
   category: Category | null;
@@ -99,6 +108,7 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
   const [taskViewMode, setTaskViewMode] = useState<ViewMode>("list");
   const [showRoutinesSidebar, setShowRoutinesSidebar] = useState(true);
   const [selectedRoutineDate, setSelectedRoutineDate] = useState<Date>(startOfDay(new Date()));
+  const [showArchivedCompleted, setShowArchivedCompleted] = useState(false);
 
   // Funkcja sprawdzająca czy rutyna powinna być wyświetlona dla danego dnia
   const isRoutineForDay = useCallback((task: TaskWithRelations, date: Date) => {
@@ -199,6 +209,12 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
         if (prefs.quickFilter) setQuickFilter(prefs.quickFilter);
         if (prefs.taskViewMode) setTaskViewMode(prefs.taskViewMode);
         if (prefs.showRoutinesSidebar !== undefined) setShowRoutinesSidebar(prefs.showRoutinesSidebar);
+        if (prefs.showArchivedCompleted !== undefined) {
+          setShowArchivedCompleted(Boolean(prefs.showArchivedCompleted));
+        } else if (prefs.showOlderCompleted !== undefined) {
+          // Backward compatibility dla starszego klucza preferencji
+          setShowArchivedCompleted(Boolean(prefs.showOlderCompleted));
+        }
       }
     } catch (error) {
       console.error("Nie udało się załadować preferencji:", error);
@@ -222,11 +238,12 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
         quickFilter,
         taskViewMode,
         showRoutinesSidebar,
+        showArchivedCompleted,
       }));
     } catch (error) {
       console.error("Nie udało się zapisać preferencji:", error);
     }
-  }, [statusFilter, priorityFilter, categoryFilter, assigneeFilter, dateFilter, labelFilter, viewMode, quickFilter, taskViewMode, showRoutinesSidebar, preferencesLoaded, currentUserId]);
+  }, [statusFilter, priorityFilter, categoryFilter, assigneeFilter, dateFilter, labelFilter, viewMode, quickFilter, taskViewMode, showRoutinesSidebar, showArchivedCompleted, preferencesLoaded, currentUserId]);
 
   useEffect(() => {
     savePreferences();
@@ -235,6 +252,8 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
+      const isStandardTask = !task.isRecurring;
+
       // Quick filter logic
       const today = startOfDay(new Date());
       const tomorrow = startOfTomorrow();
@@ -243,25 +262,25 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
       let matchesQuickFilter;
       switch (quickFilter) {
         case "today":
-          matchesQuickFilter = task.dueDate ? isSameDay(new Date(task.dueDate), today) : false;
+          matchesQuickFilter = isStandardTask && (task.dueDate ? isSameDay(new Date(task.dueDate), today) : false);
           break;
         case "tomorrow":
-          matchesQuickFilter = task.dueDate ? isSameDay(new Date(task.dueDate), tomorrow) : false;
+          matchesQuickFilter = isStandardTask && (task.dueDate ? isSameDay(new Date(task.dueDate), tomorrow) : false);
           break;
         case "thisWeek":
-          matchesQuickFilter = task.dueDate ? isWithinInterval(new Date(task.dueDate), { start: today, end: weekEnd }) : false;
+          matchesQuickFilter = isStandardTask && (task.dueDate ? isWithinInterval(new Date(task.dueDate), { start: today, end: weekEnd }) : false);
           break;
         case "routines":
           matchesQuickFilter = task.isRecurring;
           break;
         case "overdue":
-          matchesQuickFilter = task.dueDate ? new Date(task.dueDate) < today && task.status !== "COMPLETED" : false;
+          matchesQuickFilter = isStandardTask && (task.dueDate ? new Date(task.dueDate) < today && task.status !== "COMPLETED" : false);
           break;
         case "noDate":
-          matchesQuickFilter = !task.dueDate;
+          matchesQuickFilter = isStandardTask && !task.dueDate;
           break;
         case "mine":
-          matchesQuickFilter = task.assigneeId === currentUserId;
+          matchesQuickFilter = isStandardTask && task.assigneeId === currentUserId;
           break;
         case "all":
         default:
@@ -322,16 +341,18 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
     const today = startOfDay(new Date());
     const tomorrow = startOfTomorrow();
     const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+    const standardTasks = tasks.filter((t) => !t.isRecurring);
+    const routineTasks = tasks.filter((t) => t.isRecurring);
 
     return {
-      all: tasks.length,
-      today: tasks.filter(t => t.dueDate && isSameDay(new Date(t.dueDate), today)).length,
-      tomorrow: tasks.filter(t => t.dueDate && isSameDay(new Date(t.dueDate), tomorrow)).length,
-      thisWeek: tasks.filter(t => t.dueDate && isWithinInterval(new Date(t.dueDate), { start: today, end: weekEnd })).length,
-      routines: tasks.filter(t => t.isRecurring).length,
-      overdue: tasks.filter(t => t.dueDate && new Date(t.dueDate) < today && t.status !== "COMPLETED").length,
-      noDate: tasks.filter(t => !t.dueDate).length,
-      mine: tasks.filter(t => t.assigneeId === currentUserId).length,
+      all: standardTasks.length,
+      today: standardTasks.filter(t => t.dueDate && isSameDay(new Date(t.dueDate), today)).length,
+      tomorrow: standardTasks.filter(t => t.dueDate && isSameDay(new Date(t.dueDate), tomorrow)).length,
+      thisWeek: standardTasks.filter(t => t.dueDate && isWithinInterval(new Date(t.dueDate), { start: today, end: weekEnd })).length,
+      routines: routineTasks.length,
+      overdue: standardTasks.filter(t => t.dueDate && new Date(t.dueDate) < today && t.status !== "COMPLETED").length,
+      noDate: standardTasks.filter(t => !t.dueDate).length,
+      mine: standardTasks.filter(t => t.assigneeId === currentUserId).length,
     };
   }, [tasks, currentUserId]);
 
@@ -359,6 +380,19 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
       }
     } catch (error) {
       console.error("Error refreshing task:", error);
+    }
+  }, []);
+
+  // Fallback sync dla produkcji: pobierz pełną listę zadań z backendu
+  const refreshTasksList = useCallback(async () => {
+    try {
+      const response = await fetch("/api/tasks", { cache: "no-store" });
+      if (response.ok) {
+        const latestTasks = await response.json();
+        setTasks(latestTasks);
+      }
+    } catch (error) {
+      console.error("Error refreshing tasks list:", error);
     }
   }, []);
 
@@ -451,16 +485,37 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
   const todoTasks = sortedFilteredTasks.filter((t) => t.status === "TODO");
   const inProgressTasks = sortedFilteredTasks.filter((t) => t.status === "IN_PROGRESS");
   const completedTasks = sortedFilteredTasks.filter((t) => t.status === "COMPLETED");
+  const completedCutoffDate = subDays(startOfDay(new Date()), COMPLETED_HIDE_AFTER_DAYS);
+  const getCompletionReferenceDate = (task: TaskWithRelations) => {
+    const completedAt = task.completions?.[0]?.completedAt;
+    if (completedAt) return new Date(completedAt);
+    return new Date(task.updatedAt);
+  };
+  const recentCompletedTasks = completedTasks.filter((task) => {
+    return getCompletionReferenceDate(task) >= completedCutoffDate;
+  });
+  const olderCompletedTasks = completedTasks.filter((task) => {
+    return getCompletionReferenceDate(task) < completedCutoffDate;
+  });
+  const isArchiveForcedOpen = statusFilter === "COMPLETED";
+  const shouldShowArchivedCompleted = isArchiveForcedOpen || showArchivedCompleted;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
           <h1 className="text-2xl font-bold tracking-tight">Zadania</h1>
           <p className="text-muted-foreground">
             Zarządzaj zadaniami swojego domu
           </p>
+          </div>
+          <Button onClick={() => setIsDialogOpen(true)} className="shrink-0">
+            <Plus className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Nowe zadanie</span>
+            <span className="sm:hidden">Dodaj</span>
+          </Button>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* View mode toggle */}
@@ -497,30 +552,36 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
             </Button>
           </div>
 
-          <Link href="/tasks/routines">
-            <Button variant="outline" size="sm">
-              <Repeat className="mr-2 h-4 w-4" />
-              <span className="hidden md:inline">Rutyny</span>
-            </Button>
-          </Link>
-          <Button variant="outline" size="sm" onClick={() => setIsLabelsDialogOpen(true)}>
-            <Tags className="mr-2 h-4 w-4" />
-            <span className="hidden md:inline">Etykiety</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsTemplatesDialogOpen(true)}>
-            <FileText className="mr-2 h-4 w-4" />
-            <span className="hidden lg:inline">Szablony</span>
-          </Button>
-          <Link href="/tasks/stats">
-            <Button variant="outline" size="sm">
-              <BarChart3 className="mr-2 h-4 w-4" />
-              <span className="hidden lg:inline">Statystyki</span>
-            </Button>
-          </Link>
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Nowe zadanie</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <MoreHorizontal className="h-4 w-4" />
+                Narzędzia
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem asChild>
+                <Link href="/tasks/routines" className="flex items-center gap-2 w-full">
+                  <Repeat className="h-4 w-4" />
+                  Rutyny
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsLabelsDialogOpen(true)} className="gap-2">
+                <Tags className="h-4 w-4" />
+                Etykiety
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsTemplatesDialogOpen(true)} className="gap-2">
+                <FileText className="h-4 w-4" />
+                Szablony
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/tasks/stats" className="flex items-center gap-2 w-full">
+                  <BarChart3 className="h-4 w-4" />
+                  Statystyki
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -843,11 +904,11 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
                   Ukończone
                 </h2>
                 <Badge variant="secondary" className="ml-1 text-xs">
-                  {completedTasks.length}
+                  {recentCompletedTasks.length}
                 </Badge>
               </div>
               <div className="space-y-2">
-                {completedTasks.map((task) => (
+                {recentCompletedTasks.map((task) => (
                   <div key={task.id} className="space-y-1.5">
                     {taskViewMode === "compact" ? (
                       <TaskCardCompact
@@ -894,6 +955,81 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Archived Completed Tasks */}
+          {(completedTasks.length > 0 || statusFilter === "COMPLETED") && (
+            <Collapsible
+              open={shouldShowArchivedCompleted}
+              onOpenChange={(open) => {
+                if (!isArchiveForcedOpen) {
+                  setShowArchivedCompleted(open);
+                }
+              }}
+              className="space-y-3"
+            >
+              <div className="flex items-center gap-2 px-1">
+                <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+                <h2 className="text-base font-semibold text-foreground/90">
+                  Archiwum
+                </h2>
+                <Badge variant="outline" className="ml-1 text-xs">
+                  {olderCompletedTasks.length}
+                </Badge>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    disabled={isArchiveForcedOpen}
+                  >
+                    {shouldShowArchivedCompleted ? "Ukryj archiwum" : "Pokaż archiwum"}
+                    <ChevronDown
+                      className={cn(
+                        "ml-1 h-3.5 w-3.5 transition-transform",
+                        shouldShowArchivedCompleted && "rotate-180"
+                      )}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+
+              <CollapsibleContent className="space-y-2 data-[state=closed]:hidden">
+              {olderCompletedTasks.length > 0 && (
+                <div className="space-y-2">
+                  {olderCompletedTasks.map((task) => (
+                    <div key={task.id} className="space-y-1.5">
+                      {taskViewMode === "compact" ? (
+                        <TaskCardCompact
+                          task={task}
+                          onEdit={() => setEditingTask(task)}
+                          onDelete={() => handleTaskDeleted(task.id)}
+                          onToggleComplete={(completed) => handleToggleComplete(task.id, completed)}
+                          onTogglePin={(pinned) => handleTogglePin(task.id, pinned)}
+                          onViewDetails={() => setDetailTask(task)}
+                        />
+                      ) : (
+                        <TaskCard
+                          task={task}
+                          onEdit={() => setEditingTask(task)}
+                          onDelete={() => handleTaskDeleted(task.id)}
+                          onToggleComplete={(completed) => handleToggleComplete(task.id, completed)}
+                          onTogglePin={(pinned) => handleTogglePin(task.id, pinned)}
+                          onViewDetails={() => setDetailTask(task)}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {olderCompletedTasks.length === 0 && (
+                <p className="text-sm text-muted-foreground px-1">
+                  Brak zadań starszych niż {COMPLETED_HIDE_AFTER_DAYS} dni.
+                </p>
+              )}
+              </CollapsibleContent>
+            </Collapsible>
           )}
           </div>
 
@@ -1069,6 +1205,7 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
                                         onTogglePin={(pinned) => handleTogglePin(routine.id, pinned)}
                                         onViewDetails={() => setDetailTask(routine)}
                                         isOverdue={isOverdue}
+                                        showRoutineActions
                                       />
                                     </div>
                                   );
@@ -1146,18 +1283,37 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
         onOpenChange={setIsTemplatesDialogOpen}
         categories={categories}
         members={members}
-        onTemplateUsed={async (newTaskId?: string) => {
-          if (!newTaskId) return;
+        onTemplateUsed={async (result) => {
+          const createdTasks = Array.isArray(result?.tasks)
+            ? (result.tasks as TaskWithRelations[])
+            : [];
 
-          // Smart refresh - pobierz nowe zadanie bez reload
+          if (createdTasks.length > 0) {
+            setTasks((prev) => {
+              const existingIds = new Set(prev.map((task) => task.id));
+              const freshTasks = createdTasks.filter((task) => !existingIds.has(task.id));
+              return [...freshTasks, ...prev];
+            });
+            // Dodatkowe dociągnięcie stanu z backendu (np. przy różnicach środowisk prod/dev)
+            void refreshTasksList();
+            return;
+          }
+
+          if (!result?.parentTaskId) return;
+
+          // Fallback: doładuj parent task gdy API nie zwróci listy zadań
           try {
-            const response = await fetch(`/api/tasks/${newTaskId}`);
+            const response = await fetch(`/api/tasks/${result.parentTaskId}`);
             if (response.ok) {
               const newTask = await response.json();
-              setTasks(prev => [newTask, ...prev]);
+              setTasks((prev) => [newTask, ...prev]);
+              void refreshTasksList();
+            } else {
+              void refreshTasksList();
             }
           } catch (error) {
             console.error("Error loading new task:", error);
+            void refreshTasksList();
           }
         }}
       />

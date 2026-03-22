@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addMinutes, isWithinInterval } from "date-fns";
+import { createNotification } from "@/lib/notifications";
+
+const REMINDER_LOOKAHEAD_MINUTES = 30 * 24 * 60; // do 30 dni do przodu
+const REMINDER_WINDOW_MINUTES = 6; // zgodne z cron co 10 minut
+const DEDUPE_WINDOW_MINUTES = 15;
 
 // GET - sprawdź i wyślij przypomnienia o wydarzeniach
 export async function GET(req: Request) {
@@ -20,12 +25,12 @@ export async function GET(req: Request) {
       errors: 0,
     };
 
-    // Pobierz wydarzenia z przypomnieniami w ciągu najbliższych 24h
+    // Pobierz wydarzenia z przypomnieniami w horyzoncie odpowiadającym maksymalnym presetom
     const events = await prisma.event.findMany({
       where: {
         startDate: {
           gte: now,
-          lte: addMinutes(now, 24 * 60), // 24 godziny
+          lte: addMinutes(now, REMINDER_LOOKAHEAD_MINUTES),
         },
         reminderMinutes: {
           isEmpty: false,
@@ -60,8 +65,8 @@ export async function GET(req: Request) {
 
         // Sprawdź czy przypomnienie powinno być wysłane teraz (±2 minuty tolerancji)
         const isTimeForReminder = isWithinInterval(now, {
-          start: addMinutes(reminderTime, -2),
-          end: addMinutes(reminderTime, 2),
+          start: addMinutes(reminderTime, -REMINDER_WINDOW_MINUTES),
+          end: addMinutes(reminderTime, REMINDER_WINDOW_MINUTES),
         });
 
         if (isTimeForReminder) {
@@ -71,21 +76,38 @@ export async function GET(req: Request) {
               ? [{ id: event.userId, name: event.user?.name }]
               : event.household.members;
 
-            // Stwórz powiadomienia dla każdego odbiorcy
+            // Stwórz powiadomienia dla każdego odbiorcy (z ochroną przed duplikatami)
             for (const recipient of recipients) {
-              await prisma.notification.create({
-                data: {
+              const title = `Przypomnienie: ${event.title}`;
+              const message = formatReminderMessage(event.title, reminderMinute);
+
+              const existingNotification = await prisma.notification.findFirst({
+                where: {
                   type: "EVENT_REMINDER",
-                  title: `Przypomnienie: ${event.title}`,
-                  message: formatReminderMessage(event.title, reminderMinute),
                   userId: recipient.id,
-                  householdId: event.householdId,
+                  title,
                   link: "/calendar",
+                  createdAt: {
+                    gte: addMinutes(now, -DEDUPE_WINDOW_MINUTES),
+                  },
                 },
               });
-            }
 
-            results.reminders++;
+              if (existingNotification) {
+                continue;
+              }
+
+              await createNotification({
+                type: "EVENT_REMINDER",
+                title,
+                message,
+                userId: recipient.id,
+                householdId: event.householdId,
+                link: "/calendar",
+              });
+
+              results.reminders++;
+            }
           } catch (error) {
             console.error(`Error sending reminder for event ${event.id}:`, error);
             results.errors++;

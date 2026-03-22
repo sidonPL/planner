@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { ensurePublicRoutineTemplates } from "@/lib/routine-template-defaults";
 
 // GET - pobierz wszystkie szablony rutyn
 export async function GET() {
@@ -10,6 +11,9 @@ export async function GET() {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Po resecie DB często brakuje publicznych szablonów - dosiej je automatycznie.
+    await ensurePublicRoutineTemplates();
 
     // Pobierz publiczne szablony oraz szablony utworzone przez użytkownika/gospodarstwo
     const templates = await prisma.routineTemplate.findMany({
