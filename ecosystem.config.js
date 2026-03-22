@@ -2,8 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'planner-app',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start',
+      script: '.next/standalone/server.js',
       cwd: './',
       instances: 1, // Dla VPS z ograniczonymi zasobami - 1 instancja. Można zwiększyć do 'max' lub liczby rdzeni CPU
       exec_mode: 'fork', // 'cluster' dla wielu instancji
@@ -13,6 +12,7 @@ module.exports = {
       min_uptime: '10s',
       max_restarts: 10,
       restart_delay: 4000,
+      env_file: '.env',
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
