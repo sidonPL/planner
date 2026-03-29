@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
@@ -193,6 +194,10 @@ export async function POST(req: Request) {
         }
       }
 
+      // Revalidate calendar and tasks pages
+      revalidatePath('/calendar');
+      revalidatePath('/tasks');
+
       return NextResponse.json(tasks, { status: 201 });
     }
 
@@ -280,6 +285,10 @@ export async function POST(req: Request) {
         console.error(`Error generating instances for task ${task.id}:`, error);
       }
     }
+
+    // Revalidate calendar and tasks pages
+    revalidatePath('/calendar');
+    revalidatePath('/tasks');
 
     return NextResponse.json(task, { status: 201 });
   } catch (error) {

@@ -1,4 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -206,6 +207,9 @@ export async function DELETE(
     await prisma.event.delete({
       where: { id },
     });
+
+    // Revalidate calendar page
+    revalidatePath('/calendar');
 
     return NextResponse.json({ success: true });
   } catch (error) {

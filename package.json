@@ -23,7 +23,7 @@
     "check:types": "tsc --noEmit",
     "check:lint": "eslint",
     "check:all": "npm run check:types && npm run check:lint",
-    "deploy:prod": "npm run check:all && npm run db:migrate && npm run build && pm2 restart ecosystem.config.js",
+    "deploy:prod": "npm run check:all && npm run db:migrate && npm run build && pm2 restart ecosystem.config.js --update-env",
     "logs": "pm2 logs planner-app",
     "status": "pm2 status",
     "health": "curl http://localhost:3000/api/health"

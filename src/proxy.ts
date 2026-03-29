@@ -223,9 +223,14 @@ export function proxy(request: NextRequest) {
     return addSecurityHeaders(response);
   }
 
-  // Jeśli użytkownik jest zalogowany i próbuje wejść na stronę logowania
-  if (isAuthRoute && isLoggedIn) {
-    const response = NextResponse.redirect(new URL("/", request.url));
+  // Nie przekierowuj ślepo z /login tylko na podstawie obecności cookie.
+  // Po rotacji sekretu stare cookie może istnieć, ale być nieodszyfrowywalne,
+  // co powoduje pętlę przekierowań w niektórych przeglądarkach.
+  if (isAuthRoute) {
+    const response = NextResponse.next();
+    response.headers.set('X-RateLimit-Limit', maxRequests.toString());
+    response.headers.set('X-RateLimit-Remaining', remaining.toString());
+    response.headers.set('X-RateLimit-Reset', new Date(resetTime).toISOString());
     return addSecurityHeaders(response);
   }
 

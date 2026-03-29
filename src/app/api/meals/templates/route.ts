@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { handleApiError } from "@/lib/api-error-handler";
@@ -346,6 +347,10 @@ export async function POST(req: NextRequest) {
         date: "asc",
       },
     });
+
+    // Revalidate calendar and meals pages
+    revalidatePath('/calendar');
+    revalidatePath('/meals');
 
     return NextResponse.json({
       message: `Szablon "${template.name}" został zastosowany`,

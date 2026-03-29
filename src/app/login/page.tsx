@@ -21,6 +21,15 @@ function LoginForm() {
   const [oauthLoading, setOAuthLoading] = useState<string | null>(null);
   const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set());
 
+  const getSafeCallbackPath = (raw: string | null | undefined) => {
+    if (!raw) return "/";
+    // Pozwalamy tylko na wewnętrzne ścieżki aplikacji.
+    if (raw.startsWith("/") && !raw.startsWith("//")) {
+      return raw;
+    }
+    return "/";
+  };
+
   useEffect(() => {
     const loadProviders = async () => {
       try {
@@ -45,8 +54,18 @@ function LoginForm() {
 
     setOAuthLoading(provider);
     try {
-      await signIn(provider, { redirect: false });
-    } catch (err) {
+      const callbackUrl = getSafeCallbackPath(searchParams.get("callbackUrl"));
+      const result = await signIn(provider, {
+        redirect: false,
+        callbackUrl,
+      });
+
+      if (result?.url) {
+        router.push(result.url);
+      } else if (result?.error) {
+        setError("Błąd podczas logowania");
+      }
+    } catch {
       setError("Błąd podczas logowania");
     } finally {
       setOAuthLoading(null);
@@ -68,10 +87,10 @@ function LoginForm() {
       if (result?.error) {
         setError("Błędne dane logowania");
       } else if (result?.ok) {
-        const callbackUrl = searchParams.get("callbackUrl") || "/";
+        const callbackUrl = getSafeCallbackPath(searchParams.get("callbackUrl"));
         router.push(callbackUrl);
       }
-    } catch (err) {
+    } catch {
       setError("Błąd podczas logowania. Spróbuj ponownie.");
     } finally {
       setIsLoading(false);

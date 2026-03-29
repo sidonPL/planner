@@ -1,4 +1,5 @@
 ﻿import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -155,6 +156,9 @@ export async function POST(req: Request) {
       // Update daily quest progress (only for new meals)
       await updateQuestProgress(session.user.id, 'MEALS', 1);
     }
+    // Revalidate calendar and meals pages to refresh data
+    revalidatePath('/calendar');
+    revalidatePath('/meals');
     return NextResponse.json(meal, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {

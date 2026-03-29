@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Menu, Search, LogOut, User, Settings, Maximize2, Volume2, VolumeX, Cast, Shield, X, MoreHorizontal, Sun, Moon, Monitor, Trophy, Gift } from "lucide-react";
@@ -43,6 +43,11 @@ export function Header() {
   const [userTitle, setUserTitle] = useState<string | null>(null);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [activeBadge, setActiveBadge] = useState<{ name: string; icon: string | null } | null>(null);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const { enabled: ttsEnabled, setEnabled: setTtsEnabled, isSupported: ttsSupported } = useTTS();
   const {
     isAvailable: chromecastAvailable,
@@ -53,6 +58,9 @@ export function Header() {
     disconnect: chromecastDisconnect,
     error: chromecastError,
   } = useChromecast();
+
+  const showTTSControls = mounted && ttsSupported;
+  const showChromecastControls = mounted && chromecastAvailable;
 
   const userInitials = session?.user?.name
     ?.split(" ")
@@ -281,7 +289,7 @@ export function Header() {
         </Button>
 
         {/* TTS toggle */}
-        {ttsSupported && (
+        {showTTSControls && (
           <Button
             variant="ghost"
             size="icon"
@@ -298,7 +306,7 @@ export function Header() {
         )}
 
         {/* Chromecast */}
-        {chromecastAvailable && (
+        {showChromecastControls && (
           <Button
             variant="ghost"
             size="icon"
@@ -358,14 +366,14 @@ export function Header() {
               Urządzenie
               <span className="block text-[10px] font-normal text-muted-foreground/80">Dźwięk i ekran</span>
             </DropdownMenuLabel>
-            {ttsSupported && (
+            {showTTSControls && (
               <DropdownMenuItem onClick={() => setTtsEnabled(!ttsEnabled)}>
                 {ttsEnabled ? <VolumeX className="mr-2 h-4 w-4" /> : <Volume2 className="mr-2 h-4 w-4" />}
                 {ttsEnabled ? "Wyłącz głos" : "Włącz głos"}
               </DropdownMenuItem>
             )}
 
-            {chromecastAvailable && (
+            {showChromecastControls && (
               <DropdownMenuItem onClick={handleChromecast} disabled={chromecastConnecting}>
                 <Cast className="mr-2 h-4 w-4" />
                 {chromecastConnected ? "Rozłącz Chromecast" : "Połącz Chromecast"}

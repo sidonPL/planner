@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -229,6 +230,9 @@ export async function DELETE(
     // Jeśli zadanie jest cykliczne i użytkownik chce usunąć przyszłe wystąpienia
     if (existingTask.isRecurring && deleteFuture) {
       const deletedCount = await deleteFutureOccurrences(id);
+      // Revalidate calendar and tasks pages
+      revalidatePath('/calendar');
+      revalidatePath('/tasks');
       return NextResponse.json({ success: true, deletedCount });
     }
 
@@ -247,6 +251,10 @@ export async function DELETE(
         },
       });
 
+      // Revalidate calendar and tasks pages
+      revalidatePath('/calendar');
+      revalidatePath('/tasks');
+
       return NextResponse.json({ success: true, deletedAll: true });
     }
 
@@ -254,6 +262,10 @@ export async function DELETE(
     await prisma.task.delete({
       where: { id },
     });
+
+    // Revalidate calendar and tasks pages
+    revalidatePath('/calendar');
+    revalidatePath('/tasks');
 
     return NextResponse.json({ success: true });
   } catch (error) {

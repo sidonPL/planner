@@ -29,6 +29,7 @@ import {
   UtensilsCrossed,
   Sparkles,
   Activity,
+  Pencil,
 } from "lucide-react";
 import {
   DndContext,
@@ -152,11 +153,13 @@ const mealTypes = [
 function DraggableMeal({
   meal,
   onRemove,
-  onCopy
+  onCopy,
+  onEdit,
 }: {
   meal: MealWithRecipe;
   onRemove: () => void;
   onCopy: () => void;
+  onEdit: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: meal.id,
@@ -171,55 +174,89 @@ function DraggableMeal({
     <div
       ref={setNodeRef}
       style={style}
+      onClick={(e) => e.stopPropagation()}
       className={cn(
-        "relative h-full group",
+        "h-full w-full group",
         isDragging && "opacity-50"
       )}
     >
-      <div
-        {...listeners}
-        {...attributes}
-        className="absolute -left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
-      >
-        <GripVertical className="h-3 w-3 text-muted-foreground" />
-      </div>
-      <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCopy();
-          }}
-          title="Kopiuj"
-        >
-          <Copy className="h-3 w-3" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          title="Usuń"
-        >
-          <X className="h-3 w-3" />
-        </Button>
-      </div>
-      <div className="text-xs font-medium line-clamp-2 pl-2 flex items-center gap-1">
-        {meal.simpleDish && meal.simpleDish.icon && (
-          <span className="text-sm">{meal.simpleDish.icon}</span>
-        )}
-        {meal.recipe?.name || meal.simpleDish?.name || meal.customName}
-      </div>
-      {meal.recipe && (meal.recipe.prepTime || meal.recipe.cookTime) && (
-        <div className="text-[10px] text-muted-foreground mt-1 pl-2">
-          {(meal.recipe.prepTime || 0) + (meal.recipe.cookTime || 0)} min
+      <div className="h-full w-full p-1 flex flex-col justify-between gap-1">
+        <div className="min-w-0">
+          <div className="text-xs font-medium flex items-start gap-1 min-w-0">
+            <div
+              {...listeners}
+              {...attributes}
+              className="h-5 w-5 shrink-0 rounded-sm flex items-center justify-center cursor-grab active:cursor-grabbing hover:bg-accent focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+              aria-label="Przeciągnij posiłek"
+            >
+              <GripVertical className="h-3 w-3 text-muted-foreground" />
+            </div>
+
+            {meal.simpleDish && meal.simpleDish.icon && (
+              <span className="text-sm shrink-0">{meal.simpleDish.icon}</span>
+            )}
+
+            <span className={cn(
+              "min-w-0 flex-1 break-words text-sm leading-tight",
+              !(meal.recipe?.name || meal.simpleDish?.name || meal.customName) && "text-muted-foreground italic"
+            )}>
+              {meal.recipe?.name || meal.simpleDish?.name || meal.customName || "Brak nazwy"}
+            </span>
+          </div>
+
+          {meal.recipe && (meal.recipe.prepTime || meal.recipe.cookTime) && (
+            <div className="text-[10px] text-muted-foreground mt-1 pl-6 pr-1">
+              {(meal.recipe.prepTime || 0) + (meal.recipe.cookTime || 0)} min
+            </div>
+          )}
         </div>
-      )}
+
+        <div className="flex items-center justify-end gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 shrink-0"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            title="Edytuj"
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 shrink-0"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            title="Usuń"
+          >
+            <X className="h-3 w-3" />
+          </Button>
+
+          <div className="hidden group-hover:flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onCopy();
+              }}
+              title="Kopiuj"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -253,7 +290,7 @@ function DroppableSlot({
     <Card
       ref={setNodeRef}
       className={cn(
-        "min-h-[80px] cursor-pointer hover:shadow-md transition-shadow",
+        "min-h-[96px] cursor-pointer hover:shadow-md transition-shadow",
         isTodayProp && "ring-1 ring-primary",
         copiedMeal && "ring-1 ring-dashed ring-primary/50",
         isOver && "ring-2 ring-primary bg-primary/5"
@@ -356,6 +393,7 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
     date: Date;
     mealType: string;
   } | null>(null);
+  const [editingMeal, setEditingMeal] = useState<MealWithRecipe | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>("");
   const [selectedSimpleDishId, setSelectedSimpleDishId] = useState<string>("");
   const [customMealName, setCustomMealName] = useState("");
@@ -420,11 +458,30 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
 
   const handleOpenAddDialog = (date: Date, mealType: string) => {
     setSelectedSlot({ date, mealType });
+    setEditingMeal(null);
     setSelectedRecipeId("");
     setSelectedSimpleDishId("");
     setCustomMealName("");
     setSearchQuery("");
     setIsAddDialogOpen(true);
+  };
+
+  const handleOpenEditDialog = (meal: MealWithRecipe) => {
+    setSelectedSlot({ date: new Date(meal.date), mealType: meal.mealType });
+    setEditingMeal(meal);
+    setSelectedRecipeId(meal.recipeId ?? "");
+    setSelectedSimpleDishId(meal.simpleDishId ?? "");
+    setCustomMealName(meal.customName ?? "");
+    setSearchQuery(meal.recipe?.name ?? meal.simpleDish?.name ?? meal.customName ?? "");
+    setIsAddDialogOpen(true);
+  };
+
+  const toDateInputValue = (date: Date) => format(date, "yyyy-MM-dd");
+
+  const fromDateInputValue = (value: string) => {
+    const [year, month, day] = value.split("-").map(Number);
+    // Ustawiamy południe, żeby uniknąć przesunięć dnia przy strefach czasowych.
+    return new Date(year, month - 1, day, 12, 0, 0, 0);
   };
 
   // Stan kopiowania posiłku
@@ -478,7 +535,7 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 4,
       },
     })
   );
@@ -586,6 +643,9 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
           body: JSON.stringify({
             date: overData.date.toISOString(),
             mealType: overData.mealType,
+            recipeId: meal.recipeId,
+            simpleDishId: meal.simpleDishId,
+            customName: meal.customName,
           }),
         });
 
@@ -616,6 +676,7 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
           date: date.toISOString(),
           mealType: mealType,
           recipeId: copiedMeal.recipeId || null,
+          simpleDishId: copiedMeal.simpleDishId || null,
           customName: copiedMeal.customName || null,
         }),
       });
@@ -640,32 +701,52 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
     }
 
     try {
-      const response = await fetch("/api/meals", {
-        method: "POST",
+      const isEditMode = !!editingMeal;
+      const endpoint = isEditMode ? `/api/meals/${editingMeal.id}` : "/api/meals";
+      const method = isEditMode ? "PUT" : "POST";
+
+      const response = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date: selectedSlot.date.toISOString(),
           mealType: selectedSlot.mealType,
           recipeId: selectedRecipeId || null,
           simpleDishId: selectedSimpleDishId || null,
-          customMealName: customMealName || null,
+          customName: customMealName || null,
         }),
       });
 
       if (response.ok) {
-        const newMeal = await response.json();
-        setMeals([...meals.filter(
-          (m) => !(isSameDay(new Date(m.date), selectedSlot.date) && m.mealType === selectedSlot.mealType)
-        ), newMeal]);
-        setIsAddDialogOpen(false);
-        toast.success("Posiłek został dodany");
+        const savedMeal = await response.json();
 
-        // 🎮 Gamification: Reward XP for planning meal
-        showFlyingXP(10);
-        playSound('xp-earn');
+        if (isEditMode) {
+          setMeals(meals.map((m) => (m.id === savedMeal.id ? savedMeal : m)));
+        } else {
+          setMeals([
+            ...meals.filter(
+              (m) =>
+                !(
+                  isSameDay(new Date(m.date), selectedSlot.date) &&
+                  m.mealType === selectedSlot.mealType
+                )
+            ),
+            savedMeal,
+          ]);
+        }
+
+        setIsAddDialogOpen(false);
+        setEditingMeal(null);
+        toast.success(isEditMode ? "Posiłek został zaktualizowany" : "Posiłek został dodany");
+
+        if (!isEditMode) {
+          // XP tylko za dodanie nowego planu
+          showFlyingXP(10);
+          playSound('xp-earn');
+        }
       }
     } catch {
-      toast.error("Nie udało się dodać posiłku");
+      toast.error(editingMeal ? "Nie udało się zaktualizować posiłku" : "Nie udało się dodać posiłku");
     }
   };
 
@@ -955,6 +1036,7 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
                           meal={meal}
                           onRemove={() => handleRemoveMeal(meal.id)}
                           onCopy={() => handleCopyMeal(meal)}
+                          onEdit={() => handleOpenEditDialog(meal)}
                         />
                       ) : (
                         <div className="h-full flex items-center justify-center text-muted-foreground opacity-0 hover:opacity-100 transition-opacity">
@@ -1016,7 +1098,7 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
                           return (
                             <div
                               key={meal.id}
-                              className="flex items-center gap-1 text-[10px] bg-muted rounded px-1 py-0.5 group relative"
+                              className="flex items-center gap-1 text-[10px] bg-muted rounded px-1 py-0.5 group"
                             >
                               <span>{mealInfo?.emoji}</span>
                               {meal.simpleDish?.icon && (
@@ -1025,17 +1107,31 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
                               <span className="truncate flex-1">
                                 {meal.recipe?.name || meal.simpleDish?.name || meal.customName}
                               </span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRemoveMeal(meal.id);
-                                }}
-                              >
-                                <X className="h-2 w-2" />
-                              </Button>
+                              <div className="ml-auto flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-4 w-4"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEditDialog(meal);
+                                  }}
+                                  title="Edytuj"
+                                >
+                                  <Pencil className="h-2 w-2" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-4 w-4"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveMeal(meal.id);
+                                  }}
+                                >
+                                  <X className="h-2 w-2" />
+                                </Button>
+                              </div>
                             </div>
                           );
                         })}
@@ -1055,11 +1151,14 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
       )}
 
       {/* Dialog dodawania posiłku */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+        setIsAddDialogOpen(open);
+        if (!open) setEditingMeal(null);
+      }}>
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
-              Dodaj posiłek
+              {editingMeal ? "Edytuj posiłek" : "Dodaj posiłek"}
               {selectedSlot && (
                 <span className="text-muted-foreground font-normal ml-2">
                   {format(selectedSlot.date, "EEEE, d MMMM", { locale: pl })} - {" "}
@@ -1070,6 +1169,68 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
           </DialogHeader>
 
           <div className="space-y-4 py-4 overflow-y-auto flex-1">
+            {/* Wybór dnia */}
+            {selectedSlot && (
+              <div className="space-y-2">
+                <Label htmlFor="meal-date">Dzień</Label>
+                <Input
+                  id="meal-date"
+                  type="date"
+                  value={toDateInputValue(selectedSlot.date)}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    if (!nextValue) return;
+
+                    setSelectedSlot((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            date: fromDateInputValue(nextValue),
+                          }
+                        : prev
+                    );
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Wybór pory dnia */}
+            {selectedSlot && (
+              <div className="space-y-2">
+                <Label>Pora dnia</Label>
+                <RadioGroup
+                  value={selectedSlot.mealType}
+                  onValueChange={(value) => {
+                    setSelectedSlot((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            mealType: value,
+                          }
+                        : prev
+                    );
+                  }}
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+                >
+                  {mealTypes.map((mealType) => (
+                    <label
+                      key={mealType.value}
+                      htmlFor={`meal-type-${mealType.value}`}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md border p-2 cursor-pointer transition-colors",
+                        selectedSlot.mealType === mealType.value && "border-primary bg-primary/5"
+                      )}
+                    >
+                      <RadioGroupItem id={`meal-type-${mealType.value}`} value={mealType.value} />
+                      <span className="text-base">{mealType.emoji}</span>
+                      <span className="text-sm font-medium">{mealType.label}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{mealType.time}</span>
+                    </label>
+                  ))}
+                </RadioGroup>
+              </div>
+            )}
+
             {/* Wyszukiwarka przepisów */}
             <div className="space-y-2">
               <Label>Wybierz przepis</Label>
@@ -1172,10 +1333,13 @@ export function MealsClient({ initialMeals, recipes }: MealsClientProps) {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+            <Button variant="outline" onClick={() => {
+              setIsAddDialogOpen(false);
+              setEditingMeal(null);
+            }}>
               Anuluj
             </Button>
-            <Button onClick={handleAddMeal}>Dodaj</Button>
+            <Button onClick={handleAddMeal}>{editingMeal ? "Zapisz zmiany" : "Dodaj"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -16,7 +17,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { date, mealType, recipeId, customName } = body;
+    const { date, mealType, recipeId, customName, simpleDishId } = body;
 
     // Sprawdź czy posiłek należy do gospodarstwa
     const existing = await prisma.meal.findFirst({
@@ -49,6 +50,7 @@ export async function PUT(
         ...(mealType && { mealType }),
         ...(recipeId !== undefined && { recipeId }),
         ...(customName !== undefined && { customName }),
+        ...(simpleDishId !== undefined && { simpleDishId }),
       },
       include: {
         recipe: {
@@ -106,6 +108,10 @@ export async function DELETE(
     if (meal.count === 0) {
       return NextResponse.json({ error: "Meal not found" }, { status: 404 });
     }
+
+    // Revalidate calendar and meals pages
+    revalidatePath('/calendar');
+    revalidatePath('/meals');
 
     return NextResponse.json({ success: true });
   } catch (error) {

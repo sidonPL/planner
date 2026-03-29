@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -118,6 +119,9 @@ export async function POST(req: Request) {
         exceptions: true,
       },
     });
+
+    // Revalidate calendar page
+    revalidatePath('/calendar');
 
     return NextResponse.json(schedule, { status: 201 });
   } catch (error) {
