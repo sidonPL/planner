@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { verifyCronAuth } from "@/lib/web-push";
 import { prisma } from '@/lib/prisma';
 import { generateDailyQuests } from '@/lib/daily-quests';
 
@@ -7,12 +8,9 @@ import { generateDailyQuests } from '@/lib/daily-quests';
 export async function GET(request: Request) {
   try {
     // Verify authorization
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  if (!verifyCronAuth(request.headers.get("authorization"))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
     console.log('[CRON] Starting daily quests generation...');
 

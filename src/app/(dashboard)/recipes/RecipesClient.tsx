@@ -397,7 +397,7 @@ export function RecipesClient({ recipes: initialRecipes, currentUserId, inventor
 
     // Sprawdź progress osiągnięć związanych z przepisami
     setTimeout(() => {
-      checkAndNotifyAchievementProgress('userId', ['RECIPES_ADDED'])
+      checkAndNotifyAchievementProgress(['RECIPES_ADDED'])
         .catch(err => console.error('Achievement notification error:', err));
     }, 500);
   };

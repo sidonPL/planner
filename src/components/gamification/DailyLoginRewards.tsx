@@ -22,6 +22,9 @@ interface DailyLoginStats {
   lastLoginDate: Date | null;
   totalLogins: number;
   totalXpEarned: number;
+  todayDayNumber?: number;
+  alreadyClaimedToday?: boolean;
+  canClaimToday?: boolean;
 }
 
 interface ClaimResult {
@@ -143,6 +146,7 @@ export function DailyLoginRewards() {
   const progressToNext = milestone
     ? (stats!.currentStreak / milestone.next) * 100
     : 0;
+  const dayNumber = stats?.todayDayNumber ?? stats?.currentStreak ?? 0;
 
   return (
     <>
@@ -182,13 +186,19 @@ export function DailyLoginRewards() {
                   <Flame className="h-8 w-8 text-orange-500" />
                   <div>
                     <div className="text-4xl font-bold">
-                      {stats?.currentStreak || 0}
+                      {dayNumber}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      Dni z rzędu
+                      {canClaim ? "Dzień logowania (dziś)" : "Dzień serii logowania"}
                     </div>
                   </div>
                 </div>
+
+                {canClaim && dayNumber > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Odbierz nagrodę, aby zaliczyć {dayNumber}. dzień z rzędu
+                  </p>
+                )}
 
                 {stats && stats.currentStreak > 0 && milestone && (
                   <div className="space-y-2">

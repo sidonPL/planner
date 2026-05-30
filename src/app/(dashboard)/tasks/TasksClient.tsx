@@ -36,6 +36,8 @@ import { LabelsManagerDialog } from "@/components/tasks/LabelsManagerDialog";
 import { TemplatesManagerDialog } from "@/components/tasks/TemplatesManagerDialog";
 import type { Task, Category, RecurrenceType } from "@prisma/client";
 import { startOfDay, startOfTomorrow, endOfWeek, isSameDay, isWithinInterval, subDays } from "date-fns";
+import { getLocalDayDate, isSameLocalDay } from "@/lib/local-date";
+import { getRoutinesForDayWithOverdue } from "@/lib/routine-occurrence";
 import { cn } from "@/lib/utils";
 
 const COMPLETED_HIDE_AFTER_DAYS = 14;
@@ -107,74 +109,19 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
   const [quickFilter, setQuickFilter] = useState<QuickFilterType>("all");
   const [taskViewMode, setTaskViewMode] = useState<ViewMode>("list");
   const [showRoutinesSidebar, setShowRoutinesSidebar] = useState(true);
-  const [selectedRoutineDate, setSelectedRoutineDate] = useState<Date>(startOfDay(new Date()));
+  const [selectedRoutineDate, setSelectedRoutineDate] = useState<Date>(() =>
+    getLocalDayDate(new Date())
+  );
   const [showArchivedCompleted, setShowArchivedCompleted] = useState(false);
 
-  // Funkcja sprawdzająca czy rutyna powinna być wyświetlona dla danego dnia
-  const isRoutineForDay = useCallback((task: TaskWithRelations, date: Date) => {
-    if (!task.isRecurring) return false;
-
-    const dayOfWeek = date.getDay(); // 0=Niedziela, 1=Poniedziałek, ..., 6=Sobota
-    const dayOfMonth = date.getDate();
-
-    // Sprawdź czy dzień pasuje do harmonogramu rutyny
-    let matchesSchedule = false;
-
-    if (task.recurrenceType === "DAILY") {
-      matchesSchedule = true;
-    } else if (task.recurrenceType === "WEEKLY") {
-      if (!task.recurrenceDays || task.recurrenceDays.length === 0) {
-        matchesSchedule = true; // Brak dni = codziennie
-      } else {
-        matchesSchedule = task.recurrenceDays.includes(dayOfWeek);
-      }
-    } else if (task.recurrenceType === "MONTHLY") {
-      if (!task.recurrenceDays || task.recurrenceDays.length === 0) {
-        matchesSchedule = true;
-      } else {
-        matchesSchedule = task.recurrenceDays.includes(dayOfMonth);
-      }
-    } else {
-      matchesSchedule = true; // YEARLY i inne
-    }
-
-    // Jeśli dzień nie pasuje do harmonogramu - nie pokazuj
-    if (!matchesSchedule) return false;
-
-    // Sprawdź czy rutyna ma dueDate
-    if (task.dueDate) {
-      const taskDate = new Date(task.dueDate);
-      const today = startOfDay(new Date());
-
-      const isSameDate =
-        date.getFullYear() === taskDate.getFullYear() &&
-        date.getMonth() === taskDate.getMonth() &&
-        date.getDate() === taskDate.getDate();
-
-      // Jeśli ma dueDate na ten dzień - pokaż
-      if (isSameDate) return true;
-
-      // Jeśli ma dueDate na przyszły dzień - ukryj (czekamy na swój dzień)
-      if (taskDate > date) return false;
-
-      // Jeśli ma dueDate w przeszłości:
-      if (taskDate < date) {
-        // Jeśli jest ukończona - ukryj
-        if (task.status === "COMPLETED") return false;
-
-        // Jeśli NIE jest ukończona (spóźniona):
-        // Pokaż TYLKO na dzień dzisiejszy (nie na przyszłe dni)
-        const isToday = date.getFullYear() === today.getFullYear() &&
-                       date.getMonth() === today.getMonth() &&
-                       date.getDate() === today.getDate();
-
-        return isToday; // Pokaż spóźnioną rutynę tylko dziś
-      }
-    }
-
-    // Jeśli rutyna NIE MA dueDate - pokaż (nowa rutyna lub stara bez daty)
-    return true;
-  }, []);
+  const getSidebarRoutinesForDay = useCallback(
+    (date: Date) =>
+      getRoutinesForDayWithOverdue(
+        tasks.filter((task) => task.isRecurring && !task.subtaskParentId),
+        date
+      ),
+    [tasks]
+  );
 
   // Ładuj etykiety
   const loadLabels = useCallback(async () => {
@@ -1110,7 +1057,7 @@ export function TasksClient({ initialTasks, categories, members, currentUserId }
                 <CardContent className="space-y-3">
                   {(() => {
                     // Filtruj rutyny dla wybranego dnia
-                    const routines = tasks.filter(t => t.isRecurring && !t.subtaskParentId && isRoutineForDay(t, selectedRoutineDate));
+                    const routines = getSidebarRoutinesForDay(selectedRoutineDate);
 
                     if (routines.length === 0) {
                       return (

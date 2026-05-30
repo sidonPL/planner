@@ -1,24 +1,20 @@
-// filepath: c:\Users\sidon\IdeaProjects\planner\src\app\api\cron\schedule-reminders\route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
-import { addMinutes, endOfDay, isWithinInterval, startOfDay } from "date-fns";
+import { addMinutes, isWithinInterval } from "date-fns";
 import { doesScheduleOccurOnDate } from "@/lib/schedule-occurrence";
+import { verifyCronAuth } from "@/lib/web-push";
 
-// Wysyła powiadomienia 15 minut przed rozpoczęciem zajęć z harmonogramu
+import { combineLocalDateAndTime, getLocalDayBounds } from "@/lib/local-date";
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(request.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const now = new Date();
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
+    const { start: todayStart, end: todayEnd } = getLocalDayBounds(now);
 
     // Pobierz aktywne harmonogramy i odfiltruj je przez reguły wystąpień.
     const schedules = await prisma.schedule.findMany({
@@ -58,8 +54,10 @@ export async function GET(request: NextRequest) {
 
       // Parsuj czas rozpoczęcia
       const [startHour, startMin] = schedule.startTime.split(":").map(Number);
-      const scheduleStart = new Date(now);
-      scheduleStart.setHours(startHour, startMin, 0, 0);
+      const scheduleStart = combineLocalDateAndTime(
+        now,
+        `${String(startHour).padStart(2, "0")}:${String(startMin).padStart(2, "0")}`
+      );
 
       // Oblicz czas przypomnienia (15 min przed)
       const reminderTime = addMinutes(scheduleStart, -reminderMinutes);
@@ -75,7 +73,7 @@ export async function GET(request: NextRequest) {
         const existingNotification = await prisma.notification.findFirst({
           where: {
             userId: schedule.userId,
-            type: "EVENT_REMINDER",
+            type: "SCHEDULE_REMINDER",
             link: `/schedule`,
             createdAt: {
               gte: todayStart,
@@ -98,7 +96,7 @@ export async function GET(request: NextRequest) {
             householdId: schedule.householdId,
             title: `${scheduleTypeLabels[schedule.type] || "Zajęcia"} za 15 minut`,
             message: notificationMessage,
-            type: "EVENT_REMINDER",
+            type: "SCHEDULE_REMINDER",
             link: "/schedule",
           });
 

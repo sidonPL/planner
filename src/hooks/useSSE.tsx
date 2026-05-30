@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from "react";
 import { useNotificationTTS } from "@/hooks/useTTS";
 import { toast } from "sonner";
+import { getPresenceChangeMessage } from "@/lib/presence-events";
 
 interface SSEContextType {
   isConnected: boolean;
@@ -91,10 +92,9 @@ export function SSEProvider({ children }: { children: ReactNode }) {
         const data = JSON.parse(event.data);
         setLastEvent({ type: "presence_change", data, timestamp: new Date() });
 
-        // Powiadomienie o zmianie obecności
-        const message = data.status === "HOME"
-          ? `${data.userName} wrócił do domu`
-          : `${data.userName} wyszedł`;
+        const userName = typeof data.userName === "string" ? data.userName : "Użytkownik";
+        const status = typeof data.status === "string" ? data.status : "AWAY";
+        const message = getPresenceChangeMessage(userName, status);
 
         toast(message);
         speakNotification(message);

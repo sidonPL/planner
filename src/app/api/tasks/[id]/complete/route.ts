@@ -6,6 +6,7 @@ import { updateQuestProgress } from "@/lib/daily-quests";
 import { updateStreak } from "@/lib/gamification";
 import { checkAchievements } from "@/lib/achievements";
 import { addXP } from "@/lib/xp";
+import { differenceInLocalCalendarDays } from "@/lib/local-date";
 
 // PATCH - oznacz zadanie jako ukończone/nieukończone
 export async function PATCH(
@@ -111,22 +112,21 @@ export async function PATCH(
       // Aktualizuj streak dla zadań cyklicznych
       if (existingTask.isRecurring && !wasAlreadyCompleted) {
         const now = new Date();
-        
-        // Pobierz istniejący streak
+        const routineSeriesId = existingTask.parentTaskId || existingTask.id;
+
         const streak = await prisma.routineStreak.findUnique({
           where: {
             taskId_userId: {
-              taskId: id,
+              taskId: routineSeriesId,
               userId: session.user.id,
             },
           },
         });
 
         if (!streak) {
-          // Utwórz nowy streak
           await prisma.routineStreak.create({
             data: {
-              taskId: id,
+              taskId: routineSeriesId,
               userId: session.user.id,
               currentStreak: 1,
               longestStreak: 1,
@@ -135,23 +135,17 @@ export async function PATCH(
             },
           });
         } else {
-          // Zaktualizuj streak
           const lastCompleted = streak.lastCompletedAt;
           let newCurrentStreak = streak.currentStreak;
 
           if (lastCompleted) {
-            const daysSinceLastCompletion = Math.floor(
-              (now.getTime() - lastCompleted.getTime()) / (1000 * 60 * 60 * 24)
-            );
+            const daysSinceLastCompletion = differenceInLocalCalendarDays(now, lastCompleted);
 
             if (daysSinceLastCompletion === 0) {
-              // To samo dzisiaj - nie zmieniamy streaku, tylko totalCompletions
               newCurrentStreak = streak.currentStreak;
             } else if (daysSinceLastCompletion === 1) {
-              // Kolejny dzień - kontynuuj streak
               newCurrentStreak = streak.currentStreak + 1;
             } else {
-              // Przerwa - zresetuj streak
               newCurrentStreak = 1;
             }
           } else {
@@ -163,7 +157,7 @@ export async function PATCH(
           await prisma.routineStreak.update({
             where: {
               taskId_userId: {
-                taskId: id,
+                taskId: routineSeriesId,
                 userId: session.user.id,
               },
             },

@@ -2,7 +2,8 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { DashboardClient } from "./DashboardClient";
-import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
+import { addDays, subDays } from "date-fns";
+import { getLocalDayBounds, getLocalMonthBounds } from "@/lib/local-date";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -16,10 +17,10 @@ export default async function DashboardPage() {
   }
 
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
+  const { start: todayStart, end: todayEnd } = getLocalDayBounds(now);
+  const { start: monthStart, end: monthEnd } = getLocalMonthBounds(now);
+  const { start: routinesPastStart } = getLocalDayBounds(subDays(now, 30));
+  const { end: routinesFutureEnd } = getLocalDayBounds(addDays(now, 45));
 
   const [
     todayTasks,
@@ -51,18 +52,32 @@ export default async function DashboardPage() {
       orderBy: { dueDate: "asc" },
       take: 5,
     }),
-    // Rutyny na dziś (osobny widżet)
+    // Rutyny — szerszy zakres + szablony (filtrowanie dnia po stronie klienta)
     prisma.task.findMany({
       where: {
         householdId: session.user.householdId,
-        dueDate: { gte: todayStart, lte: todayEnd },
         isRecurring: true,
+        OR: [
+          {
+            dueDate: {
+              gte: routinesPastStart,
+              lte: routinesFutureEnd,
+            },
+          },
+          {
+            parentTaskId: null,
+            OR: [
+              { recurrenceEndDate: null },
+              { recurrenceEndDate: { gte: todayStart } },
+            ],
+          },
+        ],
       },
       include: {
         assignee: { select: { id: true, name: true, color: true } },
       },
       orderBy: [{ dueTime: "asc" }, { dueDate: "asc" }],
-      take: 100,
+      take: 500,
     }),
     // Wydarzenia na dziś
     prisma.event.findMany({
@@ -227,10 +242,10 @@ export default async function DashboardPage() {
 
   // Oblicz statystyki z transakcji
   const monthExpenses = monthTransactions
-    .filter((t) => t.type === "EXPENSE")
+    .filter((t) => t.type === "EXPENSE" && t.category !== "transfer")
     .reduce((sum, t) => sum + t.amount, 0);
   const monthIncome = monthTransactions
-    .filter((t) => t.type === "INCOME")
+    .filter((t) => t.type === "INCOME" && t.category !== "transfer")
     .reduce((sum, t) => sum + t.amount, 0);
 
   // Statystyki

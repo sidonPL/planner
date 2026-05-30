@@ -236,7 +236,7 @@ export function ThemeSelector() {
         <CardContent className="text-sm text-muted-foreground">
           <p>
             Nowe motywy możesz odblokować w{' '}
-            <a href="/gamification/rewards" className="text-primary hover:underline">
+            <a href="/rewards" className="text-primary hover:underline">
               sklepie nagród
             </a>
             . Zdobywaj XP i wymieniaj na ekskluzywne motywy kolorystyczne!

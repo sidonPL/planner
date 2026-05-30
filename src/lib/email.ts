@@ -140,6 +140,11 @@ export function buildInAppNotificationEmail({
 }
 
 export async function sendEmail({ to, subject, html, text }: SendEmailOptions) {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+    console.warn("SMTP not configured, skipping email to:", to);
+    return { success: false, error: "SMTP not configured" };
+  }
+
   try {
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM || "Planner Domowy <noreply@planner.local>",

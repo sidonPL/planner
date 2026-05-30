@@ -3,8 +3,13 @@
  * Nagradza użytkowników za codzienne logowanie z bonus XP za streaki
  */
 
-import { prisma } from './prisma';
-import { startOfDay, differenceInDays } from 'date-fns';
+import { prisma } from "./prisma";
+import {
+  differenceInLocalCalendarDays,
+  getLocalDayDate,
+  isSameLocalDay,
+} from "./local-date";
+import { addXP } from "./xp";
 
 /**
  * XP Rewards based on login streak
@@ -17,6 +22,58 @@ const DAILY_LOGIN_XP = {
   STREAK_30: 200,
   MAX_DAILY: 300,
 };
+
+function computeNextStreak(
+  currentStreak: number,
+  lastLoginDate: Date | null,
+  now: Date
+): number {
+  if (!lastLoginDate) {
+    return 1;
+  }
+
+  const daysSinceLastLogin = differenceInLocalCalendarDays(now, lastLoginDate);
+
+  if (daysSinceLastLogin <= 0) {
+    return currentStreak;
+  }
+
+  if (daysSinceLastLogin === 1) {
+    return currentStreak + 1;
+  }
+
+  return 1;
+}
+
+function calculateXpReward(newStreak: number): {
+  xpRewarded: number;
+  bonusType: string | null;
+} {
+  let xpRewarded = DAILY_LOGIN_XP.BASE;
+  let bonusType: string | null = null;
+
+  if (newStreak === 3) {
+    xpRewarded += DAILY_LOGIN_XP.STREAK_3;
+    bonusType = "STREAK_3";
+  } else if (newStreak === 7) {
+    xpRewarded += DAILY_LOGIN_XP.STREAK_7;
+    bonusType = "STREAK_7";
+  } else if (newStreak === 14) {
+    xpRewarded += DAILY_LOGIN_XP.STREAK_14;
+    bonusType = "STREAK_14";
+  } else if (newStreak === 30) {
+    xpRewarded += DAILY_LOGIN_XP.STREAK_30;
+    bonusType = "STREAK_30";
+  } else if (newStreak > 30 && newStreak % 30 === 0) {
+    xpRewarded += DAILY_LOGIN_XP.STREAK_30;
+    bonusType = `STREAK_${newStreak}`;
+  }
+
+  return {
+    xpRewarded: Math.min(xpRewarded, DAILY_LOGIN_XP.MAX_DAILY),
+    bonusType,
+  };
+}
 
 /**
  * Check and award daily login reward
@@ -34,17 +91,21 @@ export async function checkDailyLoginReward(userId: string, householdId: string)
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new Error("User not found");
     }
 
-    const today = startOfDay(new Date());
-    const lastLogin = user.lastLoginDate ? startOfDay(user.lastLoginDate) : null;
+    const now = new Date();
+    const today = getLocalDayDate(now);
+    const lastLogin = user.lastLoginDate ?? null;
 
-    if (lastLogin && lastLogin.getTime() === today.getTime()) {
+    if (lastLogin && isSameLocalDay(lastLogin, now)) {
       return {
         alreadyClaimed: true,
         streak: user.loginStreak,
         xpRewarded: 0,
+        bonusType: null,
+        isNewRecord: false,
+        totalXp: user.xp,
       };
     }
 
@@ -55,7 +116,7 @@ export async function checkDailyLoginReward(userId: string, householdId: string)
     let shieldInfo: { usesLeft: number; maxUses: number } | null = null;
 
     if (lastLogin) {
-      const daysSinceLastLogin = differenceInDays(today, lastLogin);
+      const daysSinceLastLogin = differenceInLocalCalendarDays(now, lastLogin);
 
       if (daysSinceLastLogin === 1) {
         newStreak = user.loginStreak + 1;
@@ -66,19 +127,15 @@ export async function checkDailyLoginReward(userId: string, householdId: string)
             isActive: true,
             reward: {
               effectData: {
-                path: ['type'],
-                equals: 'streak_shield'
-              }
+                path: ["type"],
+                equals: "streak_shield",
+              },
             },
-            // Nie może być wygasła
-            OR: [
-              { expiresAt: null },
-              { expiresAt: { gt: new Date() } },
-            ],
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
           },
           include: {
-            reward: true
-          }
+            reward: true,
+          },
         });
 
         if (activeShield && activeShield.usedCount < (activeShield.maxUses || 1)) {
@@ -89,14 +146,13 @@ export async function checkDailyLoginReward(userId: string, householdId: string)
             where: { id: activeShield.id },
             data: {
               usedCount: { increment: 1 },
-              isActive: activeShield.usedCount + 1 < (activeShield.maxUses || 1)
-            }
+              isActive: activeShield.usedCount + 1 < (activeShield.maxUses || 1),
+            },
           });
 
-          // Zapisz info o shield
           shieldInfo = {
             usesLeft: (activeShield.maxUses || 1) - activeShield.usedCount - 1,
-            maxUses: activeShield.maxUses || 1
+            maxUses: activeShield.maxUses || 1,
           };
         } else {
           newStreak = 1;
@@ -104,24 +160,11 @@ export async function checkDailyLoginReward(userId: string, householdId: string)
       }
     }
 
-    if (newStreak === 3) {
-      xpRewarded += DAILY_LOGIN_XP.STREAK_3;
-      bonusType = 'STREAK_3';
-    } else if (newStreak === 7) {
-      xpRewarded += DAILY_LOGIN_XP.STREAK_7;
-      bonusType = 'STREAK_7';
-    } else if (newStreak === 14) {
-      xpRewarded += DAILY_LOGIN_XP.STREAK_14;
-      bonusType = 'STREAK_14';
-    } else if (newStreak === 30) {
-      xpRewarded += DAILY_LOGIN_XP.STREAK_30;
-      bonusType = 'STREAK_30';
-    } else if (newStreak > 30 && newStreak % 30 === 0) {
-      xpRewarded += DAILY_LOGIN_XP.STREAK_30;
-      bonusType = `STREAK_${newStreak}`;
-    }
+    const reward = calculateXpReward(newStreak);
+    xpRewarded = reward.xpRewarded;
+    bonusType = reward.bonusType;
 
-    xpRewarded = Math.min(xpRewarded, DAILY_LOGIN_XP.MAX_DAILY);
+    const isNewRecord = newStreak > user.longestLoginStreak;
 
     await prisma.$transaction([
       prisma.user.update({
@@ -130,7 +173,6 @@ export async function checkDailyLoginReward(userId: string, householdId: string)
           lastLoginDate: today,
           loginStreak: newStreak,
           longestLoginStreak: Math.max(newStreak, user.longestLoginStreak),
-          xp: user.xp + xpRewarded,
         },
       }),
       prisma.dailyLoginReward.create({
@@ -144,17 +186,15 @@ export async function checkDailyLoginReward(userId: string, householdId: string)
           claimed: true,
         },
       }),
-      prisma.pointsHistory.create({
-        data: {
-          userId,
-          amount: xpRewarded,
-          reason: bonusType
-            ? `Codzienne logowanie - ${newStreak} dni z rzędu! 🔥`
-            : `Codzienne logowanie`,
-          type: 'EARNED',
-        },
-      }),
     ]);
+
+    const xpResult = await addXP(
+      userId,
+      xpRewarded,
+      bonusType
+        ? `Codzienne logowanie - ${newStreak} dni z rzędu`
+        : "Codzienne logowanie"
+    );
 
     return {
       alreadyClaimed: false,
@@ -164,9 +204,12 @@ export async function checkDailyLoginReward(userId: string, householdId: string)
       shieldUsed,
       shieldInfo,
       longestStreak: Math.max(newStreak, user.longestLoginStreak),
+      isNewRecord,
+      totalXp: xpResult.totalXP,
+      leveledUp: xpResult.leveledUp,
     };
   } catch (error) {
-    console.error('Error checking daily login reward:', error);
+    console.error("Error checking daily login reward:", error);
     throw error;
   }
 }
@@ -177,7 +220,7 @@ export async function checkDailyLoginReward(userId: string, householdId: string)
 export async function getLoginHistory(userId: string, limit = 30) {
   return prisma.dailyLoginReward.findMany({
     where: { userId },
-    orderBy: { loginDate: 'desc' },
+    orderBy: { loginDate: "desc" },
     take: limit,
   });
 }
@@ -204,12 +247,25 @@ export async function getLoginStats(userId: string) {
     _sum: { xpRewarded: true },
   });
 
+  const now = new Date();
+  const lastLogin = user?.lastLoginDate ?? null;
+  const alreadyClaimedToday = lastLogin ? isSameLocalDay(lastLogin, now) : false;
+  const canClaimToday = !alreadyClaimedToday;
+
+  const displayStreak = alreadyClaimedToday
+    ? user?.loginStreak || 0
+    : computeNextStreak(user?.loginStreak || 0, lastLogin, now);
+
   return {
-    currentStreak: user?.loginStreak || 0,
+    currentStreak: displayStreak,
+    storedStreak: user?.loginStreak || 0,
     longestStreak: user?.longestLoginStreak || 0,
     lastLoginDate: user?.lastLoginDate,
     totalLogins,
     totalXpEarned: totalXpFromLogins._sum.xpRewarded || 0,
+    alreadyClaimedToday,
+    canClaimToday,
+    todayDayNumber: displayStreak,
   };
 }
 
@@ -224,9 +280,7 @@ export async function canClaimTodayReward(userId: string): Promise<boolean> {
 
   if (!user) return false;
 
-  const today = startOfDay(new Date());
-  const lastLogin = user.lastLoginDate ? startOfDay(user.lastLoginDate) : null;
+  if (!user.lastLoginDate) return true;
 
-  return !lastLogin || lastLogin.getTime() !== today.getTime();
+  return !isSameLocalDay(user.lastLoginDate, new Date());
 }
-

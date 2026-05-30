@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
+import { isUserInHousehold } from "@/lib/household-validation";
 import { z } from "zod";
 
 const shoppingItemSchema = z.object({
@@ -55,6 +56,53 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const validatedData = shoppingItemSchema.parse(body);
+
+    if (
+      validatedData.assignedToId &&
+      !(await isUserInHousehold(validatedData.assignedToId, session.user.householdId))
+    ) {
+      return NextResponse.json({ error: "Invalid assignee" }, { status: 400 });
+    }
+
+    const existingItem = await prisma.shoppingItem.findFirst({
+      where: {
+        householdId: session.user.householdId,
+        isPurchased: false,
+        name: {
+          equals: validatedData.name.trim(),
+          mode: "insensitive",
+        },
+      },
+    });
+
+    if (existingItem) {
+      const mergedQuantity =
+        validatedData.quantity != null
+          ? (existingItem.quantity ?? 0) + validatedData.quantity
+          : existingItem.quantity;
+
+      const item = await prisma.shoppingItem.update({
+        where: { id: existingItem.id },
+        data: {
+          ...(mergedQuantity != null && { quantity: mergedQuantity }),
+          isUrgent: existingItem.isUrgent || validatedData.isUrgent || false,
+          ...(validatedData.category && { category: validatedData.category }),
+          ...(validatedData.unit && { unit: validatedData.unit }),
+        },
+        include: {
+          assignedTo: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+              color: true,
+            },
+          },
+        },
+      });
+
+      return NextResponse.json(item, { status: 200 });
+    }
 
     const item = await prisma.shoppingItem.create({
       data: {

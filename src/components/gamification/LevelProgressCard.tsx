@@ -6,6 +6,11 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { CountingNumber } from '@/components/ui/counting-number';
+import {
+  getTotalXpForLevel,
+  xpProgressPercent,
+  xpToNextLevel,
+} from '@/lib/xp';
 
 interface LevelProgressCardProps {
   level: number;
@@ -13,26 +18,13 @@ interface LevelProgressCardProps {
   className?: string;
 }
 
-function xpForLevel(level: number): number {
-  return level * 100;
-}
-
-function calculateLevelProgress(xp: number, level: number): number {
-  const xpForCurrentLevel = xpForLevel(level);
-  const xpForPreviousLevels = Array.from({ length: level - 1 }, (_, i) => xpForLevel(i + 1))
-    .reduce((sum, xp) => sum + xp, 0);
-
-  const currentLevelXP = xp - xpForPreviousLevels;
-  return (currentLevelXP / xpForCurrentLevel) * 100;
-}
-
 export function LevelProgressCard({ level, xp, className }: LevelProgressCardProps) {
-  const xpNeeded = xpForLevel(level);
-  const xpForPreviousLevels = Array.from({ length: level - 1 }, (_, i) => xpForLevel(i + 1))
-    .reduce((sum, xp) => sum + xp, 0);
-  const currentLevelXP = xp - xpForPreviousLevels;
-  const progress = calculateLevelProgress(xp, level);
-  const xpToNextLevel = xpNeeded - currentLevelXP;
+  const levelStartXp = getTotalXpForLevel(level);
+  const levelEndXp = getTotalXpForLevel(level + 1);
+  const xpNeededForLevel = levelEndXp - levelStartXp;
+  const currentLevelXP = xp - levelStartXp;
+  const progress = xpProgressPercent(xp);
+  const xpRemaining = xpToNextLevel(xp);
 
   return (
     <Card className={className}>
@@ -44,7 +36,7 @@ export function LevelProgressCard({ level, xp, className }: LevelProgressCardPro
               Poziom {level}
             </CardTitle>
             <CardDescription>
-              {currentLevelXP} / {xpNeeded} XP
+              {currentLevelXP} / {xpNeededForLevel} XP
             </CardDescription>
           </div>
           <Badge variant="secondary" className="text-2xl px-4 py-2">
@@ -82,7 +74,7 @@ export function LevelProgressCard({ level, xp, className }: LevelProgressCardPro
         </div>
 
         <div className="text-xs text-muted-foreground text-center pt-2 border-t">
-          Potrzebujesz jeszcze <span className="font-semibold text-foreground">{xpToNextLevel} XP</span> do poziomu {level + 1}
+          Potrzebujesz jeszcze <span className="font-semibold text-foreground">{xpRemaining} XP</span> do poziomu {level + 1}
         </div>
 
         {/* Level milestones */}

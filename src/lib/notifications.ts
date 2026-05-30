@@ -1,6 +1,9 @@
 import { buildInAppNotificationEmail, sendEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
-import webpush from "web-push";
+import { sendPushToUser } from "@/lib/web-push";
+import { formatReminderLabel } from "@/lib/reminder-options";
+import { isWithinLocalQuietHours } from "@/lib/local-date";
+import { sendSSEEvent } from "@/lib/sse-hub";
 
 type NotificationType = 
   | "TASK_ASSIGNED" 
@@ -28,12 +31,20 @@ interface CreateNotificationParams {
   link?: string;
 }
 
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-const vapidSubject = process.env.VAPID_SUBJECT || "mailto:admin@planner.local";
+function isPushEnabled(settings: { pushEnabled: boolean } | null | undefined): boolean {
+  if (!settings) return true;
+  return settings.pushEnabled !== false;
+}
 
-if (vapidPublicKey && vapidPrivateKey) {
-  webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+function isEmailEnabled(settings: { emailEnabled: boolean } | null | undefined): boolean {
+  return settings?.emailEnabled === true;
+}
+
+function isWithinQuietHours(
+  quietHoursStart: string | null | undefined,
+  quietHoursEnd: string | null | undefined
+): boolean {
+  return isWithinLocalQuietHours(quietHoursStart, quietHoursEnd);
 }
 
 async function dispatchNotificationChannels({
@@ -57,8 +68,17 @@ async function dispatchNotificationChannels({
 
   if (!user) return;
 
-  const emailEnabled = user.settings?.emailEnabled === true;
-  const pushEnabled = user.settings?.pushEnabled === true;
+  const inQuietHours = isWithinQuietHours(
+    user.settings?.quietHoursStart,
+    user.settings?.quietHoursEnd
+  );
+
+  if (inQuietHours) {
+    return;
+  }
+
+  const emailEnabled = isEmailEnabled(user.settings);
+  const pushEnabled = isPushEnabled(user.settings);
 
   if (emailEnabled && user.email) {
     const appUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
@@ -76,38 +96,13 @@ async function dispatchNotificationChannels({
     });
   }
 
-  if (pushEnabled && vapidPublicKey && vapidPrivateKey && user.pushSubscriptions.length > 0) {
-    const payload = {
+  if (pushEnabled && user.pushSubscriptions.length > 0) {
+    await sendPushToUser(userId, {
       title,
       body: message,
-      icon: "/icon-192x192.png",
       url: link || "/",
-      tag: `planner-${Date.now()}`,
-    };
-
-    await Promise.allSettled(
-      user.pushSubscriptions.map(async (sub) => {
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: {
-                p256dh: sub.p256dh,
-                auth: sub.auth,
-              },
-            },
-            JSON.stringify(payload)
-          );
-        } catch (error: unknown) {
-          if (error && typeof error === "object" && "statusCode" in error) {
-            const statusCode = (error as { statusCode: number }).statusCode;
-            if (statusCode === 404 || statusCode === 410) {
-              await prisma.pushSubscription.delete({ where: { id: sub.id } });
-            }
-          }
-        }
-      })
-    );
+      tag: `planner-${title.slice(0, 32)}`,
+    });
   }
 }
 
@@ -141,6 +136,18 @@ export async function createNotification({
     console.error("Notification channel dispatch failed:", error);
   }
 
+  try {
+    sendSSEEvent(userId, "notification", {
+      id: notification.id,
+      title,
+      message,
+      type,
+      link: link || null,
+    });
+  } catch (error) {
+    console.error("SSE notification dispatch failed:", error);
+  }
+
   return notification;
 }
 
@@ -168,14 +175,16 @@ export async function notifyTaskReminder(
   householdId: string,
   taskTitle: string,
   taskId: string,
-  dueDate: Date
+  dueDate: Date,
+  minutesBefore: number
 ) {
   const timeLeft = getTimeLeftString(dueDate);
+
   return createNotification({
     userId,
     householdId,
-    title: "Przypomnienie o zadaniu",
-    message: `Zadanie "${taskTitle}" - termin ${timeLeft}`,
+    title: `Przypomnienie: ${taskTitle}`,
+    message: `${formatReminderLabel(minutesBefore)} (termin ${timeLeft})`,
     type: "TASK_REMINDER",
     link: `/tasks?id=${taskId}`,
   });
@@ -273,4 +282,3 @@ function getTimeLeftString(dueDate: Date): string {
   if (days === 1) return "jutro";
   return `za ${days} dni`;
 }
-

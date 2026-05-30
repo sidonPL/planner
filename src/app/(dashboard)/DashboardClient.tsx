@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { format, differenceInDays } from "date-fns";
 import { pl } from "date-fns/locale";
 import Link from "next/link";
@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { getRoutinesForDay } from "@/lib/routine-occurrence";
 import { toast } from "sonner";
 
 // Widgets
@@ -54,6 +55,8 @@ import { Task, Event, ShoppingItem, Meal, Trip, Notification, UserSettings, Anni
 import { getUpcomingBirthdays } from "@/lib/birthdays";
 import { getUpcomingNameDays } from "@/lib/namedays";
 import { getUpcomingAnniversaries } from "@/lib/anniversaries";
+import { getPresenceStatusInfo, type PresenceChangePayload } from "@/lib/presence-events";
+import { useSSEEvent } from "@/hooks/useSSE";
 
 type TaskWithAssignee = Task & {
   assignee: { id: string; name: string | null; color: string } | null;
@@ -214,6 +217,26 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const [dashboardTasks, setDashboardTasks] = useState(todayTasks);
   const [dashboardRoutines, setDashboardRoutines] = useState(todayRoutines);
+  const [householdMembers, setHouseholdMembers] = useState(members);
+
+  useEffect(() => {
+    setHouseholdMembers(members);
+  }, [members]);
+
+  const handlePresenceChange = useCallback((data: PresenceChangePayload) => {
+    setHouseholdMembers((prev) =>
+      prev.map((member) =>
+        member.id === data.userId
+          ? {
+              ...member,
+              presenceRecords: [{ status: data.status }],
+            }
+          : member
+      )
+    );
+  }, []);
+
+  useSSEEvent<PresenceChangePayload>("presence_change", handlePresenceChange);
 
   // Stan widoku - domyślnie z ustawień użytkownika
   const [viewMode, setViewMode] = useState<"family" | "personal">(
@@ -249,14 +272,14 @@ export function DashboardClient({
   // Znajdź aktywnego użytkownika
   const activeUser = useMemo(
     () =>
-      members.find((m) => m.id === activeUserId) || {
+      householdMembers.find((m) => m.id === activeUserId) || {
         id: user.id,
         name: user.name || "Użytkownik",
         avatar: null,
         color: "#6366f1",
         presenceRecords: [],
       },
-    [members, activeUserId, user.id, user.name]
+    [householdMembers, activeUserId, user.id, user.name]
   );
 
   // Greeting
@@ -357,7 +380,7 @@ export function DashboardClient({
   );
 
   const balance = displayStats.monthIncome - displayStats.monthExpenses;
-  const homeMembers = members.filter((m) => m.presenceRecords[0]?.status === "HOME");
+  const homeMembers = householdMembers.filter((m) => m.presenceRecords[0]?.status === "HOME");
 
   // Oblicz nadchodzące urodziny (następne 30 dni) - członkowie + zewnętrzne
   const upcomingBirthdays = useMemo(() => {
@@ -692,66 +715,8 @@ export function DashboardClient({
             </Card>
           );
 
-        case "main-routines":
-          // Funkcja sprawdzająca czy rutyna powinna być dzisiaj
-          const isRoutineForToday = (task: TaskWithAssignee) => {
-            if (!task.isRecurring) return false;
-
-            // Jeśli rutyna ma dueDate, sprawdź czy to dzisiaj
-            if (task.dueDate) {
-              const today = new Date();
-              const taskDate = new Date(task.dueDate);
-              const isSameDate =
-                today.getFullYear() === taskDate.getFullYear() &&
-                today.getMonth() === taskDate.getMonth() &&
-                today.getDate() === taskDate.getDate();
-
-              if (!isSameDate) return false; // Rutyna z inną datą - ukryj
-            }
-
-            const today = new Date();
-            const dayOfWeek = today.getDay(); // 0=Niedziela, 1=Poniedziałek, ..., 6=Sobota
-
-            // Dla DAILY - zawsze pokazuj
-            if (task.recurrenceType === "DAILY") return true;
-
-            // Dla WEEKLY - sprawdź recurrenceDays
-            if (task.recurrenceType === "WEEKLY") {
-              if (!task.recurrenceDays || task.recurrenceDays.length === 0) return true;
-              return task.recurrenceDays.includes(dayOfWeek);
-            }
-
-            // Dla MONTHLY - sprawdź dzień miesiąca
-            if (task.recurrenceType === "MONTHLY") {
-              if (!task.recurrenceDays || task.recurrenceDays.length === 0) return true;
-              const dayOfMonth = today.getDate();
-              return task.recurrenceDays.includes(dayOfMonth);
-            }
-
-            // Dla YEARLY i innych - zawsze pokazuj
-            return true;
-          };
-
-          const routinesForTodayRaw = filteredRoutines.filter((routine) => isRoutineForToday(routine));
-          const routinesByParent = new Map<string, TaskWithAssignee>();
-
-          for (const routine of routinesForTodayRaw) {
-            const key = routine.parentTaskId || routine.id;
-            const existing = routinesByParent.get(key);
-
-            if (!existing) {
-              routinesByParent.set(key, routine);
-              continue;
-            }
-
-            const existingIsInstance = Boolean(existing.parentTaskId);
-            const currentIsInstance = Boolean(routine.parentTaskId);
-            if (!existingIsInstance && currentIsInstance) {
-              routinesByParent.set(key, routine);
-            }
-          }
-
-          const routinesForToday = Array.from(routinesByParent.values());
+        case "main-routines": {
+          const routinesForToday = getRoutinesForDay(filteredRoutines, new Date());
           const routinesCompleted = routinesForToday.filter((r) => r.status === TaskStatus.COMPLETED).length;
 
           // Funkcja do sprawdzania czy rutyna jest spóźniona (>3h od zaplanowanej godziny)
@@ -898,6 +863,7 @@ export function DashboardClient({
               </CardContent>
             </Card>
           );
+        }
 
         case "main-meals":
           return (
@@ -970,8 +936,10 @@ export function DashboardClient({
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {members.map((member) => {
-                    const isHome = member.presenceRecords[0]?.status === "HOME";
+                  {householdMembers.map((member) => {
+                    const status = member.presenceRecords[0]?.status || "AWAY";
+                    const statusInfo = getPresenceStatusInfo(status);
+                    const isHome = status === "HOME";
                     return (
                       <div key={member.id} className="flex items-center gap-3">
                         <div className="relative">
@@ -987,7 +955,7 @@ export function DashboardClient({
                           <div
                             className={cn(
                               "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background",
-                              isHome ? "bg-green-500" : "bg-gray-400"
+                              statusInfo.dotColor
                             )}
                           />
                         </div>
@@ -995,14 +963,11 @@ export function DashboardClient({
                           <p className="text-sm font-medium">{member.name}</p>
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
                             {isHome ? (
-                              <>
-                                <Home className="h-3 w-3" /> W domu
-                              </>
+                              <Home className="h-3 w-3" />
                             ) : (
-                              <>
-                                <MapPin className="h-3 w-3" /> Poza domem
-                              </>
+                              <MapPin className="h-3 w-3" />
                             )}
+                            {statusInfo.shortLabel}
                           </p>
                         </div>
                       </div>
@@ -1011,7 +976,7 @@ export function DashboardClient({
                 </div>
                 <div className="mt-3 pt-3 border-t text-center">
                   <p className="text-sm text-muted-foreground">
-                    {homeMembers.length} z {members.length} w domu
+                    {homeMembers.length} z {householdMembers.length} w domu
                   </p>
                 </div>
               </CardContent>
@@ -1260,7 +1225,7 @@ export function DashboardClient({
       todayTasks,
       schedules,
       transactions,
-      members,
+      householdMembers,
       homeMembers,
       upcomingTrips,
       notifications,

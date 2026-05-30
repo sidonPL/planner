@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyCronAuth } from "@/lib/web-push";
+
 import { addMinutes, isWithinInterval } from "date-fns";
 import { createNotification } from "@/lib/notifications";
+
 
 const REMINDER_LOOKAHEAD_MINUTES = 30 * 24 * 60; // do 30 dni do przodu
 const REMINDER_WINDOW_MINUTES = 6; // zgodne z cron co 10 minut
@@ -11,12 +14,9 @@ const DEDUPE_WINDOW_MINUTES = 15;
 export async function GET(req: Request) {
   try {
     // Sprawdź token autoryzacji dla CRON
-    const authHeader = req.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!verifyCronAuth(req.headers.get("authorization"))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
     const now = new Date();
     const results = {

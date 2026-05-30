@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
+import { broadcastPresenceChange } from "@/lib/presence-events";
 import { z } from "zod";
 import { calculateDistance } from "@/lib/geolocation";
 
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
             title: event.type === "ENTER" ? "Wejście do strefy" : "Wyjście ze strefy",
             message,
             type: "PRESENCE_UPDATE",
-            link: "/family",
+            link: "/presence",
           });
         }
       }
@@ -154,11 +155,24 @@ export async function POST(request: NextRequest) {
     });
 
     if (!lastPresence || lastPresence.status !== presenceStatus) {
-      await prisma.presence.create({
+      const presence = await prisma.presence.create({
         data: {
           userId: session.user.id,
           status: presenceStatus,
         },
+      });
+
+      const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true },
+      });
+
+      await broadcastPresenceChange(session.user.householdId, {
+        id: presence.id,
+        userId: session.user.id,
+        userName: currentUser?.name || "Użytkownik",
+        status: presence.status,
+        timestamp: presence.timestamp.toISOString(),
       });
     }
 

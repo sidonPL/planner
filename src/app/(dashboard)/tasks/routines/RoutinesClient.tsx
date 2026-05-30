@@ -12,7 +12,8 @@ import { TaskViewToggle, ViewMode } from "@/components/tasks/TaskViewToggle";
 import { RoutineTemplatesDialog } from "@/components/tasks/RoutineTemplatesDialog";
 import type { Task, Category } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { startOfDay } from "date-fns";
+import { getLocalDayDate, isSameLocalDay } from "@/lib/local-date";
+import { getRoutinesForDay } from "@/lib/routine-occurrence";
 import { cn } from "@/lib/utils";
 import { useFlyingXP } from "@/components/gamification/FlyingXP";
 import { useSoundEffects } from "@/lib/sound-effects";
@@ -90,50 +91,18 @@ export function RoutinesClient({
     }
   });
   const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
-  const [selectedRoutineDate, setSelectedRoutineDate] = useState<Date>(startOfDay(new Date()));
+  const [selectedRoutineDate, setSelectedRoutineDate] = useState<Date>(() =>
+    getLocalDayDate(new Date())
+  );
 
   // Gamification hooks
   const { showFlyingXP, FlyingXPComponent } = useFlyingXP();
   const { playSound } = useSoundEffects();
 
-  // Funkcja sprawdzająca czy rutyna (instancja) powinna być wyświetlona dla danego dnia
-  const isRoutineForDay = useCallback((task: TaskWithRelations, date: Date) => {
-    if (!task.isRecurring) return false;
-    if (!task.dueDate) return false; // Tylko instancje z datami
-
-    // Sprawdź czy data dokładnie pasuje
-    const taskDate = new Date(task.dueDate);
-    return (
-      date.getFullYear() === taskDate.getFullYear() &&
-      date.getMonth() === taskDate.getMonth() &&
-      date.getDate() === taskDate.getDate()
-    );
-  }, []);
-
-  // Filtruj rutyny (instancje) dla wybranego dnia
-  const getRoutinesForDay = useCallback((date: Date) => {
-    const dayRoutines = routines.filter((routine) => isRoutineForDay(routine, date));
-    const byParent = new Map<string, TaskWithRelations>();
-
-    for (const routine of dayRoutines) {
-      const key = routine.parentTaskId || routine.id;
-      const existing = byParent.get(key);
-
-      if (!existing) {
-        byParent.set(key, routine);
-        continue;
-      }
-
-      // Gdy istnieje para parent+instancja dla tego samego dnia, preferuj instancję.
-      const existingIsInstance = Boolean(existing.parentTaskId);
-      const currentIsInstance = Boolean(routine.parentTaskId);
-      if (!existingIsInstance && currentIsInstance) {
-        byParent.set(key, routine);
-      }
-    }
-
-    return Array.from(byParent.values());
-  }, [routines, isRoutineForDay]);
+  const getRoutinesForSelectedDay = useCallback(
+    (date: Date) => getRoutinesForDay(routines, date),
+    [routines]
+  );
 
   // Handle view mode change
   const handleViewModeChange = (mode: ViewMode) => {
@@ -154,7 +123,7 @@ export function RoutinesClient({
     const groups: RoutineGroup[] = [];
 
     // Filtruj rutyny dla wybranego dnia (unikając duplikatów)
-    const filteredRoutines = getRoutinesForDay(selectedRoutineDate);
+    const filteredRoutines = getRoutinesForSelectedDay(selectedRoutineDate);
 
     // Helper function to get hour from time string
     const getHour = (timeStr: string | null): number => {
@@ -276,7 +245,7 @@ export function RoutinesClient({
     }
 
     return groups;
-  }, [selectedRoutineDate, getRoutinesForDay]);
+  }, [selectedRoutineDate, getRoutinesForSelectedDay]);
 
   const handleTaskCreated = (newTask: TaskWithRelations) => {
     setRoutines([newTask, ...routines]);
@@ -379,11 +348,13 @@ export function RoutinesClient({
     }
   };
 
-  // Licznik tylko dla wybranego dnia
-  const routinesForSelectedDay = useMemo(() =>
-    getRoutinesForDay(selectedRoutineDate),
-    [selectedRoutineDate, getRoutinesForDay]
+  const routinesForSelectedDay = useMemo(
+    () => getRoutinesForSelectedDay(selectedRoutineDate),
+    [selectedRoutineDate, getRoutinesForSelectedDay]
   );
+
+  const today = getLocalDayDate(new Date());
+  const isSelectedToday = isSameLocalDay(selectedRoutineDate, today);
 
   return (
     <div className="space-y-6">
@@ -400,7 +371,7 @@ export function RoutinesClient({
               🔄 Rutyny
             </h1>
             <p className="text-muted-foreground">
-              Zarządzaj cyklicznymi zadaniami • {routinesForSelectedDay.length} {routinesForSelectedDay.length === 1 ? 'rutyna' : 'rutyn'} na {selectedRoutineDate.toDateString() === new Date().toDateString() ? 'dziś' : selectedRoutineDate.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}
+              Zarządzaj cyklicznymi zadaniami • {routinesForSelectedDay.length} {routinesForSelectedDay.length === 1 ? 'rutyna' : 'rutyn'} na {isSelectedToday ? 'dziś' : selectedRoutineDate.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}
             </p>
           </div>
         </div>
@@ -413,24 +384,20 @@ export function RoutinesClient({
               onClick={() => {
                 const newDate = new Date(selectedRoutineDate);
                 newDate.setDate(newDate.getDate() - 1);
-                setSelectedRoutineDate(startOfDay(newDate));
+                setSelectedRoutineDate(getLocalDayDate(newDate));
               }}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
             <Button
-              variant={
-                selectedRoutineDate.toDateString() === new Date().toDateString()
-                  ? "default"
-                  : "ghost"
-              }
+              variant={isSelectedToday ? "default" : "ghost"}
               size="sm"
-              onClick={() => setSelectedRoutineDate(startOfDay(new Date()))}
+              onClick={() => setSelectedRoutineDate(getLocalDayDate(new Date()))}
               className="min-w-[120px]"
             >
               <CalendarIcon className="h-3 w-3 mr-2" />
-              {selectedRoutineDate.toDateString() === new Date().toDateString()
+              {isSelectedToday
                 ? "Dzisiaj"
                 : selectedRoutineDate.toLocaleDateString("pl-PL", {
                     weekday: "short",
@@ -445,7 +412,7 @@ export function RoutinesClient({
               onClick={() => {
                 const newDate = new Date(selectedRoutineDate);
                 newDate.setDate(newDate.getDate() + 1);
-                setSelectedRoutineDate(startOfDay(newDate));
+                setSelectedRoutineDate(getLocalDayDate(newDate));
               }}
             >
               <ChevronRight className="h-4 w-4" />
@@ -476,7 +443,7 @@ export function RoutinesClient({
           <div className="text-6xl mb-4">🔄</div>
           <h2 className="text-xl font-semibold mb-2">
             Brak rutyn na{" "}
-            {selectedRoutineDate.toDateString() === new Date().toDateString()
+            {isSelectedToday
               ? "dzisiaj"
               : selectedRoutineDate.toLocaleDateString("pl-PL", {
                   day: "numeric",
@@ -500,7 +467,7 @@ export function RoutinesClient({
             // Funkcja sprawdzania opóźnienia
             const isRoutineOverdue = (routine: TaskWithRelations) => {
               // Tylko dla dzisiejszych rutyn
-              if (selectedRoutineDate.toDateString() !== new Date().toDateString()) return false;
+              if (!isSelectedToday) return false;
               if (!routine.dueTime || routine.status === "COMPLETED") return false;
 
               const now = new Date();

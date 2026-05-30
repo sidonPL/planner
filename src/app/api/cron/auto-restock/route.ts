@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyCronAuth } from "@/lib/web-push";
+
 
 // GET - sprawdź i automatycznie uzupełnij zapasy które spadły poniżej progu
 export async function GET(req: Request) {
   try {
     // Sprawdź token autoryzacji dla CRON
-    const authHeader = req.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!verifyCronAuth(req.headers.get("authorization"))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
     // Znajdź wszystkie produkty z włączonym auto-restock i ilością poniżej minimum
     const lowStockItems = await prisma.inventoryItem.findMany({

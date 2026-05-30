@@ -59,7 +59,7 @@ export async function POST(req: Request) {
 
       // Mapa: nazwa produktu -> dostępna ilość
       for (const item of inventoryItems) {
-        const key = item.name.toLowerCase();
+        const key = `${item.name.toLowerCase()}|${item.unit || ""}`;
         inventory.set(key, item.quantity);
       }
     }
@@ -106,7 +106,8 @@ export async function POST(req: Request) {
       // Sprawdź inwentarz
       let neededQuantity = data.quantity;
       if (checkInventory) {
-        const available = inventory.get(name) || 0;
+        const inventoryKey = `${name}|${data.unit || ""}`;
+        const available = inventory.get(inventoryKey) || 0;
         neededQuantity = Math.max(0, data.quantity - available);
 
         if (neededQuantity === 0) {

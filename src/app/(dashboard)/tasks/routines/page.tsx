@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { RoutinesClient } from "./RoutinesClient";
 import { addDays, endOfDay, startOfDay, subDays } from "date-fns";
+import { getLocalDayDate } from "@/lib/local-date";
 
 export default async function RoutinesPage() {
   const session = await auth();
@@ -15,8 +16,7 @@ export default async function RoutinesPage() {
     redirect("/onboarding");
   }
 
-  // Pobierz instancje rutyn z szerszego zakresu i poprawnymi granicami dnia.
-  const today = startOfDay(new Date());
+  const today = getLocalDayDate(new Date());
   const pastDate = startOfDay(subDays(today, 30));
   const futureDate = endOfDay(addDays(today, 45));
 
@@ -25,10 +25,21 @@ export default async function RoutinesPage() {
       where: {
         householdId: session.user.householdId,
         isRecurring: true,
-        dueDate: {
-          gte: pastDate,
-          lte: futureDate,
-        },
+        OR: [
+          {
+            dueDate: {
+              gte: pastDate,
+              lte: futureDate,
+            },
+          },
+          {
+            parentTaskId: null,
+            OR: [
+              { recurrenceEndDate: null },
+              { recurrenceEndDate: { gte: today } },
+            ],
+          },
+        ],
       },
       take: 1000,
       include: {

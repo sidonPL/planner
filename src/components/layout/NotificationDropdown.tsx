@@ -24,6 +24,8 @@ const notificationTypeConfig: Record<string, { icon: React.ElementType; color: s
   TASK_REMINDER: { icon: CheckSquare, color: "text-blue-500" },
   TASK_ASSIGNED: { icon: CheckSquare, color: "text-purple-500" },
   EVENT_REMINDER: { icon: Calendar, color: "text-green-500" },
+  SCHEDULE_REMINDER: { icon: Calendar, color: "text-indigo-500" },
+  PAYMENT_REMINDER: { icon: Wallet, color: "text-amber-500" },
   BUDGET_ALERT: { icon: Wallet, color: "text-red-500" },
   TRIP_REMINDER: { icon: Plane, color: "text-cyan-500" },
   MEAL_REMINDER: { icon: UtensilsCrossed, color: "text-orange-500" },

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { CalendarIcon, Loader2, X, Plus, Clock } from "lucide-react";
+import { TaskReminderField } from "@/components/tasks/TaskReminderField";
 import { sanitizePlainText, sanitizeRichHTML } from "@/lib/sanitize";
 import {
   Dialog,
@@ -55,6 +56,7 @@ const taskFormSchema = z.object({
   recurrenceType: z.enum(["DAILY", "WEEKLY", "MONTHLY", "YEARLY", "CUSTOM"]).optional(),
   recurrenceInterval: z.number().min(1).optional(),
   recurrenceTimes: z.array(z.string()).optional(), // Wielokrotne godziny dziennie
+  reminderMinutes: z.array(z.number().int().nonnegative()).optional(),
   updateFuture: z.boolean().optional(),
 });
 
@@ -124,6 +126,7 @@ export function TaskFormDialog({
       recurrenceType: undefined,
       recurrenceInterval: 1,
       recurrenceTimes: [],
+      reminderMinutes: [],
       updateFuture: false,
     },
   });
@@ -143,6 +146,7 @@ export function TaskFormDialog({
         recurrenceType: (task.recurrenceType ?? undefined) as "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY" | "CUSTOM" | undefined,
         recurrenceInterval: task.recurrenceInterval || 1,
         recurrenceTimes: (task as Task & { recurrenceTimes?: string[] }).recurrenceTimes || [],
+        reminderMinutes: Array.isArray(task.reminderMinutes) ? task.reminderMinutes : [],
         updateFuture: false,
       });
       setSubtasks([]);
@@ -159,6 +163,7 @@ export function TaskFormDialog({
         recurrenceType: defaultIsRecurring ? "DAILY" : undefined,
         recurrenceInterval: 1,
         recurrenceTimes: [],
+        reminderMinutes: [],
         updateFuture: false,
       });
       setSubtasks([]);
@@ -443,6 +448,27 @@ export function TaskFormDialog({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="reminderMinutes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <TaskReminderField
+                      value={field.value || []}
+                      onChange={field.onChange}
+                      description={
+                        isRecurring
+                          ? "Przypomnienia działają dla każdej instancji rutyny (wymagana data lub godzina)."
+                          : "Powiadomienie push/e-mail przed terminem zadania (wymagana data lub godzina)."
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Assignee */}
             <FormField

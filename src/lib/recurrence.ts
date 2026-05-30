@@ -4,14 +4,15 @@ import { prisma } from "@/lib/prisma";
 import { RecurrenceType } from "@prisma/client";
 import {
   addDays,
-  addWeeks,
   addMonths,
+  addWeeks,
   addYears,
   setDay,
   getDay,
-  startOfDay,
   isAfter,
 } from "date-fns";
+import { getLocalDateKey, getLocalDayDate } from "@/lib/local-date";
+import { isRoutineScheduledForDay } from "@/lib/routine-occurrence";
 
 interface RecurringTaskData {
   id: string;
@@ -42,7 +43,7 @@ export function calculateNextOccurrence(
   interval: number,
   recurrenceDays?: number[]
 ): Date {
-  const baseDate = startOfDay(currentDate);
+  const baseDate = getLocalDayDate(currentDate);
 
   switch (recurrenceType) {
     case "DAILY":
@@ -118,6 +119,21 @@ export async function generateNextTaskOccurrence(
   }
 
   if (!completedTask.dueDate || !completedTask.recurrenceType) {
+    return null;
+  }
+
+  const parentId = completedTask.parentTaskId || completedTask.id;
+
+  // Model z pre-generowanymi instancjami — cron uzupełnia kolejne dni
+  if (completedTask.parentTaskId) {
+    return null;
+  }
+
+  const preGeneratedCount = await prisma.task.count({
+    where: { parentTaskId: parentId },
+  });
+
+  if (preGeneratedCount > 0) {
     return null;
   }
 
@@ -227,7 +243,7 @@ export async function updateFutureOccurrences(
   }
 
   const parentId = task.parentTaskId || task.id;
-  const today = startOfDay(new Date());
+  const today = getLocalDayDate(new Date());
 
   // Aktualizuj wszystkie przyszłe wystąpienia (status = TODO i data >= dziś)
   const result = await prisma.task.updateMany({
@@ -261,15 +277,12 @@ export async function deleteFutureOccurrences(taskId: string) {
   }
 
   const parentId = task.parentTaskId || task.id;
-  const today = startOfDay(new Date());
+  const today = getLocalDayDate(new Date());
 
-  // Usuń wszystkie przyszłe wystąpienia (status = TODO i data >= dziś)
+  // Usuń przyszłe instancje (bez szablonu rodzica)
   const result = await prisma.task.deleteMany({
     where: {
-      OR: [
-        { id: parentId },
-        { parentTaskId: parentId },
-      ],
+      parentTaskId: parentId,
       status: "TODO",
       dueDate: {
         gte: today,
@@ -315,20 +328,14 @@ export async function generateRoutineInstances(routineTask: RecurringTaskData) {
     return [];
   }
 
-  const today = startOfDay(new Date());
-  const oneMonthAhead = addMonths(today, 1);
+  const today = getLocalDayDate(new Date());
+  const oneMonthAhead = addDays(today, 30);
   const instances: { id: string; dueDate: Date }[] = [];
-
-  // Znajdź prawdziwy parentId (jeśli routineTask jest już instancją)
   const parentId = routineTask.parentTaskId || routineTask.id;
 
-  // Znajdź istniejące przyszłe instancje (włącznie z wykonanymi)
   const existingInstances = await prisma.task.findMany({
     where: {
-      OR: [
-        { id: parentId },
-        { parentTaskId: parentId },
-      ],
+      OR: [{ id: parentId }, { parentTaskId: parentId }],
       dueDate: {
         gte: today,
         lte: oneMonthAhead,
@@ -341,40 +348,34 @@ export async function generateRoutineInstances(routineTask: RecurringTaskData) {
   });
 
   const existingDates = new Set(
-    existingInstances.map(i => i.dueDate ? startOfDay(i.dueDate).toISOString() : '')
+    existingInstances
+      .filter((instance) => instance.dueDate)
+      .map((instance) => getLocalDateKey(instance.dueDate!))
   );
 
-  // Generuj daty dla kolejnych wystąpień
-  // Zacznij od daty zadania lub od dzisiaj
-  const startDate = routineTask.dueDate ? startOfDay(routineTask.dueDate) : today;
-  let currentDate = startDate;
-
-  console.log('[generateRoutineInstances] Start:', {
-    startDate: startDate.toISOString(),
-    recurrenceType: routineTask.recurrenceType,
-    recurrenceInterval: routineTask.recurrenceInterval,
-    recurrenceDays: routineTask.recurrenceDays,
-    existingDatesCount: existingDates.size
-  });
+  let currentDate = today;
 
   while (currentDate <= oneMonthAhead) {
-    const dateKey = startOfDay(currentDate).toISOString();
+    const dateKey = getLocalDateKey(currentDate);
 
-    // Sprawdź czy data końcowa nie została przekroczona
-    if (routineTask.recurrenceEndDate && currentDate > routineTask.recurrenceEndDate) {
+    if (
+      routineTask.recurrenceEndDate &&
+      currentDate > getLocalDayDate(routineTask.recurrenceEndDate)
+    ) {
       break;
     }
 
-    // Sprawdź czy instancja już istnieje (pierwsze zadanie już istnieje jako parent)
-    if (!existingDates.has(dateKey)) {
-      console.log('[generateRoutineInstances] Creating instance for:', dateKey);
-      // Utwórz nową instancję
+    if (
+      isRoutineScheduledForDay(routineTask, currentDate) &&
+      !existingDates.has(dateKey)
+    ) {
+      const dueDate = getLocalDayDate(currentDate);
       const newInstance = await prisma.task.create({
         data: {
           title: routineTask.title,
           description: routineTask.description,
           priority: routineTask.priority,
-          dueDate: currentDate,
+          dueDate,
           dueTime: routineTask.dueTime,
           isRecurring: true,
           recurrenceType: routineTask.recurrenceType,
@@ -397,27 +398,13 @@ export async function generateRoutineInstances(routineTask: RecurringTaskData) {
 
       instances.push({
         id: newInstance.id,
-        dueDate: newInstance.dueDate || currentDate,
+        dueDate: newInstance.dueDate || dueDate,
       });
+      existingDates.add(dateKey);
     }
 
-    // Oblicz następną datę
-    const nextDate = calculateNextOccurrence(
-      currentDate,
-      routineTask.recurrenceType,
-      routineTask.recurrenceInterval || 1,
-      routineTask.recurrenceDays
-    );
-
-    console.log('[generateRoutineInstances] Next date:', {
-      from: currentDate.toISOString(),
-      to: nextDate.toISOString()
-    });
-
-    currentDate = nextDate;
+    currentDate = addDays(currentDate, 1);
   }
-
-  console.log('[generateRoutineInstances] Created', instances.length, 'instances');
 
   return instances;
 }

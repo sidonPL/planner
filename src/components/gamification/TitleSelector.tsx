@@ -245,7 +245,7 @@ export function TitleSelector() {
         <CardContent className="text-sm text-muted-foreground">
           <p>
             Nowe tytuły możesz odblokować zdobywając osiągnięcia i wymieniając je w{' '}
-            <a href="/gamification/rewards" className="text-primary hover:underline">
+            <a href="/rewards" className="text-primary hover:underline">
               sklepie nagród
             </a>
             . Tytuły wyświetlają się pod Twoją nazwą na leaderboardzie i w komentarzach!

@@ -1,6 +1,23 @@
 module.exports = {
   apps: [
     {
+      name: 'prisma-migrate',
+      script: 'npx',
+      args: 'prisma migrate deploy',
+      cwd: './',
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: false, // Uruchamia się tylko raz
+      watch: false,
+      env: {
+        NODE_ENV: 'production',
+      },
+      error_file: './logs/migrate-error.log',
+      out_file: './logs/migrate-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      kill_timeout: 30000, // Daj więcej czasu na migrację
+    },
+    {
       name: 'planner-app',
       script: 'node_modules/next/dist/bin/next',
       args: 'start',
@@ -184,6 +201,19 @@ module.exports = {
       autorestart: false,
       watch: false,
     },
+    // Cron: Payment reminders - codziennie o 8:00
+    {
+      name: 'cron-payment-reminders',
+      script: 'curl',
+      args: [
+        '-X', 'GET',
+        '-H', `Authorization: Bearer ${process.env.CRON_SECRET}`,
+        'http://localhost:3000/api/cron/payment-reminders'
+      ],
+      cron_restart: '0 8 * * *',
+      autorestart: false,
+      watch: false,
+    },
     // Cron: Weekly reports - w poniedziałek o 9:00
     {
       name: 'cron-weekly-reports',
@@ -246,6 +276,19 @@ module.exports = {
         'http://localhost:3000/api/cron/task-cleanup'
       ],
       cron_restart: '30 3 * * *',
+      autorestart: false,
+      watch: false,
+    },
+    // Cron: Shopping cleanup - co 6 godzin (kupione produkty)
+    {
+      name: 'cron-shopping-cleanup',
+      script: 'curl',
+      args: [
+        '-X', 'GET',
+        '-H', `Authorization: Bearer ${process.env.CRON_SECRET}`,
+        'http://localhost:3000/api/cron/shopping-cleanup'
+      ],
+      cron_restart: '0 */6 * * *',
       autorestart: false,
       watch: false,
     },

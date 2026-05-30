@@ -1,32 +1,14 @@
 import { prisma } from './prisma';
 import { createNotification } from './notifications';
 import { triggerGamificationUpdate } from './pusher-server';
+import {
+  differenceInLocalCalendarDays,
+  getLocalDayDate,
+  isSameLocalDay,
+} from './local-date';
+import { calculateLevel } from './xp';
 
-// XP calculation
-export function xpForLevel(level: number): number {
-  return level * 100; // Level 1 = 100 XP, Level 2 = 200 XP, etc.
-}
-
-export function calculateLevelFromXP(xp: number): number {
-  let level = 1;
-  let totalXP = 0;
-
-  while (totalXP + xpForLevel(level) <= xp) {
-    totalXP += xpForLevel(level);
-    level++;
-  }
-
-  return level;
-}
-
-export function calculateLevelProgress(xp: number, level: number): number {
-  const xpForCurrentLevel = xpForLevel(level);
-  const xpForPreviousLevels = Array.from({ length: level - 1 }, (_, i) => xpForLevel(i + 1))
-    .reduce((sum, xp) => sum + xp, 0);
-
-  const currentLevelXP = xp - xpForPreviousLevels;
-  return (currentLevelXP / xpForCurrentLevel) * 100;
-}
+export { calculateLevel as calculateLevelFromXP, xpProgressPercent as calculateLevelProgress } from './xp';
 
 // Add points and XP
 export async function addPoints(
@@ -54,7 +36,7 @@ export async function addPoints(
   if (!user) return null;
 
   const newXP = Math.max(0, user.xp + amount);
-  const newLevel = calculateLevelFromXP(newXP);
+  const newLevel = calculateLevel(newXP);
   const leveledUp = newLevel > user.level;
 
   // Update user
@@ -116,11 +98,9 @@ export async function updateStreak(userId: string, activityDate: Date = new Date
 
   if (!user) return null;
 
-  const today = new Date(activityDate);
-  today.setHours(0, 0, 0, 0);
+  const today = getLocalDayDate(activityDate);
 
   if (!user.lastActivityDate) {
-    // First activity ever
     await prisma.user.update({
       where: { id: userId },
       data: {
@@ -132,21 +112,16 @@ export async function updateStreak(userId: string, activityDate: Date = new Date
     return { currentStreak: 1, longestStreak: 1 };
   }
 
-  const lastActivity = new Date(user.lastActivityDate);
-  lastActivity.setHours(0, 0, 0, 0);
+  if (isSameLocalDay(user.lastActivityDate, activityDate)) {
+    return { currentStreak: user.currentStreak, longestStreak: user.longestStreak };
+  }
 
-  const daysDiff = Math.floor((today.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
+  const daysDiff = differenceInLocalCalendarDays(activityDate, user.lastActivityDate);
 
   let newStreak = user.currentStreak;
-
-  if (daysDiff === 0) {
-    // Same day - no change
-    return { currentStreak: user.currentStreak, longestStreak: user.longestStreak };
-  } else if (daysDiff === 1) {
-    // Consecutive day - increment
+  if (daysDiff === 1) {
     newStreak = user.currentStreak + 1;
   } else {
-    // Streak broken - reset
     newStreak = 1;
   }
 

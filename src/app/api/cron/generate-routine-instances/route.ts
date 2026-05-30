@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateRoutineInstances } from "@/lib/recurrence";
+import { verifyCronAuth } from "@/lib/web-push";
+
 
 type RoutineTaskInput = Parameters<typeof generateRoutineInstances>[0];
 
@@ -14,8 +16,7 @@ type RoutineTaskInput = Parameters<typeof generateRoutineInstances>[0];
 export async function GET(req: Request) {
   try {
     // Weryfikacja autoryzacji crona
-    const authHeader = req.headers.get("authorization");
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (!verifyCronAuth(req.headers.get("authorization"))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -114,12 +115,12 @@ export async function GET(req: Request) {
   }
 }
 
-// Opcjonalnie: endpoint POST dla manualnego wywołania (wymaga autoryzacji użytkownika)
-export async function POST() {
-  return GET(new Request(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000", {
-    headers: {
-      authorization: `Bearer ${process.env.CRON_SECRET}`,
-    },
-  }));
+// Opcjonalnie: ręczne wywołanie przez cron (wymaga autoryzacji)
+export async function POST(request: Request) {
+  if (!verifyCronAuth(request.headers.get("authorization"))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  return GET(request);
 }
 

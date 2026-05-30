@@ -1,34 +1,38 @@
-// filepath: c:\Users\sidon\IdeaProjects\planner\src\app\api\cron\task-reminders\route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notifyTaskReminder } from "@/lib/notifications";
-import { addMinutes, isBefore, isAfter, startOfDay } from "date-fns";
+import { addMinutes, isWithinInterval } from "date-fns";
+import { combineLocalDateAndTime, getLocalDayDate } from "@/lib/local-date";
+import { verifyCronAuth } from "@/lib/web-push";
 
-// Ten endpoint generuje przypomnienia o zadaniach na podstawie ustawionych reminderMinutes
+import { formatReminderLabel } from "@/lib/reminder-options";
+
+const REMINDER_WINDOW_MINUTES = 5;
+const DEDUPE_WINDOW_MINUTES = 15;
 
 export async function GET(request: NextRequest) {
-  // Opcjonalnie: weryfikacja klucza API dla bezpieczeństwa
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(request.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const now = new Date();
-    const today = startOfDay(now);
+    const today = getLocalDayDate(now);
 
-    // Pobierz zadania z ustawionym terminem i przypomnieniami
     const tasksWithReminders = await prisma.task.findMany({
       where: {
         status: { in: ["TODO", "IN_PROGRESS"] },
-        dueDate: {
-          gte: today, // tylko przyszłe lub dzisiejsze
-        },
         reminderMinutes: {
           isEmpty: false,
         },
+        OR: [
+          { dueDate: { gte: today } },
+          {
+            isRecurring: true,
+            dueTime: { not: null },
+            dueDate: { gte: today },
+          },
+        ],
       },
       include: {
         assignee: {
@@ -37,63 +41,79 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
-        household: {
-          select: {
-            id: true,
-          },
-        },
       },
     });
 
-    const notifications: { taskId: string; userId: string; minutesBefore: number }[] = [];
+    const notifications: {
+      taskId: string;
+      userId: string;
+      minutesBefore: number;
+    }[] = [];
 
     for (const task of tasksWithReminders) {
-      if (!task.assigneeId || !task.dueDate) continue;
+      const targetUserId = task.assigneeId || task.creatorId;
+      if (!targetUserId) continue;
 
-      // Utwórz pełną datę z dueDate i dueTime
-      const dueDateTime = new Date(task.dueDate);
-      if (task.dueTime) {
-        const [hours, minutes] = task.dueTime.split(":").map(Number);
-        dueDateTime.setHours(hours, minutes, 0, 0);
+      let dueDateTime: Date | null = null;
+
+      if (task.dueDate && task.dueTime) {
+        dueDateTime = combineLocalDateAndTime(task.dueDate, task.dueTime);
+      } else if (task.dueDate) {
+        dueDateTime = getLocalDayDate(task.dueDate);
+      } else if (task.isRecurring && task.dueTime) {
+        dueDateTime = combineLocalDateAndTime(today, task.dueTime);
       }
 
-      // Sprawdź każdy interwał przypomnienia
-      for (const minutes of task.reminderMinutes) {
-        const reminderTime = addMinutes(dueDateTime, -minutes);
+      if (!dueDateTime) continue;
 
-        // Sprawdź czy czas przypomnienia jest w oknie czasowym (teraz +/- 5 minut)
-        const windowStart = addMinutes(now, -5);
-        const windowEnd = addMinutes(now, 5);
+      for (const minutesBefore of task.reminderMinutes) {
+        const reminderTime = addMinutes(dueDateTime, -minutesBefore);
+        const windowStart = addMinutes(now, -REMINDER_WINDOW_MINUTES);
+        const windowEnd = addMinutes(now, REMINDER_WINDOW_MINUTES);
 
-        if (isAfter(reminderTime, windowStart) && isBefore(reminderTime, windowEnd)) {
-          // Sprawdź czy powiadomienie już nie zostało wysłane
-          const existingNotification = await prisma.notification.findFirst({
-            where: {
-              link: `/tasks?id=${task.id}`,
-              type: "TASK_REMINDER",
-              userId: task.assigneeId,
-              createdAt: {
-                gte: addMinutes(now, -10), // w ciągu ostatnich 10 minut
-              },
-            },
-          });
-
-          if (!existingNotification) {
-            await notifyTaskReminder(
-              task.assigneeId,
-              task.householdId,
-              task.title,
-              task.id,
-              dueDateTime
-            );
-
-            notifications.push({
-              taskId: task.id,
-              userId: task.assigneeId,
-              minutesBefore: minutes,
-            });
-          }
+        if (
+          !isWithinInterval(reminderTime, {
+            start: windowStart,
+            end: windowEnd,
+          })
+        ) {
+          continue;
         }
+
+        const dedupeTitle = `Przypomnienie: ${task.title}`;
+        const reminderLabel = formatReminderLabel(minutesBefore);
+        const existingNotification = await prisma.notification.findFirst({
+          where: {
+            userId: targetUserId,
+            type: "TASK_REMINDER",
+            title: dedupeTitle,
+            message: {
+              startsWith: reminderLabel,
+            },
+            createdAt: {
+              gte: addMinutes(now, -DEDUPE_WINDOW_MINUTES),
+            },
+          },
+        });
+
+        if (existingNotification) {
+          continue;
+        }
+
+        await notifyTaskReminder(
+          targetUserId,
+          task.householdId,
+          task.title,
+          task.id,
+          dueDateTime,
+          minutesBefore
+        );
+
+        notifications.push({
+          taskId: task.id,
+          userId: targetUserId,
+          minutesBefore,
+        });
       }
     }
 
@@ -114,4 +134,3 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return GET(request);
 }
-

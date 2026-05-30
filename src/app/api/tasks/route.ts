@@ -8,6 +8,7 @@ import { z } from "zod";
 import { generateRoutineInstances } from "@/lib/recurrence";
 import { handleApiError, unauthorized } from "@/lib/api-error-handler";
 import { sanitizePlainText, sanitizeRichHTML } from "@/lib/sanitize";
+import { isUserInHousehold } from "@/lib/household-validation";
 
 const taskSchema = z.object({
   title: z.string().min(1),
@@ -21,6 +22,7 @@ const taskSchema = z.object({
   recurrenceType: z.enum(["DAILY", "WEEKLY", "MONTHLY", "YEARLY", "CUSTOM"]).optional(),
   recurrenceInterval: z.number().optional(),
   recurrenceTimes: z.array(z.string()).optional(), // Wielokrotne godziny dziennie
+  reminderMinutes: z.array(z.number().int().nonnegative()).optional(),
 });
 
 // GET - pobierz wszystkie zadania
@@ -110,7 +112,14 @@ export async function POST(req: Request) {
 
     const validatedData = taskSchema.parse(sanitizedBody);
 
-    // Jeśli zadanie ma recurrenceTimes (wielokrotne godziny dziennie)
+    if (
+      validatedData.assigneeId &&
+      !(await isUserInHousehold(validatedData.assigneeId, session.user.householdId))
+    ) {
+      return NextResponse.json({ error: "Invalid assignee" }, { status: 400 });
+    }
+
+    // Jeśli zadanie ma recurrenceTimes
     if (validatedData.isRecurring && validatedData.recurrenceTimes && validatedData.recurrenceTimes.length > 0) {
       // Tworzymy osobne zadanie dla każdej godziny
       const tasks = await Promise.all(
@@ -127,7 +136,8 @@ export async function POST(req: Request) {
               isRecurring: validatedData.isRecurring,
               recurrenceType: validatedData.recurrenceType || null,
               recurrenceInterval: validatedData.recurrenceInterval || null,
-              recurrenceTimes: validatedData.recurrenceTimes, // Zachowujemy info o wszystkich godzinach
+              recurrenceTimes: validatedData.recurrenceTimes,
+              reminderMinutes: validatedData.reminderMinutes ?? [],
               householdId: session.user.householdId!,
               creatorId: session.user.id,
             },
@@ -215,6 +225,7 @@ export async function POST(req: Request) {
         recurrenceType: validatedData.recurrenceType || null,
         recurrenceInterval: validatedData.recurrenceInterval || null,
         recurrenceTimes: validatedData.recurrenceTimes || [],
+        reminderMinutes: validatedData.reminderMinutes ?? [],
         householdId: session.user.householdId!,
         creatorId: session.user.id,
       },

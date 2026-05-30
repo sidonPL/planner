@@ -25,6 +25,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { startOfDay, endOfWeek, isSameDay, isWithinInterval } from "date-fns";
+import { getLocalDayDate } from "@/lib/local-date";
+import { getRoutinesForDay } from "@/lib/routine-occurrence";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -93,44 +95,9 @@ export function KanbanClient({ initialTasks, categories, members }: KanbanClient
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [showRoutines, setShowRoutines] = useState(true);
-  const [selectedRoutineDate, setSelectedRoutineDate] = useState<Date>(startOfDay(new Date()));
-
-  // Funkcja sprawdzająca czy rutyna powinna być wyświetlona dla danego dnia
-  const isRoutineForDay = (task: TaskWithRelations, date: Date) => {
-    if (!task.isRecurring) return false;
-
-    // Jeśli rutyna ma dueDate, sprawdź czy to wybrany dzień
-    if (task.dueDate) {
-      const taskDate = new Date(task.dueDate);
-      const isSameDate =
-        date.getFullYear() === taskDate.getFullYear() &&
-        date.getMonth() === taskDate.getMonth() &&
-        date.getDate() === taskDate.getDate();
-
-      if (!isSameDate) return false; // Rutyna z inną datą - ukryj
-    }
-
-    const dayOfWeek = date.getDay(); // 0=Niedziela, 1=Poniedziałek, ..., 6=Sobota
-
-    // Dla DAILY - zawsze pokazuj
-    if (task.recurrenceType === "DAILY") return true;
-
-    // Dla WEEKLY - sprawdź recurrenceDays
-    if (task.recurrenceType === "WEEKLY") {
-      if (!task.recurrenceDays || task.recurrenceDays.length === 0) return true;
-      return task.recurrenceDays.includes(dayOfWeek);
-    }
-
-    // Dla MONTHLY - sprawdź dzień miesiąca
-    if (task.recurrenceType === "MONTHLY") {
-      if (!task.recurrenceDays || task.recurrenceDays.length === 0) return true;
-      const dayOfMonth = date.getDate();
-      return task.recurrenceDays.includes(dayOfMonth);
-    }
-
-    // Dla YEARLY i innych - zawsze pokazuj
-    return true;
-  };
+  const [selectedRoutineDate, setSelectedRoutineDate] = useState<Date>(() =>
+    getLocalDayDate(new Date())
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -192,7 +159,10 @@ export function KanbanClient({ initialTasks, categories, members }: KanbanClient
   }, [tasks, searchQuery, priorityFilter, categoryFilter, assigneeFilter, dateFilter]);
 
   // Filtruj rutyny dla wybranego dnia
-  const routineTasks = filteredTasks.filter(t => t.isRecurring && !t.subtaskParentId && isRoutineForDay(t, selectedRoutineDate));
+  const routineTasks = getRoutinesForDay(
+    filteredTasks.filter((task) => task.isRecurring && !task.subtaskParentId),
+    selectedRoutineDate
+  );
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);

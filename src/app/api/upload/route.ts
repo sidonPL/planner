@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const folder = (formData.get("folder") as string) || "misc";
+    const safeFolder = path.basename(folder.replace(/\\/g, "/"));
 
     if (!file) {
       return NextResponse.json({ error: "Brak pliku" }, { status: 400 });
@@ -51,7 +52,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Utwórz katalog jeśli nie istnieje
-    const uploadPath = path.join(UPLOAD_DIR, folder);
+    const uploadPath = path.join(UPLOAD_DIR, safeFolder);
+    const resolvedUploadPath = path.resolve(uploadPath);
+    if (!resolvedUploadPath.startsWith(path.resolve(UPLOAD_DIR))) {
+      return NextResponse.json({ error: "Invalid upload folder" }, { status: 400 });
+    }
     if (!existsSync(uploadPath)) {
       await mkdir(uploadPath, { recursive: true });
     }
@@ -67,7 +72,7 @@ export async function POST(request: NextRequest) {
     await writeFile(filepath, buffer);
 
     // Zwróć URL do pliku
-    const url = `/uploads/${folder}/${filename}`;
+    const url = `/uploads/${safeFolder}/${filename}`;
 
     return NextResponse.json({
       success: true,

@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyCronAuth } from "@/lib/web-push";
+
 import { fetchICS, parseICS } from "@/lib/ical";
 
+
 // Endpoint dla cron job - synchronizacja wszystkich aktywnych subskrypcji
-export async function GET() {
+export async function GET(request: Request) {
+  if (!verifyCronAuth(request.headers.get("authorization"))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     // Pobierz wszystkie aktywne subskrypcje URL
     const integrations = await prisma.calendarIntegration.findMany({

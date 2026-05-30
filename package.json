@@ -24,6 +24,7 @@
     "check:lint": "eslint",
     "check:all": "npm run check:types && npm run check:lint",
     "deploy:prod": "npm run check:all && npm run db:migrate && npm run build && pm2 restart ecosystem.config.js --update-env",
+    "start:migrate": "node start-with-migrations.js",
     "logs": "pm2 logs planner-app",
     "status": "pm2 status",
     "health": "curl http://localhost:3000/api/health"

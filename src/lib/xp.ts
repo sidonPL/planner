@@ -179,6 +179,27 @@ export function xpProgressPercent(currentXP: number): number {
   return Math.min(100, Math.max(0, percentProgress));
 }
 
+/** Całkowite XP wymagane, aby osiągnąć dany poziom (próg górny poziomu) */
+export function getTotalXpForLevel(level: number): number {
+  if (level <= 1) return 0;
+
+  let total = 0;
+  let xpRequired = 100;
+
+  for (let i = 1; i < level; i++) {
+    total += xpRequired;
+    xpRequired += 50;
+  }
+
+  return total;
+}
+
+/** XP potrzebne do osiągnięcia następnego poziomu (bezwzględny próg) */
+export function getXpThresholdForNextLevel(currentXP: number): number {
+  const currentLevel = calculateLevel(currentXP);
+  return getTotalXpForLevel(currentLevel + 1);
+}
+
 /**
  * Aktywuje XP boost dla użytkownika
  * Uwaga: Ta funkcja jest przestarzała. XP boosty są teraz zarządzane przez ClaimedReward.

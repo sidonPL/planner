@@ -24,6 +24,18 @@ export async function POST(
       );
     }
 
+    const recipe = await prisma.recipe.findFirst({
+      where: {
+        id: recipeId,
+        householdId: session.user.householdId,
+      },
+      select: { id: true },
+    });
+
+    if (!recipe) {
+      return NextResponse.json({ error: "Recipe not found" }, { status: 404 });
+    }
+
     // Znajdź produkt w inwentarzu
     const inventoryItem = await prisma.inventoryItem.findFirst({
       where: {

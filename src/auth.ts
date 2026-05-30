@@ -240,7 +240,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -249,6 +249,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.xp = user.xp;
         token.currentStreak = user.currentStreak;
         token.longestStreak = user.longestStreak;
+      }
+
+      if ((user || trigger === "update") && token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: {
+            role: true,
+            householdId: true,
+            level: true,
+            xp: true,
+            currentStreak: true,
+            longestStreak: true,
+          },
+        });
+
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.householdId = dbUser.householdId;
+          token.level = dbUser.level;
+          token.xp = dbUser.xp;
+          token.currentStreak = dbUser.currentStreak;
+          token.longestStreak = dbUser.longestStreak;
+        }
       }
 
       if (account) {

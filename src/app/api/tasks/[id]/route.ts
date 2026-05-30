@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { updateFutureOccurrences, deleteFutureOccurrences, regenerateRoutineInstances } from "@/lib/recurrence";
+import { isUserInHousehold } from "@/lib/household-validation";
 
 const taskSchema = z.object({
   title: z.string().min(1),
@@ -19,6 +20,7 @@ const taskSchema = z.object({
   recurrenceInterval: z.number().optional(),
   recurrenceEndDate: z.string().optional().nullable(),
   recurrenceDays: z.array(z.number()).optional(),
+  reminderMinutes: z.array(z.number().int().nonnegative()).optional(),
   // Opcje dla zadań cyklicznych
   updateFuture: z.boolean().optional(), // czy zaktualizować przyszłe wystąpienia
   deleteAllOccurrences: z.boolean().optional(), // czy usunąć wszystkie wystąpienia
@@ -93,6 +95,13 @@ export async function PUT(
     const body = await req.json();
     const validatedData = taskSchema.parse(body);
 
+    if (
+      validatedData.assigneeId &&
+      !(await isUserInHousehold(validatedData.assigneeId, session.user.householdId))
+    ) {
+      return NextResponse.json({ error: "Invalid assignee" }, { status: 400 });
+    }
+
     // Sprawdź czy zadanie istnieje i należy do tego gospodarstwa
     const existingTask = await prisma.task.findFirst({
       where: {
@@ -119,6 +128,7 @@ export async function PUT(
         dueTime: validatedData.dueTime || null,
         categoryId: validatedData.categoryId || null,
         assigneeId: validatedData.assigneeId || null,
+        reminderMinutes: validatedData.reminderMinutes,
       });
 
       console.log(`Zaktualizowano ${updatedCount} przyszłych wystąpień`);
@@ -147,6 +157,9 @@ export async function PUT(
         isRecurring: validatedData.isRecurring,
         recurrenceType: validatedData.recurrenceType || null,
         recurrenceInterval: validatedData.recurrenceInterval || null,
+        ...(validatedData.reminderMinutes !== undefined && {
+          reminderMinutes: validatedData.reminderMinutes,
+        }),
       },
       include: {
         category: true,

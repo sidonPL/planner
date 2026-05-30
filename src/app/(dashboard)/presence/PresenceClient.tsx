@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { format, formatDistanceToNow } from "date-fns";
@@ -41,6 +41,12 @@ import type { Presence } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { getCurrentPosition, formatCoordinates } from "@/lib/geolocation";
 import { useGeofenceTracking } from "@/hooks/useGeofenceTracking";
+import { useSSEEvent } from "@/hooks/useSSE";
+import {
+  getPresenceStatusInfo,
+  manualPresenceStatuses,
+  type PresenceChangePayload,
+} from "@/lib/presence-events";
 
 // Dynamiczny import mapy (Leaflet wymaga window)
 const GeofenceMap = dynamic(() => import("@/components/GeofenceMap").then(mod => ({ default: mod.GeofenceMap })), {
@@ -212,12 +218,59 @@ export function PresenceClient({
     };
   };
 
-  const handleTogglePresence = async (userId: string) => {
+  const handlePresenceChange = useCallback((data: PresenceChangePayload) => {
+    setMembers((prev) =>
+      prev.map((member) =>
+        member.id === data.userId
+          ? {
+              ...member,
+              presenceRecords: [
+                {
+                  id: data.id,
+                  userId: data.userId,
+                  status: data.status as Presence["status"],
+                  note: null,
+                  timestamp: new Date(data.timestamp),
+                },
+              ],
+            }
+          : member
+      )
+    );
+
+    setHistory((prev) => {
+      if (prev.some((entry) => entry.id === data.id)) {
+        return prev;
+      }
+
+      const member = initialMembers.find((entry) => entry.id === data.userId);
+      return [
+        {
+          id: data.id,
+          userId: data.userId,
+          status: data.status as Presence["status"],
+          note: null,
+          timestamp: new Date(data.timestamp),
+          user: {
+            id: data.userId,
+            name: data.userName,
+            color: member?.color || "#6366f1",
+          },
+        },
+        ...prev.filter((entry) => entry.id !== data.id),
+      ];
+    });
+  }, [initialMembers]);
+
+  useSSEEvent<PresenceChangePayload>("presence_change", handlePresenceChange);
+
+  const handleSetPresence = async (userId: string, status: Presence["status"]) => {
     const member = members.find((m) => m.id === userId);
     if (!member) return;
 
-    const currentStatus = member.presenceRecords[0]?.status || "AWAY";
-    const newStatus = currentStatus === "HOME" ? "AWAY" : "HOME";
+    if (member.presenceRecords[0]?.status === status) {
+      return;
+    }
 
     try {
       const response = await fetch("/api/presence", {
@@ -225,33 +278,24 @@ export function PresenceClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
-          status: newStatus,
+          status,
         }),
       });
 
       if (response.ok) {
         const newPresence = await response.json();
+        handlePresenceChange({
+          id: newPresence.id,
+          userId,
+          userName: member.name || "Użytkownik",
+          status: newPresence.status,
+          timestamp: new Date(newPresence.timestamp).toISOString(),
+        });
 
-        // Aktualizuj stan członków
-        setMembers(
-          members.map((m) =>
-            m.id === userId
-              ? { ...m, presenceRecords: [newPresence] }
-              : m
-          )
-        );
-
-        // Dodaj do historii
-        setHistory([
-          { ...newPresence, user: { id: userId, name: member.name, color: member.color } },
-          ...history,
-        ]);
-
-        toast.success(
-          newStatus === "HOME"
-            ? `${member.name} jest teraz w domu`
-            : `${member.name} wyszedł/wyszła`
-        );
+        toast.success(`Status: ${getPresenceStatusInfo(status).label}`);
+      } else {
+        const errorBody = await response.json().catch(() => null);
+        toast.error(errorBody?.error || "Nie udało się zaktualizować statusu");
       }
     } catch {
       toast.error("Nie udało się zaktualizować statusu");
@@ -259,19 +303,27 @@ export function PresenceClient({
   };
 
   const getStatusInfo = (status: string, zoneName?: string) => {
+    const base = getPresenceStatusInfo(status);
     switch (status) {
       case "HOME":
-        return { label: "W domu", color: "bg-green-500", icon: Home };
+        return { ...base, icon: Home };
       case "WORK":
-        return { label: zoneName ? `W pracy (${zoneName})` : "W pracy", color: "bg-blue-500", icon: Briefcase };
+        return {
+          ...base,
+          label: zoneName ? `W pracy (${zoneName})` : base.label,
+          icon: Briefcase,
+        };
       case "SCHOOL":
-        return { label: zoneName ? `W szkole (${zoneName})` : "W szkole", color: "bg-orange-500", icon: GraduationCap };
+        return {
+          ...base,
+          label: zoneName ? `W szkole (${zoneName})` : base.label,
+          icon: GraduationCap,
+        };
       case "VACATION":
-        return { label: "Na urlopie", color: "bg-purple-500", icon: MapPin };
+        return { ...base, icon: MapPin };
       case "AWAY":
-        return { label: "Poza domem", color: "bg-gray-400", icon: MapPin };
       default:
-        return { label: "Nieznany", color: "bg-gray-400", icon: MapPin };
+        return { ...base, icon: MapPin };
     }
   };
 
@@ -524,7 +576,7 @@ export function PresenceClient({
                 <div
                   className={cn(
                     "h-2",
-                    currentStatus === "HOME" ? "bg-green-500" : "bg-gray-300"
+                    statusInfo.color
                   )}
                 />
                 <div className="p-4">
@@ -574,23 +626,29 @@ export function PresenceClient({
                     </div>
                   )}
 
-                  <Button
-                    variant={currentStatus === "HOME" ? "outline" : "default"}
-                    className="w-full mt-4"
-                    onClick={() => handleTogglePresence(member.id)}
-                  >
-                    {currentStatus === "HOME" ? (
-                      <>
-                        <MapPin className="mr-2 h-4 w-4" />
-                        Oznacz jako poza domem
-                      </>
-                    ) : (
-                      <>
-                        <Home className="mr-2 h-4 w-4" />
-                        Oznacz jako w domu
-                      </>
-                    )}
-                  </Button>
+                  {isCurrentUser ? (
+                    <Select
+                      value={currentStatus}
+                      onValueChange={(value) =>
+                        handleSetPresence(member.id, value as Presence["status"])
+                      }
+                    >
+                      <SelectTrigger className="w-full mt-4">
+                        <SelectValue placeholder="Wybierz status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {manualPresenceStatuses.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="mt-4 text-xs text-muted-foreground text-center">
+                      Status ustawiany przez domownika
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -708,7 +766,7 @@ export function PresenceClient({
                   Włącz
                 </Button>
               )}
-              <Button variant="outline" onClick={checkNow} disabled={!geofenceEnabled}>
+              <Button variant="outline" onClick={checkNow}>
                 <Navigation className="h-4 w-4 mr-2" />
                 Sprawdź teraz
               </Button>

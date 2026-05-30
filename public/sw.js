@@ -1,5 +1,5 @@
 // Service Worker for Family Planner PWA - Optimized for VPS
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.0.1';
 const CACHE_NAME = `family-planner-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
@@ -183,27 +183,57 @@ async function syncData() {
 
 // Push notifications
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {};
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (error) {
+    console.error('[SW] Invalid push payload:', error);
+  }
+
+  const title = data.title || 'Family Planner';
+  const body = data.body || data.message || 'Masz nowe powiadomienie';
+  const url = data.url || data.data?.url || '/';
 
   const options = {
-    body: data.body || 'Masz nowe powiadomienie',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    body,
+    icon: data.icon || '/icon-192x192.png',
+    badge: data.badge || '/icon-96x96.png',
     vibrate: [200, 100, 200],
-    data: data.data || {},
+    tag: data.tag || 'planner-notification',
+    data: {
+      url,
+      notificationId: data.notificationId || data.data?.notificationId,
+      taskId: data.taskId || data.data?.taskId,
+      ...(data.data || {}),
+    },
+    actions: data.actions || [],
+    requireInteraction: Boolean(data.requireInteraction),
   };
 
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'Family Planner', options)
-  );
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // Notification click
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
+  const targetUrl = event.notification.data?.url || '/';
+  const absoluteUrl = new URL(targetUrl, self.location.origin).href;
+
   event.waitUntil(
-    clients.openWindow(event.notification.data?.url || '/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          return client.focus().then(() => {
+            if ('navigate' in client) {
+              return client.navigate(absoluteUrl);
+            }
+            return undefined;
+          });
+        }
+      }
+      return clients.openWindow(absoluteUrl);
+    })
   );
 });
 

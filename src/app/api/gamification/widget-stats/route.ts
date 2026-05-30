@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { calculateAchievementProgress } from '@/lib/achievements';
+import { getXpThresholdForNextLevel, xpProgressPercent } from '@/lib/xp';
 
 /**
  * GET /api/gamification/widget-stats
@@ -32,7 +33,8 @@ export async function GET() {
     }
 
     // Oblicz XP dla następnego poziomu
-    const xpForNextLevel = (user.level + 1) * 100;
+    const xpForNextLevel = getXpThresholdForNextLevel(user.xp);
+    const xpProgress = xpProgressPercent(user.xp);
 
     // Policz osiągnięcia
     const achievements = await prisma.userAchievement.count({
@@ -84,6 +86,7 @@ export async function GET() {
       level: user.level,
       xp: user.xp,
       xpForNextLevel,
+      xpProgress,
       currentStreak: user.currentStreak || 0,
       achievements,
       totalTasks,

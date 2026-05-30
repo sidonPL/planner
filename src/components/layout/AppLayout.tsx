@@ -79,14 +79,14 @@ export function AppLayout({ children }: AppLayoutProps) {
         <GeofenceTrackingProvider>
           <RewardThemeProvider activeTheme={activeTheme}>
           <KioskMode>
-            <div className="h-screen flex overflow-hidden bg-background">
+            <div className="app-shell h-dvh max-h-dvh flex overflow-hidden bg-background">
               {/* Sidebar - desktop only */}
               <Sidebar className="hidden lg:flex w-64 shrink-0" />
 
               {/* Main content area */}
-              <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                 <Header />
-                <main className="app-main safe-area-bottom flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 lg:p-6 xl:p-8">
+                <main className="app-main safe-area-bottom min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-4 md:p-6 lg:p-6 xl:p-8">
                   <Breadcrumbs className="mb-4" />
                   {children}
                 </main>

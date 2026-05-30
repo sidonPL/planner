@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { subDays } from "date-fns";
+import { verifyCronAuth } from "@/lib/web-push";
+
 
 const DEFAULT_RETENTION_DAYS = 90;
 const MAX_BATCH_SIZE = 1000;
@@ -22,10 +24,7 @@ function parseBoolean(value: string | null, fallback: boolean): boolean {
 
 // GET - usuwa stare ukończone zadania (nierutynowe)
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(request.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -13,8 +13,11 @@ import {
   Tag,
   Clock,
   CheckCircle2,
+  Bell,
 } from "lucide-react";
 import { RoutineStreakBadge } from "./RoutineStreakBadge";
+import { TaskReminderIndicator } from "./TaskReminderIndicator";
+import { formatReminderLabel } from "@/lib/reminder-options";
 import {
   Dialog,
   DialogContent,
@@ -184,15 +187,22 @@ export function TaskDetailDialog({ task, open, onOpenChange, currentUserId, memb
   }
 
   const isCompleted = task.status === TaskStatus.COMPLETED;
+  const reminderMinutes = Array.isArray(task.reminderMinutes)
+    ? [...task.reminderMinutes].sort((a, b) => a - b)
+    : [];
 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
             {isCompleted && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-            {task.title}
+            <span>{task.title}</span>
+            <TaskReminderIndicator
+              reminderMinutes={reminderMinutes}
+              iconClassName="h-4 w-4"
+            />
           </DialogTitle>
         </DialogHeader>
 
@@ -250,6 +260,29 @@ export function TaskDetailDialog({ task, open, onOpenChange, currentUserId, memb
                       <div className="text-xs text-muted-foreground">Termin</div>
                       <div className="text-sm">
                         {format(new Date(task.dueDate), "d MMMM yyyy", { locale: pl })}
+                        {task.dueTime && (
+                          <span className="text-muted-foreground"> · {task.dueTime}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {reminderMinutes.length > 0 && (
+                  <div className="flex items-start gap-2 col-span-2">
+                    <Bell className="h-4 w-4 text-amber-600 mt-0.5" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Przypomnienia</div>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {reminderMinutes.map((minutes) => (
+                          <Badge
+                            key={minutes}
+                            variant="outline"
+                            className="text-xs border-amber-200 bg-amber-50 text-amber-900"
+                          >
+                            {formatReminderLabel(minutes)}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                   </div>

@@ -19,7 +19,6 @@ interface AchievementProgressInfo {
  * Sprawdza progress osiągnięć po akcji i pokazuje toast jeśli jest postęp
  */
 export async function checkAndNotifyAchievementProgress(
-  userId: string,
   requirementTypes: string[]
 ): Promise<void> {
   try {
@@ -77,7 +76,7 @@ export async function notifyProgressForCategory(
 
   const requirementTypes = requirementTypeMap[category] || [];
   if (requirementTypes.length > 0) {
-    await checkAndNotifyAchievementProgress(userId, requirementTypes);
+    await checkAndNotifyAchievementProgress(requirementTypes);
   }
 }
 
@@ -91,7 +90,7 @@ export function notifyAchievementCompleted(achievement: AchievementProgressInfo)
     action: {
       label: 'Zobacz',
       onClick: () => {
-        window.location.href = '/gamification/achievements';
+        window.location.href = '/achievements';
       },
     },
   });

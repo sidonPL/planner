@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendAllHouseholdReports } from "@/lib/reports";
+import { verifyCronAuth } from "@/lib/web-push";
+
 
 export async function GET(request: NextRequest) {
   try {
     // Weryfikacja tokena cron (zabezpieczenie przed nieautoryzowanym dostępem)
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!verifyCronAuth(request.headers.get("authorization"))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
     // Sprawdź dzień tygodnia - raporty tygodniowe wysyłamy w poniedziałek
     const now = new Date();

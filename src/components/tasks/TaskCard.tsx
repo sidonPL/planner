@@ -20,6 +20,7 @@ import { useFlyingXP } from "@/components/gamification/FlyingXP";
 import { RoutineStreakBadge } from "./RoutineStreakBadge";
 import { RoutineActionDialog } from "./RoutineActionDialog";
 import { RoutineEditDialog } from "./RoutineEditDialog";
+import { TaskReminderIndicator } from "./TaskReminderIndicator";
 import { playTaskComplete } from "@/lib/sound-effects";
 import { checkAndNotifyAchievementProgress } from "@/lib/achievement-notifications";
 import { toast } from "sonner";
@@ -128,7 +129,7 @@ export function TaskCard({ task, onEdit, onDelete, onToggleComplete, onTogglePin
         // Sprawdź progress osiągnięć związanych z zadaniami
         // Opóźnienie 500ms aby toast XP pojawił się pierwszy
         setTimeout(() => {
-          checkAndNotifyAchievementProgress('userId', ['TASKS_COMPLETED'])
+          checkAndNotifyAchievementProgress(['TASKS_COMPLETED'])
             .catch(err => console.error('Achievement notification error:', err));
         }, 500);
       } catch {
@@ -379,6 +380,8 @@ export function TaskCard({ task, onEdit, onDelete, onToggleComplete, onTogglePin
                   </div>
                 )}
 
+                <TaskReminderIndicator reminderMinutes={task.reminderMinutes} />
+
                 {/* Subtasks indicator */}
                 {task.subtasks && task.subtasks.length > 0 && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -474,6 +477,9 @@ export function TaskCard({ task, onEdit, onDelete, onToggleComplete, onTogglePin
               priority: task.priority,
               dueTime: task.dueTime,
               categoryId: task.categoryId,
+              reminderMinutes: Array.isArray(task.reminderMinutes)
+                ? task.reminderMinutes
+                : [],
             }}
             onSuccess={handleRoutineSuccess}
           />

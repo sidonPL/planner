@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { TaskReminderField } from "@/components/tasks/TaskReminderField";
 
 type ScopeType = "single" | "future" | "all";
 type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -35,6 +36,7 @@ interface RoutineEditDialogProps {
     priority: Priority;
     dueTime: string | null;
     categoryId: string | null;
+    reminderMinutes: number[];
   };
   onSuccess: () => void;
 }
@@ -54,6 +56,9 @@ export function RoutineEditDialog({
   const [description, setDescription] = useState(initialData.description || "");
   const [priority, setPriority] = useState<Priority>(initialData.priority);
   const [dueTime, setDueTime] = useState(initialData.dueTime || "");
+  const [reminderMinutes, setReminderMinutes] = useState<number[]>(
+    initialData.reminderMinutes || []
+  );
 
   useEffect(() => {
     if (open) {
@@ -61,6 +66,7 @@ export function RoutineEditDialog({
       setDescription(initialData.description || "");
       setPriority(initialData.priority);
       setDueTime(initialData.dueTime || "");
+      setReminderMinutes(initialData.reminderMinutes || []);
     }
   }, [open, initialData]);
 
@@ -85,6 +91,7 @@ export function RoutineEditDialog({
           description: description || null,
           priority,
           dueTime: dueTime || null,
+          reminderMinutes,
           updateScope: scope,
         }),
       });
@@ -172,6 +179,12 @@ export function RoutineEditDialog({
               />
             </div>
           </div>
+
+          <TaskReminderField
+            value={reminderMinutes}
+            onChange={setReminderMinutes}
+            description="Powiadomienie push/e-mail przed terminem rutyny (wymagana godzina)."
+          />
 
           <div className="space-y-2">
             <Label>Zakres aktualizacji</Label>

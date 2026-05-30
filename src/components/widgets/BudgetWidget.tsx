@@ -46,18 +46,21 @@ export function BudgetWidget({
       : transactions;
 
   // Oblicz sumy
-  const income = filteredTransactions
+  const operationalTransactions = filteredTransactions.filter(
+    (t) => t.category !== "transfer"
+  );
+
+  const income = operationalTransactions
     .filter((t) => t.type === "INCOME")
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const expenses = filteredTransactions
+  const expenses = operationalTransactions
     .filter((t) => t.type === "EXPENSE")
     .reduce((sum, t) => sum + t.amount, 0);
 
   const balance = income - expenses;
 
-  // Grupuj wydatki po kategoriach
-  const expensesByCategory = filteredTransactions
+  const expensesByCategory = operationalTransactions
     .filter((t) => t.type === "EXPENSE")
     .reduce((acc, t) => {
       const cat = t.category?.toLowerCase() || "inne";

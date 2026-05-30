@@ -174,9 +174,17 @@
     scroll-behavior: smooth;
   }
 
-  /* Better touch targets on mobile */
-  button, [role="button"], a {
+  /* Touch targets for controls — skip inline text links */
+  button,
+  [role="button"],
+  nav a,
+  [data-slot="button"] {
     min-height: 44px;
+  }
+
+  button,
+  [role="button"],
+  [data-slot="button"] {
     min-width: 44px;
   }
 
@@ -188,27 +196,13 @@
     will-change: transform;
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
-    flex-wrap: nowrap;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
   }
 
-  /* Ensure app main doesn't shift header */
   .app-main {
-    contain: layout style paint;
     -webkit-overflow-scrolling: touch;
   }
-}
-
-/* Minimum touch target size - iOS Human Interface Guidelines (44x44px) */
-button:not([class*="size-icon"]),
-a:not([class*="size-icon"]),
-[role="button"]:not([class*="size-icon"]) {
-  min-height: 44px;
-  min-width: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Touch-friendly checkboxes and radios */
@@ -290,7 +284,7 @@ textarea {
     overflow-y: auto;
   }
 
-  /* Do not force large touch targets inside compact mobile header controls */
+  /* Compact icon buttons in header — still tappable via padding */
   .app-header button {
     min-width: unset;
     min-height: unset;
@@ -300,6 +294,7 @@ textarea {
     top: var(--app-header-offset) !important;
     bottom: auto !important;
     height: calc(100dvh - var(--app-header-offset)) !important;
+    max-height: calc(100dvh - var(--app-header-offset)) !important;
   }
 }
 
@@ -332,28 +327,26 @@ textarea {
   }
 }
 
-  /* Ensure hamburger menu is hidden on large screens */
-  @media (min-width: 1024px) {
-    .lg\:hidden {
-      display: none !important;
-    }
+/* Ensure hamburger menu is hidden on large screens */
+@media (min-width: 1024px) {
+  .lg\:hidden {
+    display: none !important;
+  }
+}
+
+/* Additional mobile optimizations */
+@media (max-width: 640px) {
+  html,
+  body {
+    width: 100%;
+    overflow-x: clip;
   }
 
-  /* Additional mobile optimizations */
-  @media (max-width: 640px) {
-    body {
-      overflow-x: hidden;
-    }
-
-    html, body {
-      width: 100%;
-      overflow-x: hidden;
-    }
-
-    .app-header {
-      flex-wrap: wrap;
-    }
+  .app-shell {
+    height: 100dvh;
+    max-height: 100dvh;
   }
+}
 
 /* ========================================
    PRINT STYLES

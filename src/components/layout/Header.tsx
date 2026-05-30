@@ -171,7 +171,7 @@ export function Header() {
 
   return (
     <>
-      <header ref={headerRef} className="app-header sticky top-0 z-40 flex flex-wrap items-center gap-2 border-b bg-card px-2 py-2 sm:flex-nowrap sm:gap-3 sm:px-3 md:gap-4 md:px-4">
+      <header ref={headerRef} className="app-header sticky top-0 z-40 flex shrink-0 flex-wrap items-center gap-2 border-b bg-card px-2 py-2 sm:flex-nowrap sm:gap-3 sm:px-3 md:gap-4 md:px-4">
       {/* Mobile menu button */}
       <Sheet>
         <SheetTrigger asChild>
@@ -182,7 +182,7 @@ export function Header() {
         </SheetTrigger>
         <SheetContent
           side="left"
-          className="mobile-nav-sheet !top-[var(--app-header-offset)] !bottom-auto !h-[calc(100dvh-var(--app-header-offset))] w-72 max-w-[88vw] p-0 sm:!top-0 sm:!bottom-0 sm:!h-full sm:max-w-sm"
+          className="mobile-nav-sheet !top-[var(--app-header-offset)] !bottom-auto !h-[calc(100dvh-var(--app-header-offset))] w-72 max-w-[88vw] overflow-y-auto overscroll-contain p-0 sm:!top-0 sm:!bottom-0 sm:!h-full sm:max-w-sm"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Menu nawigacji</SheetTitle>

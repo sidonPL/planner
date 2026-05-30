@@ -161,6 +161,14 @@ const CRON_JOBS: CronJob[] = [
     color: 'text-green-600',
   },
   {
+    name: 'Shopping Cleanup',
+    description: 'Usuwanie kupionych produktów z listy',
+    schedule: '0 */6 * * *',
+    endpoint: '/api/cron/shopping-cleanup',
+    icon: CheckCircle2,
+    color: 'text-teal-600',
+  },
+  {
     name: 'Daily Quests',
     description: 'Generowanie daily quests',
     schedule: '0 0 * * *',

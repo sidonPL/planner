@@ -14,26 +14,36 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Pobierz odznaki użytkownika
-    const userBadges = await prisma.userBadge.findMany({
-      where: {
-        userId,
-      },
-      include: {
-        badge: true,
-      },
-      orderBy: {
-        earnedAt: "desc",
-      },
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, householdId: true },
     });
 
-    // Oblicz całkowite punkty z odznak
+    if (!targetUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const sameHousehold =
+      session.user.householdId &&
+      targetUser.householdId === session.user.householdId;
+    const isSelf = session.user.id === userId;
+    const isAdmin = session.user.role === "ADMIN";
+
+    if (!isSelf && !sameHousehold && !isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const userBadges = await prisma.userBadge.findMany({
+      where: { userId },
+      include: { badge: true },
+      orderBy: { earnedAt: "desc" },
+    });
+
     const totalBadgePoints = userBadges.reduce(
       (sum, ub) => sum + ub.badge.points,
       0
     );
 
-    // Pobierz dane użytkownika (nowy system XP)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -43,11 +53,8 @@ export async function GET(
       },
     });
 
-    // Pobierz liczbę ukończonych zadań
     const completedTasksCount = await prisma.taskCompletion.count({
-      where: {
-        userId,
-      },
+      where: { userId },
     });
 
     return NextResponse.json({
@@ -69,4 +76,3 @@ export async function GET(
     );
   }
 }
-

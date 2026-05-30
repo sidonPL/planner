@@ -138,6 +138,7 @@ export function ShoppingClient({ initialItems, householdUsers, currentUserId }: 
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterAssignedTo, setFilterAssignedTo] = useState<string>("all");
+  const [showPurchased, setShowPurchased] = useState(true);
   const [sortBy, setSortBy] = useState<"name" | "category" | "urgent">("category");
   const [newItem, setNewItem] = useState({
     name: "",
@@ -164,7 +165,8 @@ export function ShoppingClient({ initialItems, householdUsers, currentUserId }: 
         filterAssignedTo === "all" ||
         (filterAssignedTo === "unassigned" && !item.assignedTo) ||
         item.assignedTo?.id === filterAssignedTo;
-      return matchesSearch && matchesCategory && matchesAssignedTo;
+      const matchesPurchased = showPurchased || !item.isPurchased;
+      return matchesSearch && matchesCategory && matchesAssignedTo && matchesPurchased;
     })
     .sort((a, b) => {
       if (sortBy === "urgent") {
@@ -457,6 +459,11 @@ export function ShoppingClient({ initialItems, householdUsers, currentUserId }: 
           <h1 className="text-2xl font-bold tracking-tight">Lista zakupów</h1>
           <p className="text-muted-foreground">
             {purchasedItems} z {totalItems} produktów kupionych
+            {purchasedItems > 0 && (
+              <span className="block text-xs mt-0.5">
+                Kupione pozycje znikają automatycznie po 48 h (możesz też wyczyścić ręcznie)
+              </span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -746,6 +753,16 @@ export function ShoppingClient({ initialItems, householdUsers, currentUserId }: 
             <SelectItem value="urgent">Pilność</SelectItem>
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+          <Switch
+            id="show-purchased"
+            checked={showPurchased}
+            onCheckedChange={setShowPurchased}
+          />
+          <Label htmlFor="show-purchased" className="text-sm whitespace-nowrap">
+            Pokaż kupione
+          </Label>
+        </div>
       </div>
 
       {/* Lista produktów */}

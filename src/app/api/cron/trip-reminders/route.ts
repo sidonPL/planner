@@ -1,7 +1,10 @@
 // filepath: c:\Users\sidon\IdeaProjects\planner\src\app\api\cron\trip-reminders\route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyCronAuth } from "@/lib/web-push";
+
 import { notifyTripReminder } from "@/lib/notifications";
+
 import { differenceInDays, startOfDay, addDays } from "date-fns";
 
 // Ten endpoint może być wywoływany przez cron job (np. Vercel Cron, zewnętrzny cron)
@@ -9,11 +12,7 @@ import { differenceInDays, startOfDay, addDays } from "date-fns";
 
 export async function GET(request: NextRequest) {
   // Opcjonalnie: weryfikacja klucza API dla bezpieczeństwa
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  // Jeśli CRON_SECRET jest ustawiony, wymaga autoryzacji
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(request.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

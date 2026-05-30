@@ -40,6 +40,15 @@ export async function POST(req: Request) {
       },
     });
 
+    await prisma.userSettings.upsert({
+      where: { userId: session.user.id },
+      update: { pushEnabled: true },
+      create: {
+        userId: session.user.id,
+        pushEnabled: true,
+      },
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error saving push subscription:", error);
@@ -87,7 +96,8 @@ export async function DELETE(req: Request) {
 
 // GET - pobierz klucz publiczny VAPID
 export async function GET() {
-  const publicKey = process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const publicKey =
+    process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
   if (!publicKey) {
     return NextResponse.json(

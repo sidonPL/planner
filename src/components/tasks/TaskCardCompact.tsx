@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { RoutineStreakBadge } from "./RoutineStreakBadge";
 import { RoutineActionDialog } from "./RoutineActionDialog";
 import { RoutineEditDialog } from "./RoutineEditDialog";
+import { TaskReminderIndicator } from "./TaskReminderIndicator";
 
 type TaskWithRelations = Task & {
   category: Category | null;
@@ -256,6 +257,8 @@ export function TaskCardCompact({
                     </span>
                   )}
 
+                  <TaskReminderIndicator reminderMinutes={task.reminderMinutes} />
+
                   {(task.priority === "HIGH" || task.priority === "URGENT") && (
                     <Badge variant="outline" className={cn("h-5 px-1.5", priority.color)}>
                       {priority.label}
@@ -317,6 +320,9 @@ export function TaskCardCompact({
                 priority: task.priority,
                 dueTime: task.dueTime,
                 categoryId: task.categoryId,
+                reminderMinutes: Array.isArray(task.reminderMinutes)
+                  ? task.reminderMinutes
+                  : [],
               }}
               onSuccess={handleRoutineSuccess}
             />
@@ -429,6 +435,8 @@ export function TaskCardCompact({
                 )}
               </div>
             ) : null}
+
+            <TaskReminderIndicator reminderMinutes={task.reminderMinutes} />
 
             {/* Overdue badge for routines */}
             {isRoutineOverdue && !isCompleted && (
@@ -543,6 +551,9 @@ export function TaskCardCompact({
               priority: task.priority,
               dueTime: task.dueTime,
               categoryId: task.categoryId,
+              reminderMinutes: Array.isArray(task.reminderMinutes)
+                ? task.reminderMinutes
+                : [],
             }}
             onSuccess={handleRoutineSuccess}
           />
